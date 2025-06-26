@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(env)",
+      "WebFetch(domain:uyxmptrxgycuybtdthtb.supabase.co)",
+      "Bash(curl:*)"
+    ],
+    "deny": []
+  }
+}

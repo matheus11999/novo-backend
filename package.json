@@ -8,22 +8,29 @@
     "dev": "nodemon src/server.js",
     "test": "jest"
   },
-  "keywords": ["mikrotik", "payment", "mercadopago", "pix"],
+  "keywords": [
+    "mikrotik",
+    "payment",
+    "mercadopago",
+    "pix"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "helmet": "^7.0.0",
-    "dotenv": "^16.3.1",
     "@supabase/supabase-js": "^2.38.0",
-    "mercadopago": "^2.0.0",
-    "uuid": "^9.0.0",
+    "axios": "^1.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "express-rate-limit": "^6.10.0",
-    "morgan": "^1.10.0"
+    "helmet": "^7.0.0",
+    "mercadopago": "^2.0.0",
+    "morgan": "^1.10.0",
+    "qrcode-terminal": "^0.12.0",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
-    "jest": "^29.6.2"
+    "jest": "^29.6.2",
+    "nodemon": "^3.0.1"
   }
 }

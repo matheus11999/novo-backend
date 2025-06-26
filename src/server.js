@@ -6,6 +6,7 @@ const morgan = require('morgan');
 
 const paymentRoutes = require('./routes/payment');
 const webhookRoutes = require('./routes/webhook');
+const mikrotikRoutes = require('./routes/mikrotik');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +47,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/payment', paymentRoutes);
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/mikrotik', mikrotikRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
