@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const mikrotikController = require('../controllers/mikrotikController');
-const auth = require('../middleware/auth');
+const authenticateUser = require('../middleware/auth');
 
-router.use(auth);
+router.use(authenticateUser);
 
 router.get('/stats/:mikrotikId', mikrotikController.getStats);
 router.get('/hotspot/users/:mikrotikId', mikrotikController.getHotspotUsers);

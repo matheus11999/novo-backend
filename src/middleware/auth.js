@@ -1,31 +1,26 @@
 const supabase = require('../config/database');
 
-const authenticateApiToken = async (req, res, next) => {
+const authenticateUser = async (req, res, next) => {
     try {
-        const token = req.headers['x-api-token'] || req.headers['authorization']?.replace('Bearer ', '');
+        const token = req.headers['authorization']?.replace('Bearer ', '');
         
         if (!token) {
             return res.status(401).json({
-                error: 'API token is required',
-                message: 'Please provide a valid API token in the X-API-Token header or Authorization header'
+                error: 'Authentication required',
+                message: 'Please provide a valid Bearer token'
             });
         }
 
-        const { data: mikrotik, error } = await supabase
-            .from('mikrotiks')
-            .select('*')
-            .eq('token', token)
-            .eq('ativo', true)
-            .single();
+        const { data: { user }, error } = await supabase.auth.getUser(token);
 
-        if (error || !mikrotik) {
+        if (error || !user) {
             return res.status(401).json({
-                error: 'Invalid API token',
-                message: 'The provided API token is invalid or inactive'
+                error: 'Invalid token',
+                message: 'The provided token is invalid'
             });
         }
 
-        req.mikrotik = mikrotik;
+        req.user = user;
         next();
     } catch (error) {
         console.error('Authentication error:', error);
@@ -36,4 +31,4 @@ const authenticateApiToken = async (req, res, next) => {
     }
 };
 
-module.exports = authenticateApiToken;
+module.exports = authenticateUser;

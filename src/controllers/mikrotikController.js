@@ -42,12 +42,18 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
       method,
       url,
       params,
-      timeout: 15000
+      timeout: 15000,
+      headers: {}
     };
+
+    // Adicionar token da API MikroTik se configurado
+    if (process.env.MIKROTIK_API_TOKEN) {
+      config.headers['Authorization'] = `Bearer ${process.env.MIKROTIK_API_TOKEN}`;
+    }
 
     if (data && (method === 'POST' || method === 'PUT')) {
       config.data = data;
-      config.headers = { 'Content-Type': 'application/json' };
+      config.headers['Content-Type'] = 'application/json';
     }
 
     const response = await axios(config);
