@@ -85,18 +85,24 @@ router.post('/', async (req, res) => {
       .insert({
         mikrotik_id,
         nome,
-        descricao,
+        descricao: descricao || `Plano ${nome}`,
         valor: parseFloat(valor),
         minutos: minutos ? parseInt(minutos) : null,
-        velocidade_download,
-        velocidade_upload,
+        velocidade_download: velocidade_download || rate_limit?.split('/')[1] || '1M',
+        velocidade_upload: velocidade_upload || rate_limit?.split('/')[0] || '1M',
+        rate_limit: rate_limit || `${velocidade_upload || '1M'}/${velocidade_download || '1M'}`,
+        session_timeout: session_timeout || (minutos ? `${minutos * 60}` : '3600'),
+        idle_timeout: idle_timeout || '300',
         limite_dados,
         ativo: ativo !== false,
         visivel: visivel !== false,
         ordem: ordem || 0,
-                 mikrotik_profile_id: mikrotikResponse.data?.['.id'] || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        mikrotik_profile_id: mikrotikResponse.data?.['.id'] || null,
+        shared_users: 1,
+        add_mac_cookie: true,
+        mac_cookie_timeout: '1d',
+        keepalive_timeout: '2m',
+        status_autorefresh: '1m'
       })
       .select()
       .single();
@@ -165,17 +171,19 @@ router.put('/:id', async (req, res) => {
     const { data, error } = await supabase
       .from('planos')
       .update({
-        nome,
-        descricao,
+        nome: nome || planoExistente.nome,
+        descricao: descricao || planoExistente.descricao,
         valor: valor ? parseFloat(valor) : planoExistente.valor,
         minutos: minutos ? parseInt(minutos) : planoExistente.minutos,
-        velocidade_download: velocidade_download || planoExistente.velocidade_download,
-        velocidade_upload: velocidade_upload || planoExistente.velocidade_upload,
+        velocidade_download: velocidade_download || rate_limit?.split('/')[1] || planoExistente.velocidade_download,
+        velocidade_upload: velocidade_upload || rate_limit?.split('/')[0] || planoExistente.velocidade_upload,
+        rate_limit: rate_limit || `${velocidade_upload || planoExistente.velocidade_upload}/${velocidade_download || planoExistente.velocidade_download}`,
+        session_timeout: session_timeout || (minutos ? `${minutos * 60}` : planoExistente.session_timeout),
+        idle_timeout: idle_timeout || planoExistente.idle_timeout,
         limite_dados: limite_dados || planoExistente.limite_dados,
         ativo: ativo !== undefined ? ativo : planoExistente.ativo,
         visivel: visivel !== undefined ? visivel : planoExistente.visivel,
-        ordem: ordem !== undefined ? ordem : planoExistente.ordem,
-        updated_at: new Date().toISOString()
+        ordem: ordem !== undefined ? ordem : planoExistente.ordem
       })
       .eq('id', id)
       .select()

@@ -8,6 +8,7 @@ const paymentRoutes = require('./routes/payment');
 const webhookRoutes = require('./routes/webhook');
 const mikrotikRoutes = require('./routes/mikrotik');
 const planosRoutes = require('./routes/planos');
+const recentSalesRoutes = require('./routes/recent-sales');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -55,6 +56,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/mikrotik', mikrotikRoutes);
 app.use('/api/planos', planosRoutes);
+app.use('/api/recent-sales', recentSalesRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

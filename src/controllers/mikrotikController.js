@@ -20,10 +20,10 @@ const getMikrotikCredentials = async (mikrotikId, userId) => {
   }
 
   return {
-    ip: mikrotik.ip,
-    username: mikrotik.username,
-    password: mikrotik.password,
-    port: mikrotik.port || 8728,
+    ip: mikrotik.ip_address || mikrotik.ip,
+    username: mikrotik.usuario || mikrotik.username,
+    password: mikrotik.senha || mikrotik.password,
+    port: mikrotik.porta || mikrotik.port || 8728,
     mikrotik
   };
 };
@@ -141,12 +141,40 @@ const getHotspotProfiles = async (req, res) => {
     const { mikrotikId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
+    // Get profiles from MikroTik
     const response = await makeApiRequest('/hotspot/profiles', credentials);
+    const mikrotikProfiles = response.data || [];
+
+    // Get plans from database to match with MikroTik profiles
+    const { data: dbPlans, error: dbError } = await supabase
+      .from('planos')
+      .select('*')
+      .eq('mikrotik_id', mikrotikId);
+
+    if (dbError) {
+      console.warn('Warning: Could not fetch database plans:', dbError);
+    }
+
+    // Enhance profiles with database information
+    const enhancedProfiles = mikrotikProfiles.map(profile => {
+      const matchingPlan = dbPlans?.find(plan => 
+        plan.nome === profile.name || plan.mikrotik_profile_id === profile['.id']
+      );
+      
+      return {
+        ...profile,
+        valor: matchingPlan?.valor || 0,
+        inDatabase: !!matchingPlan,
+        supabaseId: matchingPlan?.id,
+        dbPlan: matchingPlan
+      };
+    });
 
     res.json({
       success: true,
-      data: response.data,
-      count: response.count
+      data: enhancedProfiles,
+      count: enhancedProfiles.length,
+      dbPlansCount: dbPlans?.length || 0
     });
   } catch (error) {
     console.error('Get hotspot profiles error:', error);
@@ -162,7 +190,35 @@ const createHotspotProfile = async (req, res) => {
     const { mikrotikId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
+    // Create profile in MikroTik first
     const response = await makeApiRequest('/hotspot/profiles', credentials, 'POST', req.body);
+    
+    // If successful and we have additional data for database, create database record
+    if (response.success && req.body.createInDatabase) {
+      const profileId = response.data?.['.id'];
+      
+      const { data: dbPlan, error: dbError } = await supabase
+        .from('planos')
+        .insert({
+          mikrotik_id: mikrotikId,
+          nome: req.body.name,
+          mikrotik_profile_id: profileId,
+          valor: req.body.valor || 0,
+          descricao: req.body.descricao || `Plano ${req.body.name}`,
+          rate_limit: req.body['rate-limit'],
+          session_timeout: req.body['session-timeout'],
+          idle_timeout: req.body['idle-timeout'],
+          velocidade_upload: req.body['rate-limit']?.split('/')[0],
+          velocidade_download: req.body['rate-limit']?.split('/')[1],
+          minutos: req.body['session-timeout'] ? Math.floor(parseInt(req.body['session-timeout']) / 60) : null
+        })
+        .select()
+        .single();
+      
+      if (dbError) {
+        console.warn('Warning: Profile created in MikroTik but not in database:', dbError);
+      }
+    }
 
     res.json({
       success: true,
@@ -182,7 +238,39 @@ const updateHotspotProfile = async (req, res) => {
     const { mikrotikId, profileId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
+    // Update profile in MikroTik
     const response = await makeApiRequest(`/hotspot/profiles?id=${profileId}`, credentials, 'PUT', req.body);
+
+    // If successful and we have a database plan, update it too
+    if (response.success && req.body.updateInDatabase) {
+      const { data: dbPlan, error: findError } = await supabase
+        .from('planos')
+        .select('*')
+        .eq('mikrotik_profile_id', profileId)
+        .eq('mikrotik_id', mikrotikId)
+        .single();
+
+      if (!findError && dbPlan) {
+        const { error: updateError } = await supabase
+          .from('planos')
+          .update({
+            nome: req.body.name,
+            valor: req.body.valor || dbPlan.valor,
+            rate_limit: req.body['rate-limit'],
+            session_timeout: req.body['session-timeout'],
+            idle_timeout: req.body['idle-timeout'],
+            velocidade_upload: req.body['rate-limit']?.split('/')[0],
+            velocidade_download: req.body['rate-limit']?.split('/')[1],
+            minutos: req.body['session-timeout'] ? Math.floor(parseInt(req.body['session-timeout']) / 60) : null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', dbPlan.id);
+
+        if (updateError) {
+          console.warn('Warning: Profile updated in MikroTik but not in database:', updateError);
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -202,6 +290,26 @@ const deleteHotspotProfile = async (req, res) => {
     const { mikrotikId, profileId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
+    // Delete from database first (if exists)
+    const { data: dbPlan, error: findError } = await supabase
+      .from('planos')
+      .select('*')
+      .eq('mikrotik_profile_id', profileId)
+      .eq('mikrotik_id', mikrotikId)
+      .single();
+
+    if (!findError && dbPlan) {
+      const { error: deleteError } = await supabase
+        .from('planos')
+        .delete()
+        .eq('id', dbPlan.id);
+
+      if (deleteError) {
+        console.warn('Warning: Could not delete plan from database:', deleteError);
+      }
+    }
+
+    // Delete profile from MikroTik
     const response = await makeApiRequest(`/hotspot/profiles?id=${profileId}`, credentials, 'DELETE');
 
     res.json({
@@ -322,7 +430,7 @@ const restartSystem = async (req, res) => {
     const { mikrotikId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
-    const response = await makeApiRequest('/system/restart', credentials, 'POST');
+    const response = await makeApiRequest('/system/reboot', credentials, 'POST');
 
     res.json({
       success: true,
