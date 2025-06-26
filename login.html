@@ -1,0 +1,2467 @@
+<!-- Debug Info -->
+    <div class="debug-info" id="debugInfo"></div>
+
+    <!-- MD5 Script para CHAP authentication -->
+    <script type="text/javascript">
+        // MD5 implementation para CHAP
+        function hexMD5(s) {
+            return binl2hex(core_md5(str2binl(s), s.length * 8));
+        }
+        
+        function core_md5(x, len) {
+            x[len >> 5] |= 0x80 << ((len) % 32);
+            x[(((len + 64) >>> 9) << 4) + 14] = len;
+            var a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+            for (var i = 0; i < x.length; i += 16) {
+                var olda = a, oldb = b, oldc = c, oldd = d;
+                a = md5_ff(a, b, c, d, x[i + 0], 7, -680876936);
+                d = md5_ff(d, a, b, c, x[i + 1], 12, -389564586);
+                c = md5_ff(c, d, a, b, x[i + 2], 17, 606105819);
+                b = md5_ff(b, c, d, a, x[i + 3], 22, -1044525330);
+                a = md5_ff(a, b, c, d, x[i + 4], 7, -176418897);
+                d = md5_ff(d, a, b, c, x[i + 5], 12, 1200080426);
+                c = md5_ff(c, d, a, b, x[i + 6], 17, -1473231341);
+                b = md5_ff(b, c, d, a, x[i + 7], 22, -45705983);
+                a = md5_ff(a, b, c, d, x[i + 8], 7, 1770035416);
+                d = md5_ff(d, a, b, c, x[i + 9], 12, -1958414417);
+                c = md5_ff(c, d, a, b, x[i + 10], 17, -42063);
+                b = md5_ff(b, c, d, a, x[i + 11], 22, -1990404162);
+                a = md5_ff(a, b, c, d, x[i + 12], 7, 1804603682);
+                d = md5_ff(d, a, b, c, x[i + 13], 12, -40341101);
+                c = md5_ff(c, d, a, b, x[i + 14], 17, -1502002290);
+                b = md5_ff(b, c, d, a, x[i + 15], 22, 1236535329);
+                a = md5_gg(a, b, c, d, x[i + 1], 5, -165796510);
+                d = md5_gg(d, a, b, c, x[i + 6], 9, -1069501632);
+                c = md5_gg(c, d, a, b, x[i + 11], 14, 643717713);
+                b = md5_gg(b, c, d, a, x[i + 0], 20, -373897302);
+                a = md5_gg(a, b, c, d, x[i + 5], 5, -701558691);
+                d = md5_gg(d, a, b, c, x[i + 10], 9, 38016083);
+                c = md5_gg(c, d, a, b, x[i + 15], 14, -660478335);
+                b = md5_gg(b, c, d, a, x[i + 4], 20, -405537848);
+                a = md5_gg(a, b, c, d, x[i + 9], 5, 568446438);
+                d = md5_gg(d, a, b, c, x[i + 14], 9, -1019803690);
+                c = md5_gg(c, d, a, b, x[i + 3], 14, -187363961);
+                b = md5_gg(b, c, d, a, x[i + 8], 20, 1163531501);
+                a = md5_gg(a, b, c, d, x[i + 13], 5, -1444681467);
+                d = md5_gg(d, a, b, c, x[i + 2], 9, -51403784);
+                c = md5_gg(c, d, a, b, x[i + 7], 14, 1735328473);
+                b = md5_gg(b, c, d, a, x[i + 12], 20, -1926607734);
+                a = md5_hh(a, b, c, d, x[i + 5], 4, -378558);
+                d = md5_hh(d, a, b, c, x[i + 8], 11, -2022574463);
+                c = md5_hh(c, d, a, b, x[i + 11], 16, 1839030562);
+                b = md5_hh(b, c, d, a, x[i + 14], 23, -35309556);
+                a = md5_hh(a, b, c, d, x[i + 1], 4, -1530992060);
+                d = md5_hh(d, a, b, c, x[i + 4], 11, 1272893353);
+                c = md5_hh(c, d, a, b, x[i + 7], 16, -155497632);
+                b = md5_hh(b, c, d, a, x[i + 10], 23, -1094730640);
+                a = md5_hh(a, b, c, d, x[i + 13], 4, 681279174);
+                d = md5_hh(d, a, b, c, x[i + 0], 11, -358537222);
+                c = md5_hh(c, d, a, b, x[i + 3], 16, -722521979);
+                b = md5_hh(b, c, d, a, x[i + 6], 23, 76029189);
+                a = md5_hh(a, b, c, d, x[i + 9], 4, -640364487);
+                d = md5_hh(d, a, b, c, x[i + 12], 11, -421815835);
+                c = md5_hh(c, d, a, b, x[i + 15], 16, 530742520);
+                b = md5_hh(b, c, d, a, x[i + 2], 23, -995338651);
+                a = md5_ii(a, b, c, d, x[i + 0], 6, -198630844);
+                d = md5_ii(d, a, b, c, x[i + 7], 10, 1126891415);
+                c = md5_ii(c, d, a, b, x[i + 14], 15, -1416354905);
+                b = md5_ii(b, c, d, a, x[i + 5], 21, -57434055);
+                a = md5_ii(a, b, c, d, x[i + 12], 6, 1700485571);
+                d = md5_ii(d, a, b, c, x[i + 3], 10, -1894986606);
+                c = md5_ii(c, d, a, b, x[i + 10], 15, -1051523);
+                b = md5_ii(b, c, d, a, x[i + 1], 21, -2054922799);
+                a = md5_ii(a, b, c, d, x[i + 8], 6, 1873313359);
+                d = md5_ii(d, a, b, c, x[i + 15], 10, -30611744);
+                c = md5_ii(c, d, a, b, x[i + 6], 15, -1560198380);
+                b = md5_ii(b, c, d, a, x[i + 13], 21, 1309151649);
+                a = md5_ii(a, b, c, d, x[i + 4], 6, -145523070);
+                d = md5_ii(d, a, b, c, x[i + 11], 10, -1120210379);
+                c = md5_ii(c, d, a, b, x[i + 2], 15, 718787259);
+                b = md5_ii(b, c, d, a, x[i + 9], 21, -343485551);
+                a = safe_add(a, olda);
+                b = safe_add(b, oldb);
+                c = safe_add(c, oldc);
+                d = safe_add(d, oldd);
+            }
+            return Array(a, b, c, d);
+        }
+        
+        function md5_cmn(q, a, b, x, s, t) {
+            return safe_add(bit_rol(safe_add(safe_add(a, q), safe_add(x, t)), s), b);
+        }
+        function md5_ff(a, b, c, d, x, s, t) {
+            return md5_cmn((b & c) | ((~b) & d), a, b, x, s, t);
+        }
+        function md5_gg(a, b, c, d, x, s, t) {
+            return md5_cmn((b & d) | (c & (~d)), a, b, x, s, t);
+        }
+        function md5_hh(a, b, c, d, x, s, t) {
+            return md5_cmn(b ^ c ^ d, a, b, x, s, t);
+        }
+        function md5_ii(a, b, c, d, x, s, t) {
+            return md5_cmn(c ^ (b | (~d)), a, b, x, s, t);
+        }
+        function safe_add(x, y) {
+            var lsw = (x & 0xFFFF) + (y & 0xFFFF);
+            var msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+            return (msw << 16) | (lsw & 0xFFFF);
+        }
+        function bit_rol(num, cnt) {
+            return (num << cnt) | (num >>> (32 - cnt));
+        }
+        function str2binl(str) {
+            var bin = Array();
+            var mask = (1 << 8) - 1;
+            for (var i = 0; i < str.length * 8; i += 8)
+                bin[i >> 5] |= (str.charCodeAt(i / 8) & mask) << (i % 32);
+            return bin;
+        }
+        function binl2hex(binarray) {
+            var hex_tab = "0123456789abcdef";
+            var str = "";
+            for (var i = 0; i < binarray.length * 4; i++) {
+                str += hex_tab.charAt((binarray[i >> 2] >> ((i % 4) * 8 + 4)) & 0xF) +
+                       hex_tab.charAt((binarray[i >> 2] >> ((i % 4) * 8)) & 0xF);
+            }
+            return str;
+        }
+        
+        // Função de login CHAP (como no MikroTik original)
+        function doLogin() {
+            const password = document.getElementById('password').value;
+            
+            // Check for CHAP
+            const chapId = '$(chap-id)';
+            const chapChallenge = '$(chap-challenge)';
+            
+            if (chapId && !chapId.includes('$(')) {
+                // CHAP authentication
+                console.log('Usando CHAP authentication');
+                document.sendin.username.value = password; // username = password
+                document.sendin.password.value = hexMD5(chapId + password + chapChallenge);
+                document.sendin.submit();
+            } else {
+                // Simple authentication
+                console.log('Usando autenticação simples');
+                document.getElementById('mainUsername').value = password;
+                document.getElementById('mainPassword').value = password;
+                document.getElementById('mainLoginForm').submit();
+            }
+            
+            return false;
+        }
+    </script>
+
+    <script>
+        // ==================================================
+        // CONFIGURAÇÃO IMPORTANTE - ALTERE AQUI!
+        // ==================================================
+        const CONFIG = {
+            // ALTERE ESTAS VARIÁVEIS PARA SEU AMBIENTE:
+            MIKROTIK_ID: '78957cd3-7096-4acd-970b-0aa0a768c555',  // ← COLOQUE SEU MIKROTIK ID AQUI
+            API_URL: 'https://api.lucro.top',                     // ← COLOQUE A URL DA SUA API AQUI
+            
+            // Outras configurações (geralmente não precisa alterar):
+            CHECK_INTERVAL: 5000,      // Intervalo de verificação de pagamento (5 segundos)
+            PAYMENT_TIMEOUT: 300,      // Timeout do pagamento em segundos (5 minutos)
+            TRIAL_DELAY: 10000,        // Delay para ativar trial após copiar PIX (10 segundos)
+            DEBUG: false               // Ativar modo debug (true/false)
+        };
+        // ==================================================
+
+        // Global state
+        const state = {
+            mac: null,
+            ip: null,
+            interface: null,
+            linkOrig: null,
+            linkLogin: null,
+            mikrotikId: null,
+            apiUrl: null,
+            debug: false,
+            plans: [],
+            selectedPlan: null,
+            paymentId: null,
+            checkInterval: null,
+            timerInterval: null,
+            trialInterval: null,
+            trialActivated: false,
+            pixCopied: false
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('&#x1F680; MikroTik Captive Portal Standalone carregado');
+            initializeApp();
+            
+            // Check for MikroTik error
+            const mikrotikError = '$(error)';
+            if (mikrotikError && !mikrotikError.includes('$(')) {
+                showMessage('&#x274C; Erro de autenticação: ' + mikrotikError, 'error');
+                console.error('MikroTik Error:', mikrotikError);
+            }
+
+            // Add ripple effect to buttons
+            document.querySelectorAll('.btn').forEach(button => {
+                button.addEventListener('click', createRipple);
+            });
+        });
+
+        // Ripple effect function
+        function createRipple(e) {
+            const button = e.currentTarget;
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple-effect');
+            button.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        }
+
+        function initializeApp() {
+            // Get URL parameters and MikroTik variables
+            getUrlParams();
+            
+            // Override with CONFIG values
+            state.mikrotikId = state.mikrotikId || CONFIG.MIKROTIK_ID;
+            state.apiUrl = state.apiUrl || CONFIG.API_URL;
+            state.debug = state.debug || CONFIG.DEBUG;
+            
+            // Clean API URL
+            state.apiUrl = state.apiUrl.replace(/\/$/, '');
+            
+            // Update debug info
+            updateDebugInfo('Aplicação inicializada');
+            
+            console.log('State initialized:', state);
+            console.log('Configuration:', CONFIG);
+            
+            // Check if we have required configuration
+            if (!state.mikrotikId || !state.apiUrl) {
+                showMessage('&#x26A0;&#xFE0F; Configuração incompleta. Verifique MIKROTIK_ID e API_URL no código.', 'error');
+            }
+        }
+
+        function getUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            console.log('=== CAPTURANDO PARÂMETROS ===');
+            console.log('URL completa:', window.location.href);
+            console.log('Query string:', window.location.search);
+            
+            // Get MikroTik data from URL parameters or MikroTik variables
+            state.mac = urlParams.get('mac') || '$(mac)';
+            state.ip = urlParams.get('ip') || '$(ip)';
+            state.interface = urlParams.get('interface') || '$(interface-name)';
+            state.linkOrig = urlParams.get('link-orig') || urlParams.get('linkOrig') || '$(link-orig)';
+            state.linkLogin = urlParams.get('link-login') || urlParams.get('linkLogin') || '$(link-login-only)';
+            
+            // Get configuration from URL (can override CONFIG)
+            const urlMikrotikId = urlParams.get('mikrotik_id');
+            const urlApiUrl = urlParams.get('api_url');
+            const urlDebug = urlParams.get('debug');
+            
+            if (urlMikrotikId) state.mikrotikId = urlMikrotikId;
+            if (urlApiUrl) state.apiUrl = urlApiUrl;
+            if (urlDebug === 'true' || urlDebug === '1') state.debug = true;
+            
+            console.log('Valores brutos capturados:');
+            console.log('- MAC:', state.mac);
+            console.log('- IP:', state.ip);
+            console.log('- Interface:', state.interface);
+            console.log('- Link Orig:', state.linkOrig);
+            console.log('- Link Login:', state.linkLogin);
+            console.log('- Form action:', document.getElementById('loginForm')?.action);
+            
+            // Clean MikroTik variables (remove $() if not processed)
+            if (state.mac && state.mac.includes('$(')) state.mac = null;
+            if (state.ip && state.ip.includes('$(')) state.ip = null;
+            if (state.interface && state.interface.includes('$(')) state.interface = null;
+            if (state.linkOrig && state.linkOrig.includes('$(')) state.linkOrig = null;
+            if (state.linkLogin && state.linkLogin.includes('$(')) state.linkLogin = null;
+            
+            console.log('Valores limpos:', {
+                mac: state.mac,
+                ip: state.ip,
+                interface: state.interface,
+                linkOrig: state.linkOrig,
+                linkLogin: state.linkLogin
+            });
+        }
+
+        // Screen management
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            
+            // Small delay for better transition
+            setTimeout(() => {
+                document.getElementById(screenId).classList.add('active');
+            }, 50);
+            
+            updateDebugInfo('Tela: ' + screenId);
+        }
+
+        function showPasswordScreen() {
+            showScreen('passwordScreen');
+            stopAllIntervals();
+            setTimeout(() => {
+                document.getElementById('password').focus();
+            }, 300);
+        }
+
+        function showPlansScreen() {
+            showScreen('plansScreen');
+            loadPlans();
+        }
+
+        function showInstructionsScreen() {
+            if (!state.selectedPlan) {
+                showMessage('Selecione um plano primeiro', 'error');
+                return;
+            }
+            showScreen('instructionsScreen');
+        }
+
+        function showPixScreen() {
+            showScreen('pixScreen');
+        }
+
+        function showSuccessScreen() {
+            showScreen('successScreen');
+        }
+
+        function showLoadingScreen(text) {
+            document.getElementById('loadingText').innerHTML = (text || 'Processando') + '<span class="loading-dots"></span>';
+            showScreen('loadingScreen');
+        }
+
+        // Login with password
+        function loginWithPassword() {
+            const passwordInput = document.getElementById('password');
+            const password = passwordInput.value.trim();
+            
+            if (!password) {
+                showMessage('Por favor, digite uma senha', 'error');
+                passwordInput.focus();
+                return;
+            }
+            
+            showMessage('Conectando...', 'success');
+            updateDebugInfo('Login com senha: ' + password);
+            
+            // Use a função doLogin que suporta CHAP
+            doLogin();
+        }
+
+        // Load plans from API
+        async function loadPlans() {
+            if (!state.apiUrl || !state.mikrotikId) {
+                showMessage('Configuração da API não encontrada', 'error');
+                document.getElementById('plansContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 40px; color: var(--gray);">' +
+                    '<p>&#x274C; Configure MIKROTIK_ID e API_URL no código</p>' +
+                    '</div>';
+                document.getElementById('loadingPlans').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('loadingPlans').style.display = 'block';
+            document.getElementById('plansContainer').innerHTML = '';
+
+            try {
+                const response = await fetch(state.apiUrl + '/api/captive-check/planos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mikrotik_id: state.mikrotikId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro na API: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data && data.planos && data.planos.length > 0) {
+                    // Ordenar planos do mais barato para o mais caro
+                    const sortedPlans = data.planos.sort((a, b) => Number(a.preco) - Number(b.preco));
+                    state.plans = sortedPlans;
+                    displayPlans(sortedPlans);
+                } else {
+                    throw new Error('Nenhum plano disponível');
+                }
+            } catch (error) {
+                console.error('Error loading plans:', error);
+                showMessage('Erro ao carregar planos: ' + error.message, 'error');
+                document.getElementById('plansContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 40px; color: var(--gray);">' +
+                    '<p>&#x274C; Erro ao carregar planos</p>' +
+                    '<button onclick="loadPlans()" class="btn btn-primary" style="margin-top: 15px;">&#x1F504; Tentar Novamente</button>' +
+                    '</div>';
+            } finally {
+                document.getElementById('loadingPlans').style.display = 'none';
+            }
+        }
+
+        function displayPlans(plans) {
+            const container = document.getElementById('plansContainer');
+            container.innerHTML = '';
+            
+            plans.forEach(function(plan) {
+                const planCard = document.createElement('div');
+                planCard.className = 'plan-card';
+                planCard.setAttribute('data-plan-id', plan.id);
+                
+                // Nova estrutura simplificada com numeração
+                const planNumber = plans.indexOf(plan) + 1;
+                planCard.innerHTML = 
+                    '<div class="plan-number">PLANO ' + planNumber + '</div>' +
+                    '<div class="plan-sparkles"></div>' +
+                    '<div class="plan-info">' +
+                        '<div class="plan-duration">' + formatDuration(plan.duracao) + '</div>' +
+                        '<div class="plan-price">R$ ' + Number(plan.preco).toFixed(2) + '</div>' +
+                    '</div>';
+                
+                // Adicionar delay único para cada card (efeito de onda)
+                const cardIndex = plans.indexOf(plan);
+                planCard.style.animationDelay = `${cardIndex * 0.3}s`;
+                
+                planCard.addEventListener('click', function() {
+                    selectPlan(plan.id);
+                    // Avançar automaticamente após selecionar o plano
+                    setTimeout(() => {
+                        showInstructionsScreen();
+                    }, 300);
+                });
+                
+                container.appendChild(planCard);
+            });
+        }
+
+        function selectPlan(planId) {
+            // Remove previous selection
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selection to clicked plan
+            const planCard = document.querySelector('[data-plan-id="' + planId + '"]');
+            if (planCard) {
+                planCard.classList.add('selected');
+            }
+            
+            // Store selected plan
+            const selectedPlan = state.plans.find(plan => plan.id == planId);
+            if (selectedPlan) {
+                state.selectedPlan = selectedPlan;
+            }
+        }
+
+        // Generate PIX payment
+        async function generatePix() {
+            if (!state.selectedPlan) {
+                showMessage('Selecione um plano primeiro', 'error');
+                return;
+            }
+            
+            if (!state.mac) {
+                showMessage('MAC address não encontrado', 'error');
+                return;
+            }
+            
+            showLoadingScreen('Verificando pagamento');
+            
+            try {
+                // Primeiro verifica se já existe um pagamento pendente
+                const statusResponse = await fetch(state.apiUrl + '/api/captive-check/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mac: state.mac,
+                        mikrotik_id: state.mikrotikId,
+                        plano_id: state.selectedPlan.id
+                    })
+                });
+                
+                if (!statusResponse.ok) {
+                    throw new Error(`Erro ao verificar status: ${statusResponse.status}`);
+                }
+                
+                const statusData = await statusResponse.json();
+                
+                // Se existe pagamento pendente válido (menos de 10 minutos)
+                if (statusData.pagamento_pendente && 
+                    statusData.pagamento_pendente.chave_pix && 
+                    statusData.pagamento_pendente.qrcode) {
+                    
+                    const geradoEm = new Date(statusData.pagamento_pendente.pagamento_gerado_em);
+                    const agora = new Date();
+                    const diffMinutos = (agora - geradoEm) / 60000;
+                    
+                    if (diffMinutos < 10) {
+                        // Usa o pagamento existente
+                        console.log('Usando pagamento existente:', statusData.pagamento_pendente.payment_id);
+                        state.paymentId = statusData.pagamento_pendente.payment_id;
+                        showPixPayment({
+                            chave_pix: statusData.pagamento_pendente.chave_pix,
+                            qrcode: statusData.pagamento_pendente.qrcode,
+                            id: statusData.pagamento_pendente.payment_id
+                        });
+                        startPaymentCheck();
+                        showMessage('Pagamento PIX já existente', 'warning');
+                        return;
+                    }
+                }
+                
+                // Se não há pagamento válido, gera um novo
+                showLoadingScreen('Gerando PIX');
+                
+                const response = await fetch(state.apiUrl + '/api/captive-check/pix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mac: state.mac,
+                        mikrotik_id: state.mikrotikId,
+                        plano_id: state.selectedPlan.id,
+                        preco: Number(state.selectedPlan.preco),
+                        descricao: 'WiFi - ' + state.selectedPlan.nome
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `Erro na API: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.chave_pix && data.qrcode) {
+                    state.paymentId = data.id || data.payment_id;
+                    showPixPayment(data);
+                    startPaymentCheck();
+                    showMessage('PIX gerado com sucesso! &#x1F389;', 'success');
+                } else {
+                    throw new Error('Resposta inválida da API');
+                }
+                
+            } catch (error) {
+                console.error('Error generating PIX:', error);
+                showMessage('Erro ao gerar PIX: ' + error.message, 'error');
+                showPlansScreen();
+            }
+        }
+
+        function showPixPayment(pixData) {
+            showPixScreen();
+            
+            // Display QR Code with fade in animation
+            const qrContainer = document.getElementById('qrCode');
+            qrContainer.style.opacity = '0';
+            qrContainer.innerHTML = '<img src="data:image/png;base64,' + pixData.qrcode + '" alt="QR Code PIX" style="width: 200px; height: 200px;">';
+            
+            setTimeout(() => {
+                qrContainer.style.transition = 'opacity 0.5s ease-in';
+                qrContainer.style.opacity = '1';
+            }, 100);
+            
+            // Display PIX Code
+            document.getElementById('pixCode').textContent = pixData.chave_pix;
+            
+            // Start timer
+            startTimer();
+        }
+
+        async function copyPixCode() {
+            const code = document.getElementById('pixCode').textContent;
+            const btn = document.getElementById('copyBtn');
+            
+            try {
+                await navigator.clipboard.writeText(code);
+                
+                btn.classList.add('copied');
+                btn.innerHTML = 
+                                            '<span>&#x2705;</span>' +
+                    '<span>Copiado!</span>';
+                
+                showMessage('PIX copiado com sucesso! &#x1F389;', 'success');
+                
+                // Mark as copied
+                state.pixCopied = true;
+                
+                // Ativa trial em 5 segundos silenciosamente (sem aviso)
+                console.log('PIX copiado - ativando trial em 5 segundos...');
+                
+                setTimeout(() => {
+                    console.log('5 segundos passaram - ativando trial...');
+                    activateTrial();
+                }, 5000);
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = 
+                        '<span>&#x1F4CB;</span>' +
+                        '<span>Copiar Chave PIX</span>';
+                }, 3000);
+                
+            } catch (err) {
+                console.error('Error copying:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = code;
+                textArea.style.position = 'fixed';
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+                textArea.style.padding = '0';
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+                textArea.style.background = 'transparent';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showMessage('PIX copiado! &#x1F389;', 'success');
+                    state.pixCopied = true;
+                    
+                    // Ativa trial em 5 segundos silenciosamente (fallback também)
+                    setTimeout(() => {
+                        activateTrial();
+                    }, 5000);
+                    
+                    btn.classList.add('copied');
+                    btn.innerHTML = 
+                        '<span>&#x2705;</span>' +
+                        '<span>Copiado!</span>';
+                    
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = 
+                            '<span>&#x1F4CB;</span>' +
+                            '<span>Copiar Chave PIX</span>';
+                    }, 3000);
+                    
+                } catch (err2) {
+                    showMessage('Erro ao copiar PIX', 'error');
+                    console.error('Fallback copy failed:', err2);
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // Trial activation - URL exata do MikroTik
+        function activateTrial() {
+            if (state.trialActivated) {
+                console.log('Trial já foi ativado anteriormente');
+                return;
+            }
+            
+            console.log('=== ATIVANDO TRIAL - URL MIKROTIK ===');
+            
+            // Mark as activated
+            state.trialActivated = true;
+            
+            // Pega informações direto do MikroTik (como no exemplo original)
+            const form = document.getElementById('loginForm');
+            const linkLoginOnly = form ? form.action : null;
+            const linkOrig = state.linkOrig;
+            const mac = state.mac;
+            
+            console.log('Informações do MikroTik:');
+            console.log('- link-login-only:', linkLoginOnly);
+            console.log('- link-orig:', linkOrig);
+            console.log('- mac:', mac);
+            
+            // Verifica se temos as informações necessárias
+            if (!linkLoginOnly || linkLoginOnly.includes('$(')) {
+                console.error('&#x274C; link-login-only não disponível');
+                return;
+            }
+            
+            if (!mac || mac.includes('$(')) {
+                console.error('&#x274C; MAC address não disponível');
+                return;
+            }
+            
+            // Monta URL exatamente como no exemplo original:
+            // $(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)
+            let trialUrl = linkLoginOnly;
+            
+            // Adiciona parâmetros
+            const params = [];
+            
+            // dst=$(link-orig-esc)
+            if (linkOrig && !linkOrig.includes('$(')) {
+                params.push('dst=' + encodeURIComponent(linkOrig));
+            }
+            
+            // username=T-$(mac-esc) - mantém os : do MAC
+            params.push('username=T-' + mac);
+            
+            // Monta URL final
+            if (params.length > 0) {
+                trialUrl += (trialUrl.includes('?') ? '&' : '?') + params.join('&');
+            }
+            
+                            console.log('&#x1F680; URL DO TRIAL:', trialUrl);
+                console.log('&#x1F680; MAC ORIGINAL:', mac);
+                console.log('&#x1F680; USERNAME:', 'T-' + mac);
+            
+            // Redirecionamento direto (como clicar no link do MikroTik)
+            console.log('REDIRECIONANDO AGORA...');
+            window.location.href = trialUrl;
+        }
+
+        // Payment checking usando status check em vez de poll-payment
+        async function checkPayment() {
+            if (!state.mac || !state.mikrotikId || !state.selectedPlan || !state.apiUrl) return;
+            
+            try {
+                const response = await fetch(state.apiUrl + '/api/captive-check/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mac: state.mac,
+                        mikrotik_id: state.mikrotikId,
+                        plano_id: state.selectedPlan.id
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro na API: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Se pagamento foi aprovado
+                if (data.status === 'autenticado' && data.username && data.password) {
+                    stopAllIntervals();
+                    showLoadingScreen('Pagamento aprovado! Ativando sua internet');
+                    
+                    // Store credentials
+                    state.username = data.username;
+                    state.password = data.password;
+                    state.duration = data.duracao || state.selectedPlan.duracao;
+                    
+                    // Small delay for better UX
+                    setTimeout(() => {
+                        showSuccessDetails(data);
+                    }, 2000);
+                    
+                // Se ainda está pendente
+                } else if (data.status === 'pendente' && data.pagamento_pendente) {
+                    // Continua verificando...
+                    console.log('Pagamento ainda pendente, continuando verificação...');
+                    
+                // Se foi rejeitado/cancelado/expirado
+                } else if (data.status === 'rejeitado' || data.status === 'cancelado' || data.status === 'expirado') {
+                    stopAllIntervals();
+                    showMessage('&#x23F0; Pagamento foi cancelado ou expirou', 'error');
+                    setTimeout(() => showPasswordScreen(), 3000);
+                }
+            } catch (error) {
+                console.error('Error checking payment:', error);
+                // Don't show message for every check error, just log it
+            }
+        }
+
+        function startPaymentCheck() {
+            state.checkInterval = setInterval(checkPayment, CONFIG.CHECK_INTERVAL);
+            checkPayment(); // Check immediately
+        }
+
+        // Timer management
+        function startTimer() {
+            let timeLeft = CONFIG.PAYMENT_TIMEOUT; // 5 minutes in seconds
+            
+            state.timerInterval = setInterval(() => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                
+                document.getElementById('timer').textContent = 
+                    minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                
+                if (timeLeft <= 0) {
+                    stopAllIntervals();
+                    showMessage('Tempo esgotado. Tente novamente.', 'error');
+                    setTimeout(() => showPasswordScreen(), 3000);
+                }
+                
+                timeLeft--;
+            }, 1000);
+        }
+
+        function stopAllIntervals() {
+            if (state.checkInterval) {
+                clearInterval(state.checkInterval);
+                state.checkInterval = null;
+            }
+            if (state.timerInterval) {
+                clearInterval(state.timerInterval);
+                state.timerInterval = null;
+            }
+            if (state.trialInterval) {
+                clearInterval(state.trialInterval);
+                state.trialInterval = null;
+            }
+        }
+
+        // Success screen
+        function showSuccessDetails(data) {
+            showSuccessScreen();
+            
+            document.getElementById('successUsername').textContent = data.username;
+            document.getElementById('successPassword').textContent = data.password;
+            document.getElementById('duration').textContent = formatDuration(data.duracao || state.selectedPlan.duracao || 60);
+            
+            // Auto redirect countdown
+            let countdown = 5;
+            const interval = setInterval(() => {
+                countdown--;
+                document.getElementById('redirectTimer').textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    loginAndRedirect(data.username, data.password);
+                }
+            }, 1000);
+        }
+
+        function loginAndRedirect(username, password) {
+            if (!state.linkLogin || state.linkLogin.includes('$(')) {
+                showMessage('Link de login não disponível', 'error');
+                return;
+            }
+            
+            // Set form values for both forms
+            document.getElementById('hiddenUsername').value = username;
+            document.getElementById('hiddenPassword').value = password;
+            document.getElementById('mainUsername').value = username;
+            document.getElementById('mainPassword').value = password;
+            
+            // Check for CHAP
+            const chapId = '$(chap-id)';
+            const chapChallenge = '$(chap-challenge)';
+            
+            if (chapId && !chapId.includes('$(')) {
+                // CHAP authentication
+                console.log('Usando CHAP para login final');
+                document.sendin.username.value = username;
+                document.sendin.password.value = hexMD5(chapId + password + chapChallenge);
+                document.sendin.submit();
+            } else {
+                // Simple authentication
+                console.log('Usando autenticação simples para login final');
+                document.getElementById('loginForm').submit();
+            }
+        }
+
+        // Utility functions
+        function formatDuration(minutes) {
+            if (!minutes) return 'N/A';
+            
+            if (minutes < 60) {
+                return minutes + ' minutos';
+            } else if (minutes < 1440) {
+                const hours = Math.floor(minutes / 60);
+                const remainingMinutes = minutes % 60;
+                if (remainingMinutes === 0) {
+                    return hours + (hours === 1 ? ' hora' : ' horas');
+                } else {
+                    return hours + 'h ' + remainingMinutes + 'min';
+                }
+            } else {
+                const days = Math.floor(minutes / 1440);
+                return days + (days === 1 ? ' dia' : ' dias');
+            }
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = 'message ' + type;
+            msg.style.display = 'block';
+            
+            setTimeout(() => {
+                msg.style.display = 'none';
+            }, type === 'error' ? 5000 : 3000);
+        }
+
+        function updateDebugInfo(status) {
+            if (!state.debug) return;
+            
+            const debugInfo = document.getElementById('debugInfo');
+            debugInfo.innerHTML = `
+                <strong>Debug Info:</strong><br>
+                Status: ${status}<br>
+                <br><strong>MikroTik Data:</strong><br>
+                MAC: ${state.mac || 'N/A'}<br>
+                IP: ${state.ip || 'N/A'}<br>
+                Interface: ${state.interface || 'N/A'}<br>
+                Link Login: ${state.linkLogin || 'N/A'}<br>
+                Link Orig: ${state.linkOrig || 'N/A'}<br>
+                <br><strong>API Config:</strong><br>
+                API URL: ${state.apiUrl}<br>
+                MikroTik ID: ${state.mikrotikId}<br>
+                Payment ID: ${state.paymentId || 'N/A'}<br>
+                <br>Time: ${new Date().toLocaleTimeString()}
+            `;
+            debugInfo.classList.add('show');
+        }
+
+        // Handle Enter key in password field
+        window.addEventListener('load', function() {
+            const passwordInput = document.getElementById('password');
+            if (passwordInput) {
+                passwordInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        loginWithPassword();
+                    }
+                });
+                
+                // Focus on password field
+                passwordInput.focus();
+            }
+        });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="expires" content="0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>WiFi Premium - Portal de Acesso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --primary: #6366F1;
+            --primary-light: #818CF8;
+            --primary-dark: #4F46E5;
+            --secondary: #EC4899;
+            --secondary-light: #F472B6;
+            --success: #10B981;
+            --error: #EF4444;
+            --warning: #F59E0B;
+            --dark: #0F172A;
+            --medium: #475569;
+            --light: #F8FAFC;
+            --gray: #94A3B8;
+            --white: #FFFFFF;
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+            --radius: 12px;
+            --radius-lg: 20px;
+            --radius-xl: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #F8FAFC;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--dark);
+        }
+
+        /* Animated Gradient Background */
+
+
+
+
+        /* Main Container */
+        .container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            max-width: 420px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+            transition: var(--transition);
+            transform: translateY(0);
+            animation: containerAppear 0.6s ease-out;
+        }
+
+        @keyframes containerAppear {
+            from { 
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Header */
+        .header {
+            background: var(--gradient-primary);
+            padding: 35px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(0.8); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: var(--white);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin: 0 auto 20px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            animation: logoFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .header h1 {
+            color: var(--white);
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 15px;
+            font-weight: 300;
+        }
+
+        /* Content */
+        .content {
+            padding: 25px 20px;
+        }
+
+        .screen {
+            display: none;
+            opacity: 0;
+            transform: translateX(20px);
+        }
+
+        .screen.active {
+            display: block;
+            animation: screenSlideIn 0.4s ease-out forwards;
+        }
+
+        @keyframes screenSlideIn {
+            to { 
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--dark);
+            font-weight: 500;
+            margin-bottom: 10px;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #E2E8F0;
+            border-radius: var(--radius);
+            font-size: 16px;
+            font-weight: 400;
+            transition: var(--transition-fast);
+            background: var(--white);
+            color: var(--dark);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .form-group input::placeholder {
+            color: var(--gray);
+            font-weight: 300;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.3px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: var(--white);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--medium);
+            border: 2px solid #E2E8F0;
+        }
+
+        .btn-secondary:hover {
+            background: #F1F5F9;
+            transform: translateY(-1px);
+            border-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            color: var(--white);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-success.copied {
+            animation: successPulse 0.6s ease-out;
+        }
+
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* PIX Button */
+        .pix-button {
+            background: linear-gradient(135deg, #00D924 0%, #00B81D 100%);
+            color: var(--white);
+            border: none;
+            padding: 20px 24px;
+            gap: 16px;
+            box-shadow: 0 6px 20px rgba(0, 217, 36, 0.4);
+            position: relative;
+            overflow: hidden;
+            animation: pixPulse 2s ease-in-out infinite;
+        }
+
+        /* Animação de pulsação suave */
+        @keyframes pixPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 6px 20px rgba(0, 217, 36, 0.4);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 8px 30px rgba(0, 217, 36, 0.6);
+            }
+        }
+
+        /* Borda brilhante animada */
+        .pix-button::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(45deg, 
+                #00D924, #00E526, #00F528, #00E526, #00D924);
+            background-size: 400% 400%;
+            border-radius: calc(var(--radius) + 3px);
+            z-index: -1;
+            animation: pixBorderShine 3s ease-in-out infinite;
+            opacity: 0.8;
+        }
+
+        @keyframes pixBorderShine {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Animação do reflexo */
+        @keyframes pixShine {
+            0% { left: -100%; }
+            30% { left: -100%; }
+            70% { left: 100%; }
+            100% { left: 100%; }
+        }
+
+        /* Reflexo brilhante que passa pelo botão */
+        .pix-button::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255, 255, 255, 0.1) 25%, 
+                rgba(255, 255, 255, 0.5) 50%, 
+                rgba(255, 255, 255, 0.1) 75%, 
+                transparent 100%);
+            animation: pixShine 3s ease-in-out infinite;
+            z-index: 1;
+        }
+
+
+
+        /* Efeito hover mais suave */
+        .pix-button:hover {
+            animation: pixPulseHover 1.5s ease-in-out infinite;
+            background: linear-gradient(135deg, #00E526 0%, #00C91F 100%);
+        }
+
+        @keyframes pixPulseHover {
+            0%, 100% { 
+                transform: scale(1.02);
+                box-shadow: 0 8px 25px rgba(0, 217, 36, 0.5);
+            }
+            50% { 
+                transform: scale(1.08);
+                box-shadow: 0 12px 40px rgba(0, 217, 36, 0.7);
+            }
+        }
+
+        /* Garantir que texto e ícone fiquem acima dos reflexos */
+        .pix-icon, .pix-text {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Efeito de partículas brilhantes */
+        .pix-sparkle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            animation: pixSparkle 2.5s ease-in-out infinite;
+        }
+
+        .pix-sparkle::before,
+        .pix-sparkle::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: pixSparkle 2.5s ease-in-out infinite;
+        }
+
+        .pix-sparkle::before {
+            top: -15px;
+            left: -20px;
+            animation-delay: 0.5s;
+        }
+
+        .pix-sparkle::after {
+            bottom: -15px;
+            right: -20px;
+            animation-delay: 1s;
+        }
+
+        @keyframes pixSparkle {
+            0%, 100% { 
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0);
+            }
+            50% { 
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        /* Brilho de fundo sutil */
+        .pix-button {
+            background-image: 
+                linear-gradient(135deg, #00D924 0%, #00B81D 100%),
+                radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+        }
+
+        .pix-button:hover {
+            background-image: 
+                linear-gradient(135deg, #00E526 0%, #00C91F 100%),
+                radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 50%);
+        }
+
+        .pix-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+            animation: pixIconFloat 2.5s ease-in-out infinite;
+        }
+
+        /* Animação flutuante sutil para o ícone */
+        @keyframes pixIconFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-2px); }
+        }
+
+
+
+        .pix-text {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+        }
+
+        .pix-title {
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 2px;
+        }
+
+        .pix-description {
+            font-size: 12px;
+            font-weight: 400;
+            opacity: 0.9;
+            line-height: 1.3;
+        }
+
+        /* Messages */
+        .message {
+            padding: 14px 18px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            animation: messageSlideDown 0.4s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes messageSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error {
+            background: #FEE2E2;
+            border: 1px solid #FECACA;
+            color: #DC2626;
+        }
+
+        .success {
+            background: #D1FAE5;
+            border: 1px solid #A7F3D0;
+            color: #065F46;
+        }
+
+        .warning {
+            background: #FEF3C7;
+            border: 1px solid #FDE68A;
+            color: #92400E;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .spinner-container {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+        }
+
+        .spinner {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+        }
+
+        .spinner::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border: 3px solid transparent;
+            border-top-color: var(--primary-light);
+            border-radius: 50%;
+            animation: spin 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite reverse;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Plans */
+        .plans-container {
+            margin: 20px 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .plan-card {
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+            border: 2px solid #E2E8F0;
+            border-radius: var(--radius);
+            padding: 20px 16px;
+            cursor: pointer;
+            transition: var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 120px;
+            text-align: center;
+            animation: planCardPulse 4s ease-in-out infinite;
+        }
+
+        .plan-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .plan-card:hover::before {
+            left: 100%;
+        }
+
+        .plan-card:hover {
+            border-color: #10B981;
+            animation: planCardHover 3s ease-in-out infinite;
+            background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+        }
+
+        @keyframes planCardHover {
+            0%, 100% { 
+                transform: translateY(-2px) scale(1.01);
+                box-shadow: 0 8px 25px rgba(16, 185, 129, 0.25);
+            }
+            50% { 
+                transform: translateY(-4px) scale(1.03);
+                box-shadow: 0 12px 35px rgba(16, 185, 129, 0.35);
+            }
+        }
+
+        .plan-card:active {
+            transform: translateY(-1px) scale(0.98);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+        }
+
+        .plan-card.selected {
+            border-color: #10B981;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: var(--white);
+            animation: planCardSelected 3s ease-in-out infinite;
+        }
+
+        @keyframes planCardSelected {
+            0%, 100% { 
+                transform: translateY(-3px) scale(1.02);
+                box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+            }
+            50% { 
+                transform: translateY(-5px) scale(1.04);
+                box-shadow: 0 15px 40px rgba(16, 185, 129, 0.5);
+            }
+        }
+
+        .plan-card.selected .plan-name,
+        .plan-card.selected .plan-price {
+            color: var(--white);
+        }
+
+        .plan-card.selected .plan-duration {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Animações suaves para os cards dos planos */
+        @keyframes planCardPulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            }
+            50% { 
+                transform: scale(1.02);
+                box-shadow: 0 12px 30px rgba(16, 185, 129, 0.15);
+            }
+        }
+
+        /* Reflexo suave que passa pelos cards */
+        .plan-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255, 255, 255, 0.05) 30%, 
+                rgba(255, 255, 255, 0.15) 50%, 
+                rgba(255, 255, 255, 0.05) 70%, 
+                transparent 100%);
+            animation: planCardShine 6s ease-in-out infinite;
+            z-index: 1;
+        }
+
+        @keyframes planCardShine {
+            0% { left: -100%; }
+            20% { left: -100%; }
+            80% { left: 100%; }
+            100% { left: 100%; }
+        }
+
+        /* Borda suave brilhante */
+        .plan-card::after {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            background: linear-gradient(45deg, 
+                #10B981, 
+                #059669, 
+                #047857, 
+                #059669, 
+                #10B981);
+            background-size: 300% 300%;
+            border-radius: calc(var(--radius) + 1px);
+            z-index: -1;
+            animation: planCardBorder 5s ease-in-out infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes planCardBorder {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        /* Garantir que o conteúdo fique acima dos efeitos */
+        .plan-info {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Faixa com numeração do plano */
+        .plan-number {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+            color: var(--white);
+            font-size: 12px;
+            font-weight: 900;
+            padding: 6px 12px;
+            border-radius: 0 var(--radius) 0 var(--radius);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+            z-index: 3;
+            min-width: 40px;
+            text-align: center;
+            animation: planNumberShine 3s ease-in-out infinite;
+        }
+
+        @keyframes planNumberShine {
+            0%, 100% { 
+                box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+            }
+            50% { 
+                box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
+            }
+        }
+
+        /* Partículas sutis nos cards dos planos */
+        .plan-sparkles {
+            position: absolute;
+            top: 20%;
+            right: 20%;
+            width: 2px;
+            height: 2px;
+            background: rgba(16, 185, 129, 0.7);
+            border-radius: 50%;
+            z-index: 2;
+            animation: planSparkles 5s ease-in-out infinite;
+        }
+
+        .plan-sparkles::before,
+        .plan-sparkles::after {
+            content: '';
+            position: absolute;
+            width: 1.5px;
+            height: 1.5px;
+            background: rgba(16, 185, 129, 0.5);
+            border-radius: 50%;
+            animation: planSparkles 5s ease-in-out infinite;
+        }
+
+        .plan-sparkles::before {
+            top: -25px;
+            left: -15px;
+            animation-delay: 1.5s;
+        }
+
+        .plan-sparkles::after {
+            bottom: -20px;
+            right: -10px;
+            animation-delay: 3s;
+        }
+
+        @keyframes planSparkles {
+            0%, 90%, 100% { 
+                opacity: 0;
+                transform: scale(0);
+            }
+            45%, 55% { 
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .plan-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+
+
+        .plan-duration {
+            font-size: 22px;
+            font-weight: 900;
+            color: #1F2937;
+            margin-bottom: 12px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            animation: planDurationGlow 4s ease-in-out infinite;
+        }
+
+        @keyframes planDurationGlow {
+            0%, 100% { 
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+                transform: scale(1);
+            }
+            50% { 
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 8px rgba(16, 185, 129, 0.4);
+                transform: scale(1.01);
+            }
+        }
+
+        .plan-price {
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--white);
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            padding: 10px 20px;
+            border-radius: 25px;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+            border: none;
+            min-width: auto;
+            height: auto;
+            position: relative;
+            animation: planPriceFloat 3.5s ease-in-out infinite;
+        }
+
+        @keyframes planPriceFloat {
+            0%, 100% { 
+                transform: translateY(0px) scale(1);
+                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+            }
+            50% { 
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+            }
+        }
+
+        .plan-card.selected .plan-price {
+            background: linear-gradient(135deg, var(--white) 0%, #F8FAFC 100%);
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
+        }
+
+        .plan-price small {
+            font-size: 12px;
+            font-weight: 400;
+            margin-left: 2px;
+        }
+
+        .plan-features {
+            display: none;
+        }
+
+        /* PIX Payment */
+        .pix-container {
+            text-align: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+            border-radius: var(--radius-lg);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pix-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+            animation: rotate 10s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .qr-code {
+            margin: 24px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .qr-code img {
+            max-width: 200px;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            border: 4px solid var(--white);
+        }
+
+        .pix-code {
+            background: var(--white);
+            padding: 16px;
+            border-radius: var(--radius);
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            word-break: break-all;
+            margin: 16px 0;
+            border: 2px dashed var(--primary-light);
+            position: relative;
+            z-index: 1;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .timer {
+            font-size: 32px;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 20px 0 8px;
+        }
+
+        /* Success Screen */
+        .success-container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .success-icon {
+            font-size: 72px;
+            margin-bottom: 24px;
+            animation: successBounce 0.6s ease-out;
+        }
+
+        @keyframes successBounce {
+            0% { transform: scale(0) rotate(0deg); }
+            50% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .credentials {
+            background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+            padding: 24px;
+            border-radius: var(--radius-lg);
+            margin: 24px 0;
+            border: 1px solid #E2E8F0;
+        }
+
+        .credential-item {
+            margin: 16px 0;
+            text-align: left;
+        }
+
+        .credential-label {
+            font-weight: 500;
+            color: var(--gray);
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .credential-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--dark);
+            font-family: 'Courier New', monospace;
+            background: var(--white);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+            border: 1px solid #C7D2FE;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .instructions h3 {
+            color: var(--primary-dark);
+            margin-bottom: 16px;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            color: var(--medium);
+            margin-bottom: 12px;
+            line-height: 1.7;
+            font-size: 14px;
+        }
+
+        .instructions li strong {
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        /* Section Headers */
+        .screen h2 {
+            text-align: center;
+            color: var(--dark);
+            margin-bottom: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .screen > p {
+            text-align: center;
+            color: var(--gray);
+            margin-bottom: 24px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* MikroTik Form - Hidden but functional */
+        .mikrotik-form {
+            display: none;
+        }
+
+        /* Debug info */
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(15, 23, 42, 0.95);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            max-width: 320px;
+            display: none;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .debug-info.show {
+            display: block;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Trial Notice */
+        .trial-notice {
+            background: linear-gradient(135deg, var(--warning) 0%, #DC2626 100%);
+            color: var(--white);
+            padding: 16px;
+            border-radius: var(--radius);
+            margin: 16px 0;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .trial-notice.show {
+            display: block;
+            animation: noticeSlide 0.5s ease-out;
+        }
+
+        @keyframes noticeSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Mobile Optimizations */
+        @media (max-width: 480px) {
+            body {
+                padding: 0;
+                align-items: flex-start;
+            }
+
+            .container {
+                border-radius: 0;
+                max-width: 100%;
+                min-height: 100vh;
+                animation: none;
+            }
+
+            .header {
+                border-radius: 0 0 30px 30px;
+                padding: 30px 20px;
+            }
+
+            .content {
+                padding: 20px 15px;
+            }
+
+            .btn {
+                padding: 18px 24px;
+                font-size: 15px;
+            }
+
+            .plans-container {
+                margin: 15px 5px;
+                gap: 8px;
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .plan-card {
+                padding: 23px 12px;
+                min-height: 100px;
+                animation-duration: 5s; /* Animação mais lenta no mobile */
+            }
+
+            .plan-name {
+                font-size: 13px;
+            }
+
+            .plan-duration {
+                font-size: 16px;
+            }
+
+            .plan-price {
+                font-size: 18px;
+                padding: 6px 14px;
+            }
+
+            .pix-button {
+                padding: 18px 20px;
+                gap: 12px;
+            }
+
+            .pix-icon {
+                width: 38px;
+                height: auto;
+            }
+
+            .pix-title {
+                font-size: 23px;
+            }
+
+            .pix-description {
+                font-size: 13px;
+            }
+
+            .timer {
+                font-size: 28px;
+            }
+        }
+
+        /* Loading dots animation */
+        .loading-dots {
+            display: inline-block;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: loadingDots 1.5s infinite;
+        }
+
+        @keyframes loadingDots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Smooth transitions */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Ripple effect */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            transform: translate(-50%, -50%);
+            animation: rippleEffect 0.6s ease-out;
+        }
+
+        @keyframes rippleEffect {
+            to {
+                width: 300px;
+                height: 300px;
+                opacity: 0;
+            }
+        }
+
+        /* Call to Action PIX */
+        .pix-call-to-action {
+            margin-top: 20px;
+            text-align: center;
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        .arrow-up {
+            font-size: 30px;
+            animation: bounceArrow 1.5s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+
+        .cta-text {
+            background: linear-gradient(135deg, #10B981, #059669);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            line-height: 1.5;
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+        }
+
+        .cta-highlight {
+            display: block;
+            font-size: 22px;
+            margin-top: 5px;
+            animation: textGlow 1.5s ease-in-out infinite alternate;
+            background: linear-gradient(45deg, #F59E0B, #F97316, #EF4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @keyframes bounceArrow {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes textGlow {
+            0% {
+                filter: brightness(1);
+            }
+            100% {
+                filter: brightness(1.3);
+            }
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 480px) {
+            .cta-text {
+                font-size: 14px;
+            }
+            
+            .cta-highlight {
+                font-size: 18px;
+            }
+            
+            .arrow-up {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Wi Fi</h1>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Message Area -->
+            <div id="message" class="message"></div>
+
+            <!-- MikroTik Login Form (hidden but functional) -->
+            <!-- Form para CHAP authentication -->
+            <form name="sendin" id="loginForm" class="mikrotik-form" action="$(link-login-only)" method="post" style="display: none;">
+                <input type="hidden" name="username" id="hiddenUsername" />
+                <input type="hidden" name="password" id="hiddenPassword" />
+                <input type="hidden" name="dst" value="$(link-orig)" />
+                <input type="hidden" name="popup" value="true" />
+            </form>
+            
+            <!-- Form principal para login -->
+            <form name="login" id="mainLoginForm" action="$(link-login-only)" method="post" onSubmit="return doLogin()" style="display: none;">
+                <input type="hidden" name="dst" value="$(link-orig)" />
+                <input type="hidden" name="popup" value="true" />
+                <input type="hidden" name="username" id="mainUsername" />
+                <input type="hidden" name="password" id="mainPassword" />
+            </form>
+
+            <!-- Password Login Screen -->
+            <div id="passwordScreen" class="screen active">
+                <h2>Bem-vindo! &#x1F44B;</h2>
+                <p>Entre com sua senha ou adquira um novo acesso</p>
+
+                <div class="form-group">
+                    <label for="password">Senha de Acesso</label>
+                    <input type="password" id="password" placeholder="Digite sua senha aqui..." autocomplete="off" />
+                </div>
+
+                <button type="button" class="btn btn-primary ripple" onclick="loginWithPassword()">
+                    <span>&#x1F510;</span>
+                    <span>Conectar</span>
+                </button>
+
+                <button type="button" class="btn btn-secondary pix-button" onclick="showPlansScreen()">
+                    <div class="pix-sparkle"></div>
+                    <img src="pix.png" alt="PIX" class="pix-icon">
+                    <div class="pix-text">
+                        <div class="pix-title">Comprar Senha No Pix</div>
+                        <div class="pix-description">Compre sua senha automaticamente via pix</div>
+                    </div>
+                </button>
+                
+                <!-- Descrição chamativa com seta -->
+                <div class="pix-call-to-action">
+                    <div class="arrow-up">⬆️</div>
+                    <div class="cta-text">
+                        COMPRE SUA SENHA A QUALQUER MOMENTO VIA PIX<br>
+                        <span class="cta-highlight">PAGOU, CONECTOU!</span>
+                    </div>
+                </div>
+            </div>
+
+       <!-- Plans Screen -->
+       <div id="plansScreen" class="screen">
+           <h2>Escolha seu Plano &#x2B07;&#xFE0F;</h2>
+
+           <div id="loadingPlans" class="loading">
+               <div class="spinner-container">
+                   <div class="spinner"></div>
+               </div>
+               <p>Carregando planos<span class="loading-dots"></span></p>
+           </div>
+
+           <div id="plansContainer" class="plans-container"></div>
+
+           <button type="button" class="btn btn-secondary" onclick="showPasswordScreen()">
+               <span>←</span>
+               <span>Voltar</span>
+           </button>
+       </div>
+
+       <!-- Instructions Screen -->
+       <div id="instructionsScreen" class="screen">
+           <div class="instructions">
+               <div style="text-align: center; margin: 10px 0;">
+                   <h3 style="color: #10B981; margin-bottom: 20px;">Como Pagar:</h3>
+                   <div style="background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%); padding: 20px; border-radius: 12px; border: 2px solid #10B981;">
+                       <p style="font-size: 16px; font-weight: 600; color: #1F2937; margin-bottom: 15px;">
+                           &#x0031;&#xFE0F;&#x20E3; Na próxima tela será gerado a chave PIX copia e cola<br><br>
+                           &#x0032;&#xFE0F;&#x20E3; Faça o pagamento e seu acesso será liberado automaticamente<br><br>
+                           &#x0033;&#xFE0F;&#x20E3; Você terá 5 minutos para fazer o pagamento, abra seu aplicativo de banco e pague a chave PIX copia e cola
+                       </p>
+                       <p style="font-size: 14px; color: #059669; font-weight: 500; margin-top: 15px;">
+                           &#x1F4F6; Rede Wi-Fi: <strong>Drogaria Viva Mais</strong>
+                       </p>
+                   </div>
+               </div>
+           </div>
+
+           <button type="button" class="btn btn-primary ripple" onclick="generatePix()">
+               <span>&#x1F680;</span>
+               <span>Gerar PIX Agora</span>
+           </button>
+
+           <button type="button" class="btn btn-secondary" onclick="showPlansScreen()">
+               <span>←</span>
+               <span>Voltar</span>
+           </button>
+       </div>
+
+       <!-- PIX Payment Screen -->
+       <div id="pixScreen" class="screen">
+           <h2>Pagamento PIX &#x1F4B8;</h2>
+           <p>Escaneie ou copie o código para pagar</p>
+           
+           <div style="background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%); border: 2px solid #60A5FA; border-radius: var(--radius); padding: 16px; margin-bottom: 24px; text-align: center;">
+               <p style="color: #1E40AF; font-weight: 600; margin: 0; font-size: 15px;">
+                   &#x1F4F1; Copie a chave PIX e pague<br>
+                   <small style="font-weight: 400; color: #3730A3;">Seu acesso será liberado automaticamente</small>
+               </p>
+           </div>
+           
+           <div class="pix-container">
+               <div class="qr-code" id="qrCode"></div>
+               
+               <p style="color: var(--gray); margin: 10px 0; font-weight: 500;">Ou copie o código PIX:</p>
+               
+               <div class="pix-code" id="pixCode">Carregando<span class="loading-dots"></span></div>
+               
+               <button type="button" class="btn btn-success ripple" id="copyBtn" onclick="copyPixCode()">
+                   <span>&#x1F4CB;</span>
+                   <span>Copiar Chave PIX</span>
+               </button>
+               
+               <div class="timer" id="timer">5:00</div>
+               <p style="color: var(--gray); font-size: 14px;">Tempo restante para pagamento</p>
+           </div>
+
+           <button type="button" class="btn btn-secondary" onclick="showPasswordScreen()">
+               <span>&#x274C;</span>
+               <span>Cancelar</span>
+           </button>
+       </div>
+
+       <!-- Success Screen -->
+       <div id="successScreen" class="screen">
+           <div class="success-container">
+               <div class="success-icon">&#x2705;</div>
+                               <h2>Pagamento Aprovado! &#x1F389;</h2>
+               <p>Sua internet foi ativada com sucesso</p>
+               
+               <div class="credentials">
+                   <div class="credential-item">
+                       <div class="credential-label">Usuário</div>
+                       <div class="credential-value" id="successUsername">-</div>
+                   </div>
+                   <div class="credential-item">
+                       <div class="credential-label">Senha</div>
+                       <div class="credential-value" id="successPassword">-</div>
+                   </div>
+                   <div class="credential-item">
+                       <div class="credential-label">Duração</div>
+                       <div class="credential-value" id="duration">-</div>
+                   </div>
+               </div>
+               
+               <p style="color: var(--gray); font-size: 14px; margin-top: 24px;">
+                   Conectando automaticamente em <span id="redirectTimer" style="font-weight: 700; color: var(--primary);">5</span> segundos...
+               </p>
+           </div>
+       </div>
+
+       <!-- Loading Screen -->
+       <div id="loadingScreen" class="screen">
+           <div class="loading" style="display: block;">
+               <div class="spinner-container">
+                   <div class="spinner"></div>
+               </div>
+               <p id="loadingText" style="color: var(--medium); font-weight: 500;">Processando<span class="loading-dots"></span></p>
+           </div>
+       </div>
+   </div>
+</div>

@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal WiFi - Conecte-se</title>
+    <style>
+        @import url('data:text/css;charset=utf-8,@font-face{font-family:"Inter";font-style:normal;font-weight:300;src:url("data:font/woff2;base64,d09GMgABAAAAAAOkAA0AAAAABgAAAANUAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAgkIKgQSBBQsIAAE2AiQDCgQgBQYHNBveAsiuCmxj2lC/iCkWxlgeumNY4n8jJJklqNbKqmf2gOh+FbPKIpBEskefJdCH/tZl+fXBIrKpSKJvAhLAz4x+PfKhyWEzgU3YeXi5gRv5V3q7H/O2uZzfKiJIJNNJL+AQkgn0A2UApEOYEgBbYJFJFhjEAO3Q7bW3dxXoA/6LJJHnFAMCHcCrGCBoKUDFGlKgZ3jC+aJvvdXu8kKdpnAAQgBKlBCGZ+gGCOBCEGSXLJQMq+JriwJBhCVEEgXCKSGjCiIpY4mhAjbCZfSM9gMJBAEhAQhCKmDhVRoTRPDNdJlF8CHZTiEYCQCNQJCO4EqCBDxJsBQQhBQbCCJIbSEqOUNWQk7wIZVPGh7xGb8JFQM=")format("woff2");}');
+
+        :root {
+            --primary: #00d4aa;
+            --primary-dark: #00b894;
+            --primary-light: #55efc4;
+            --secondary: #6c5ce7;
+            --accent: #fd79a8;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --error: #e17055;
+            --pix-gradient: linear-gradient(135deg, #00d4aa 0%, #6c5ce7 50%, #fd79a8 100%);
+            
+            /* Light theme */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --text-primary: #f7fafc;
+            --text-secondary: #e2e8f0;
+            --text-muted: #a0aec0;
+            --border: #4a5568;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+            --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--accent) 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            min-height: 100vh;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-primary);
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.15) rotate(180deg);
+            box-shadow: var(--shadow-xl);
+            border-color: var(--primary);
+        }
+
+        .theme-toggle svg {
+            width: 26px;
+            height: 26px;
+            fill: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .main-card {
+            background: var(--bg-primary);
+            border-radius: 24px;
+            padding: 40px 35px;
+            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            animation: slideUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--pix-gradient);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .logo h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: var(--pix-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .logo p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 400;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-secondary);
+            font-weight: 500;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 18px 20px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            font-size: 1.05rem;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            font-family: inherit;
+            font-weight: 400;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 212, 170, 0.15);
+            transform: translateY(-2px);
+            background: var(--bg-primary);
+        }
+
+        .form-control:focus + .floating-label {
+            transform: translateY(-25px) scale(0.85);
+            color: var(--primary);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-family: inherit;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.3px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .btn-pix {
+            background: var(--pix-gradient);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 22px;
+            margin: 25px 0;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 18px;
+            animation: pixPulse 3s ease-in-out infinite, pixGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes pixPulse {
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.7);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 0 25px rgba(0, 212, 170, 0);
+                transform: scale(1.02);
+            }
+        }
+
+        @keyframes pixGlow {
+            0% { 
+                box-shadow: 0 0 20px rgba(0, 212, 170, 0.3);
+            }
+            100% { 
+                box-shadow: 0 0 40px rgba(108, 92, 231, 0.4), 0 0 60px rgba(253, 121, 168, 0.2);
+            }
+        }
+
+        .btn-pix:hover:not(:disabled) {
+            transform: translateY(-4px) scale(1.03);
+            animation: none;
+            box-shadow: var(--shadow-xl), 0 0 50px rgba(0, 212, 170, 0.4);
+        }
+
+        .btn-pix::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .btn-pix:hover::before {
+            left: 100%;
+        }
+
+        .btn-pix .pix-icon {
+            display: inline-block;
+            margin-right: 10px;
+            font-size: 1.3em;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+            60% { transform: translateY(-4px); }
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 2px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--bg-tertiary);
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .plans-grid {
+            display: grid;
+            gap: 18px;
+            margin: 25px 0;
+        }
+
+        .plan-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.3s ease;
+            z-index: 0;
+        }
+
+        .plan-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .plan-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .plan-card:hover::before {
+            width: 4px;
+        }
+
+        .plan-card.selected {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .plan-card.selected .plan-name,
+        .plan-card.selected .plan-duration,
+        .plan-card.selected .plan-speed {
+            color: white;
+        }
+
+        .plan-name {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .plan-duration, .plan-speed {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+        }
+
+        .plan-price {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-top: 12px;
+        }
+
+        .plan-card.selected .plan-price {
+            color: white;
+        }
+
+        .pix-container {
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .qr-code {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            margin: 25px 0;
+            box-shadow: var(--shadow);
+            border: 2px solid var(--border);
+        }
+
+        .qr-code img {
+            max-width: 220px;
+            width: 100%;
+            height: auto;
+        }
+
+        .pix-code {
+            background: var(--bg-secondary);
+            border: 2px dashed var(--primary);
+            border-radius: 12px;
+            padding: 18px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            margin: 18px 0;
+            color: var(--text-primary);
+            position: relative;
+        }
+
+        .copy-btn {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .message {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin: 18px 0;
+            font-size: 0.9rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: rgba(0, 184, 148, 0.15);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .message.error {
+            background: rgba(225, 112, 85, 0.15);
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+
+        .message.warning {
+            background: rgba(253, 203, 110, 0.15);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            cursor: pointer;
+            margin-bottom: 25px;
+            padding: 10px 0;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .back-btn:hover {
+            color: var(--primary);
+            transform: translateX(-5px);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-pending { background: var(--warning); }
+        .status-completed { background: var(--success); }
+        .status-failed { background: var(--error); }
+
+        .success-animation {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            color: var(--success);
+            animation: successBounce 0.6s ease-out;
+        }
+
+        @keyframes successBounce {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .credentials-box {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 16px;
+            margin: 25px 0;
+            border: 2px solid var(--primary);
+        }
+
+        .credentials-box h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .credentials-box p {
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        /* MikroTik Error Styles */
+        .mikrotik-error {
+            background: rgba(225, 112, 85, 0.1);
+            border: 2px solid var(--error);
+            border-radius: 12px;
+            padding: 16px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .mikrotik-error h4 {
+            color: var(--error);
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .mikrotik-error p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin: 4px 0;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .main-card {
+                padding: 30px 25px;
+                border-radius: 20px;
+            }
+            
+            .logo h1 {
+                font-size: 1.8rem;
+            }
+            
+            .theme-toggle {
+                width: 50px;
+                height: 50px;
+                top: 15px;
+                right: 15px;
+            }
+
+            .btn-pix {
+                font-size: 1.1rem;
+                padding: 20px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body data-theme="light">
+    
+    <div class="theme-toggle" onclick="toggleTheme()">
+        <svg class="sun-icon" viewBox="0 0 24 24">
+            <path d="M12 17q-2.075 0-3.537-1.463Q7 14.075 7 12t1.463-3.538Q9.925 7 12 7t3.538 1.462Q17 9.925 17 12q0 2.075-1.462 3.537Q14.075 17 12 17ZM2 13q-.425 0-.712-.288Q1 12.425 1 12t.288-.713Q1.575 11 2 11h2q.425 0 .713.287Q5 11.575 5 12t-.287.712Q4.425 13 4 13Zm18 0q-.425 0-.712-.288Q19 12.425 19 12t.288-.713Q19.575 11 20 11h2q.425 0 .712.287Q23 11.575 23 12t-.288.712Q22.425 13 22 13Zm-8-8q-.425 0-.712-.288Q11 4.425 11 4V2q0-.425.288-.713Q11.575 1 12 1t.713.287Q13 1.575 13 2v2q0 .425-.287.712Q12.425 5 12 5Zm0 18q-.425 0-.712-.288Q11 22.425 11 22v-2q0-.425.288-.712Q11.575 19 12 19t.713.288Q13 19.575 13 20v2q0 .425-.287.712Q12.425 23 12 23ZM5.65 7.05 4.575 6q-.3-.275-.288-.7q.013-.425.288-.725q.3-.3.725-.3t.7.3L7.05 5.65q.275.3.275.7q0 .4-.275.7q-.275.3-.687.287q-.413-.012-.713-.287ZM18 19.425l-1.05-1.075q-.275-.3-.275-.712q0-.413.275-.688q.275-.3.688-.287q.412.012.712.287L19.425 18q.3.275.288.7q-.013.425-.288.725q-.3.3-.725.3t-.7-.3ZM16.95 7.05q-.3-.275-.287-.688q.012-.412.287-.712L18 4.575q.275-.3.7-.288q.425.013.725.288q.3.3.3.725t-.3.7L18.35 7.05q-.3.275-.7.275q-.4 0-.7-.275ZM4.575 19.425q-.3-.3-.3-.725t.3-.7l1.075-1.05q.3-.275.713-.275q.412 0 .687.275q.3.275.288.688q-.013.412-.288.712L6 19.425q-.275.3-.7.287q-.425-.012-.725-.287Z"/>
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" style="display: none;">
+            <path d="M12 21q-3.75 0-6.375-2.625T3 12q0-3.75 2.625-6.375T12 3q.35 0 .688.025q.337.025.662.075q-1.025.725-1.637 1.887Q11.1 6.15 11.1 7.5q0 2.25 1.575 3.825Q14.25 12.9 16.5 12.9q1.375 0 2.525-.613q1.15-.612 1.875-1.637q.05.325.075.662Q21 11.65 21 12q0 3.75-2.625 6.375T12 21Z"/>
+        </svg>
+    </div>
+
+    <div class="container">
+        <div class="main-card">
+            <!-- Login Screen -->
+            <div id="loginScreen" class="screen active">
+                <div class="logo">
+                    <h1>📶 WiFi Portal</h1>
+                    <p>Conecte-se à internet de forma rápida e segura</p>
+                </div>
+                
+                <!-- MikroTik Error Messages -->
+                <div id="mikrotikError" style="display: none;"></div>
+                
+                <form id="loginForm" method="post" action="$(link-login-only)">
+                    <input type="hidden" name="username" value="$(username)">
+                    <input type="hidden" name="dst" value="$(link-orig)">
+                    <input type="hidden" name="popup" value="true">
+                    
+                    <div class="form-group">
+                        <label for="password">Digite sua senha de acesso:</label>
+                        <input type="password" id="password" name="password" class="form-control" 
+                               placeholder="Digite sua senha..." autocomplete="off" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary" id="loginBtn">
+                        <span>🚀 Conectar Agora</span>
+                    </button>
+                </form>
+                
+                <button type="button" class="btn btn-pix" onclick="showPlansScreen()">
+                    <span class="pix-icon">🔥</span>
+                    COMPRAR ACESSO VIA PIX
+                    <span class="pix-icon">💳</span>
+                </button>
+                
+                <div style="text-align: center; margin-top: 20px; color: var(--text-muted); font-size: 0.85rem;">
+                    <p>💡 Não tem senha? Compre seu acesso instantaneamente via PIX!</p>
+                </div>
+                
+                <div id="loginMessage"></div>
+            </div>
+
+            <!-- Plans Screen -->
+            <div id="plansScreen" class="screen">
+                <button class="back-btn" onclick="showLoginScreen()">← Voltar ao Login</button>
+                
+                <div class="logo">
+                    <h1>📋 Escolha seu Plano</h1>
+                    <p>Selecione o plano ideal para suas necessidades</p>
+                </div>
+                
+                <div id="plansContainer" class="plans-grid">
+                    <div style="text-align: center; padding: 40px;">
+                        <div class="loading" style="margin: 0 auto 20px;"></div>
+                        <p style="color: var(--text-muted);">Carregando planos disponíveis...</p>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn btn-primary" id="selectPlanBtn" 
+                        onclick="createPayment()" disabled>
+                    ✨ Continuar com Plano Selecionado
+                </button>
+                
+                <div id="plansMessage"></div>
+            </div>
+
+            <!-- Payment Screen -->
+            <div id="paymentScreen" class="screen">
+                <button class="back-btn" onclick="showPlansScreen()">← Escolher Outro Plano</button>
+                
+                <div class="logo">
+                    <h1>💳 Pagamento PIX</h1>
+                    <p>Escaneie o QR Code ou copie a chave PIX</p>
+                </div>
+                
+                <div class="pix-container">
+                    <div id="qrCodeContainer" class="qr-code">
+                        <div style="text-align: center; padding: 40px;">
+                            <div class="loading" style="margin: 0 auto 20px;"></div>
+                            <p style="color: var(--text-muted);">Gerando QR Code...</p>
+                        </div>
+                    </div>
+                    
+                    <p style="margin: 18px 0; color: var(--text-muted); text-align: center;">
+                        📱 Ou copie a chave PIX abaixo:
+                    </p>
+                    
+                    <div id="pixCode" class="pix-code">
+                        Gerando chave PIX...
+                    </div>
+                    
+                    <button class="copy-btn" onclick="copyPixCode()" id="copyBtn">
+                        📋 Copiar Chave PIX
+                    </button>
+                </div>
+                
+                <div id="paymentStatus">
+                    <p style="text-align: center; margin: 25px 0; color: var(--text-muted); font-weight: 500;">
+                        <span class="status-indicator status-pending"></span>
+                        Aguardando confirmação do pagamento...
+                    </p>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin: 20px 0; text-align: center;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">
+                        ⏱️ Você tem <strong>30 minutos</strong> para realizar o pagamento
+                    </p>
+                </div>
+                
+                <div id="paymentMessage"></div>
+            </div>
+
+            <!-- Success Screen -->
+            <div id="successScreen" class="screen">
+                <div class="logo">
+                    <div class="success-animation">
+                        <div class="success-icon">✅</div>
+                    </div>
+                    <h1>Pagamento Aprovado!</h1>
+                    <p>Seu acesso à internet foi liberado com sucesso</p>
+                </div>
+                
+                <div class="credentials-box">
+                    <h3>📋 Seus dados de acesso:</h3>
+                    <p><strong>Usuário:</strong> <span id="createdUsername">-</span></p>
+                    <p><strong>Senha:</strong> <span id="createdPassword">-</span></p>
+                </div>
+                
+                <button type="button" class="btn btn-primary" onclick="connectWithCredentials()">
+                    🚀 Conectar Automaticamente
+                </button>
+                
+                <button type="button" class="btn btn-secondary" onclick="showLoginScreen()" 
+                        style="margin-top: 15px;">
+                    🔄 Voltar ao Login
+                </button>
+                
+                <div style="background: var(--bg-secondary); padding: 16px; border-radius: 12px; margin: 20px 0; text-align: center;">
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">
+                        💡 <strong>Dica:</strong> Salve seus dados de acesso para próximas conexões
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CONFIGURAÇÕES DO MIKROTIK =====
+        const CONFIG = {
+            MIKROTIK_ID: '0c6f2d19-202b-470d-87c1-c0caee460e65',
+            API_TOKEN: 'b56334f7-cd50-4e70-bd8b-d30acdb821a5',
+            API_BASE_URL: 'http://localhost:3000/api', // Altere para sua URL da API
+            PAYMENT_CHECK_INTERVAL: 3000, // Verificar pagamento a cada 3 segundos
+            
+            // URLs do MikroTik (serão substituídas automaticamente)
+            MIKROTIK_LOGIN_URL: '$(link-login-only)',
+            MIKROTIK_LOGOUT_URL: '$(link-logout)',
+            MIKROTIK_STATUS_URL: '$(link-status)',
+            MIKROTIK_ORIG_URL: '$(link-orig)',
+            
+            // Variáveis do MikroTik
+            USERNAME: '$(username)',
+            IP: '$(ip)',
+            MAC: '$(mac)',
+            INTERFACE: '$(interface)',
+            ERROR_MSG: '$(error)'
+        };
+
+        // ===== ESTADO GLOBAL =====
+        let selectedPlan = null;
+        let currentPayment = null;
+        let paymentCheckInterval = null;
+        let plans = [];
+
+        // ===== VERIFICAR ERROS DO MIKROTIK =====
+        function checkMikrotikErrors() {
+            const errorMsg = CONFIG.ERROR_MSG;
+            const errorContainer = document.getElementById('mikrotikError');
+            
+            if (errorMsg && errorMsg !== '$(error)' && errorMsg.trim() !== '') {
+                let errorTitle = 'Erro de Autenticação';
+                let errorDescription = '';
+                
+                // Mapear erros comuns do MikroTik
+                switch(errorMsg.toLowerCase()) {
+                    case 'invalid username or password':
+                        errorTitle = '❌ Senha Incorreta';
+                        errorDescription = 'A senha digitada está incorreta. Verifique e tente novamente.';
+                        break;
+                    case 'user already logged in':
+                        errorTitle = '⚠️ Usuário Já Conectado';
+                        errorDescription = 'Este usuário já está conectado em outro dispositivo.';
+                        break;
+                    case 'user disabled':
+                        errorTitle = '🚫 Usuário Desabilitado';
+                        errorDescription = 'Este usuário foi desabilitado pelo administrador.';
+                        break;
+                    case 'maximum sessions exceeded':
+                        errorTitle = '📱 Limite de Sessões';
+                        errorDescription = 'Número máximo de conexões simultâneas atingido.';
+                        break;
+                    default:
+                        errorTitle = '❌ Erro de Conexão';
+                        errorDescription = errorMsg;
+                }
+                
+                errorContainer.innerHTML = `
+                    <div class="mikrotik-error">
+                        <h4>${errorTitle}</h4>
+                        <p>${errorDescription}</p>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 10px;">
+                            💡 Não tem senha? Compre seu acesso via PIX abaixo!
+                        </p>
+                    </div>
+                `;
+                errorContainer.style.display = 'block';
+            } else {
+                errorContainer.style.display = 'none';
+            }
+        }
+
+        // ===== THEME TOGGLE =====
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update icons
+            const sunIcon = document.querySelector('.sun-icon');
+            const moonIcon = document.querySelector('.moon-icon');
+            
+            if (newTheme === 'dark') {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            } else {
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            }
+        }
+
+        // ===== SCREEN NAVIGATION =====
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showLoginScreen() {
+            showScreen('loginScreen');
+            clearPaymentCheck();
+        }
+
+        function showPlansScreen() {
+            showScreen('plansScreen');
+            loadPlans();
+        }
+
+        function showPaymentScreen() {
+            showScreen('paymentScreen');
+        }
+
+        function showSuccessScreen() {
+            showScreen('successScreen');
+            clearPaymentCheck();
+        }
+
+        // ===== API FUNCTIONS =====
+        async function apiRequest(endpoint, options = {}) {
+            const url = `${CONFIG.API_BASE_URL}${endpoint}`;
+            const defaultOptions = {
+                headers: {
+                    'X-API-Token': CONFIG.API_TOKEN,
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            };
+
+            try {
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Erro na requisição');
+                }
+                
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // ===== PLANS FUNCTIONS =====
+        async function loadPlans() {
+            try {
+                showMessage('plansMessage', '🔄 Carregando planos disponíveis...', 'warning');
+                
+                const response = await apiRequest('/payment/plans');
+                plans = response.data;
+                
+                renderPlans(plans);
+                clearMessage('plansMessage');
+            } catch (error) {
+                const container = document.getElementById('plansContainer');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--error);">
+                        <h3>❌ Erro ao Carregar Planos</h3>
+                        <p style="margin: 15px 0;">${error.message}</p>
+                        <button class="btn btn-secondary" onclick="loadPlans()" style="margin-top: 15px;">
+                            🔄 Tentar Novamente
+                        </button>
+                    </div>
+                `;
+                showMessage('plansMessage', `❌ Erro ao carregar planos: ${error.message}`, 'error');
+            }
+        }
+
+        function renderPlans(plansData) {
+            const container = document.getElementById('plansContainer');
+            
+            if (!plansData || plansData.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h3 style="color: var(--text-muted); margin-bottom: 15px;">📋 Nenhum Plano Disponível</h3>
+                        <p style="color: var(--text-muted);">Não há planos ativos no momento.</p>
+                        <button class="btn btn-secondary" onclick="loadPlans()" style="margin-top: 15px;">
+                            🔄 Atualizar Lista
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = plansData.map(plan => `
+                <div class="plan-card" onclick="selectPlan('${plan.id}')" data-plan-id="${plan.id}">
+                    <div class="plan-name">📶 ${plan.name}</div>
+                    <div class="plan-duration">⏱️ Duração: ${plan.session_timeout}</div>
+                    <div class="plan-speed">🚀 Velocidade: ${plan.rate_limit}</div>
+                    <div class="plan-price">💰 R$ ${parseFloat(plan.preco).toFixed(2)}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectPlan(planId) {
+            // Remove previous selection
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Select new plan
+            const planCard = document.querySelector(`[data-plan-id="${planId}"]`);
+            if (planCard) {
+                planCard.classList.add('selected');
+                selectedPlan = plans.find(plan => plan.id === planId);
+                document.getElementById('selectPlanBtn').disabled = false;
+                
+                // Update button text with plan info
+                const btn = document.getElementById('selectPlanBtn');
+                btn.innerHTML = `✨ Continuar com ${selectedPlan.name} - R$ ${parseFloat(selectedPlan.preco).toFixed(2)}`;
+            }
+        }
+
+        // ===== PAYMENT FUNCTIONS =====
+        async function createPayment() {
+            if (!selectedPlan) {
+                showMessage('plansMessage', '⚠️ Selecione um plano primeiro!', 'error');
+                return;
+            }
+
+            try {
+                showMessage('plansMessage', '🔄 Criando pagamento PIX...', 'warning');
+                
+                const response = await apiRequest('/payment/create', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        plano_id: selectedPlan.id
+                    })
+                });
+
+                currentPayment = response.data;
+                showPaymentScreen();
+                renderPayment(currentPayment);
+                startPaymentCheck();
+                
+                clearMessage('plansMessage');
+                
+            } catch (error) {
+                showMessage('plansMessage', `❌ Erro ao criar pagamento: ${error.message}`, 'error');
+            }
+        }
+
+        function renderPayment(paymentData) {
+            // Render QR Code
+            const qrContainer = document.getElementById('qrCodeContainer');
+            if (paymentData.qr_code) {
+                qrContainer.innerHTML = `
+                    <img src="data:image/png;base64,${paymentData.qr_code}" 
+                         alt="QR Code PIX" 
+                         style="max-width: 100%; height: auto; border-radius: 8px;">
+                `;
+            } else {
+                qrContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        <h3>❌ QR Code Indisponível</h3>
+                        <p>Use a chave PIX abaixo para realizar o pagamento</p>
+                    </div>
+                `;
+            }
+
+            // Render PIX code
+            const pixCodeEl = document.getElementById('pixCode');
+            if (paymentData.pix_code) {
+                pixCodeEl.textContent = paymentData.pix_code;
+            } else {
+                pixCodeEl.textContent = 'Chave PIX não disponível no momento';
+                pixCodeEl.style.color = 'var(--error)';
+            }
+        }
+
+        async function copyPixCode() {
+            const pixCode = document.getElementById('pixCode').textContent;
+            const copyBtn = document.getElementById('copyBtn');
+            
+            if (!pixCode || pixCode.includes('não disponível')) {
+                showMessage('paymentMessage', '❌ Chave PIX não disponível', 'error');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(pixCode);
+                copyBtn.textContent = '✅ Copiado!';
+                copyBtn.style.background = 'var(--success)';
+                showMessage('paymentMessage', '✅ Chave PIX copiada com sucesso!', 'success');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 Copiar Chave PIX';
+                    copyBtn.style.background = 'var(--success)';
+                }, 3000);
+            } catch (error) {
+                // Fallback for older browsers
+                try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = pixCode;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    copyBtn.textContent = '✅ Copiado!';
+                    showMessage('paymentMessage', '✅ Chave PIX copiada!', 'success');
+                    
+                    setTimeout(() => {
+                        copyBtn.textContent = '📋 Copiar Chave PIX';
+                    }, 3000);
+                } catch (fallbackError) {
+                    showMessage('paymentMessage', '❌ Erro ao copiar. Copie manualmente.', 'error');
+                }
+            }
+        }
+
+        // ===== PAYMENT STATUS CHECK =====
+        function startPaymentCheck() {
+            if (paymentCheckInterval) {
+                clearInterval(paymentCheckInterval);
+            }
+
+            paymentCheckInterval = setInterval(async () => {
+                try {
+                    const response = await apiRequest(`/payment/status/${currentPayment.payment_id}`);
+                    const paymentStatus = response.data;
+                    
+                    updatePaymentStatus(paymentStatus);
+                    
+                    if (paymentStatus.status === 'completed') {
+                        clearPaymentCheck();
+                        showSuccessWithCredentials(paymentStatus);
+                    }
+                } catch (error) {
+                    console.error('Error checking payment status:', error);
+                    // Continue checking even if there's an error
+                }
+            }, CONFIG.PAYMENT_CHECK_INTERVAL);
+        }
+
+        function updatePaymentStatus(paymentStatus) {
+            const statusContainer = document.getElementById('paymentStatus');
+            let statusText = '';
+            let statusClass = '';
+            
+            switch (paymentStatus.status) {
+                case 'pending':
+                    statusText = 'Aguardando confirmação do pagamento...';
+                    statusClass = 'status-pending';
+                    break;
+                case 'completed':
+                    statusText = 'Pagamento aprovado! Redirecionando...';
+                    statusClass = 'status-completed';
+                    break;
+                case 'failed':
+                    statusText = 'Pagamento falhou ou foi cancelado';
+                    statusClass = 'status-failed';
+                    break;
+                default:
+                    statusText = 'Verificando status do pagamento...';
+                    statusClass = 'status-pending';
+            }
+            
+            statusContainer.innerHTML = `
+                <p style="text-align: center; margin: 25px 0; color: var(--text-muted); font-weight: 500;">
+                    <span class="status-indicator ${statusClass}"></span>
+                    ${statusText}
+                </p>
+            `;
+        }
+
+        function clearPaymentCheck() {
+            if (paymentCheckInterval) {
+                clearInterval(paymentCheckInterval);
+                paymentCheckInterval = null;
+            }
+        }
+
+        function showSuccessWithCredentials(paymentStatus) {
+            document.getElementById('createdUsername').textContent = paymentStatus.usuario_criado || 'N/A';
+            document.getElementById('createdPassword').textContent = paymentStatus.senha_usuario || 'N/A';
+            showSuccessScreen();
+        }
+
+        // ===== CONNECTION FUNCTIONS =====
+        async function connectWithCredentials() {
+            const username = document.getElementById('createdUsername').textContent;
+            const password = document.getElementById('createdPassword').textContent;
+            
+            if (username && password && username !== 'N/A' && password !== 'N/A') {
+                // Set the credentials in the login form
+                document.getElementById('password').value = password;
+                
+                // Submit the login form
+                showMessage('loginMessage', '🚀 Conectando automaticamente...', 'success');
+                
+                // Delay to show message then submit
+                setTimeout(() => {
+                    document.getElementById('loginForm').submit();
+                }, 1500);
+            } else {
+                showMessage('loginMessage', '❌ Credenciais não disponíveis', 'error');
+                showLoginScreen();
+            }
+        }
+
+        // ===== UTILITY FUNCTIONS =====
+        function showMessage(containerId, message, type = 'success') {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="message ${type}">${message}</div>`;
+            
+            // Auto-hide success and warning messages
+            if (type === 'success' || type === 'warning') {
+                setTimeout(() => {
+                    clearMessage(containerId);
+                }, 4000);
+            }
+        }
+
+        function clearMessage(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = '';
+            }
+        }
+
+        // ===== INITIALIZATION =====
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Portal Captivo MikroTik Iniciado');
+            console.log('📡 MikroTik ID:', CONFIG.MIKROTIK_ID);
+            console.log('🌐 API Base URL:', CONFIG.API_BASE_URL);
+            
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.body.setAttribute('data-theme', savedTheme);
+            
+            if (savedTheme === 'dark') {
+                document.querySelector('.sun-icon').style.display = 'none';
+                document.querySelector('.moon-icon').style.display = 'block';
+            }
+            
+            // Check for MikroTik errors
+            checkMikrotikErrors();
+            
+            // Auto-focus password input
+            const passwordInput = document.getElementById('password');
+            if (passwordInput) {
+                passwordInput.focus();
+            }
+            
+            // Debug MikroTik variables
+            console.log('🔧 MikroTik Variables:', {
+                username: CONFIG.USERNAME,
+                ip: CONFIG.IP,
+                mac: CONFIG.MAC,
+                interface: CONFIG.INTERFACE,
+                error: CONFIG.ERROR_MSG,
+                loginUrl: CONFIG.MIKROTIK_LOGIN_URL,
+                origUrl: CONFIG.MIKROTIK_ORIG_URL
+            });
+        });
+
+        // ===== CLEANUP =====
+        window.addEventListener('beforeunload', function() {
+            clearPaymentCheck();
+        });
+
+        // ===== PREVENT FORM DOUBLE SUBMISSION =====
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            const submitBtn = document.getElementById('loginBtn');
+            const password = document.getElementById('password').value.trim();
+            
+            if (!password) {
+                e.preventDefault();
+                showMessage('loginMessage', '⚠️ Digite sua senha para conectar', 'warning');
+                return false;
+            }
+            
+            // Disable button to prevent double submission
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading"></div> Conectando...';
+            
+            // Re-enable after 5 seconds in case of error
+            setTimeout(() => {
+                if (submitBtn.disabled) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>🚀 Conectar Agora</span>';
+                }
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
