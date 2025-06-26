@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
-const { authenticateApiToken } = require('../middleware/auth');
+const authenticateApiToken = require('../middleware/auth');
 const { createPaymentLimiter, generalLimiter } = require('../middleware/rateLimiter');
 
 // Apply rate limiting to all payment routes
