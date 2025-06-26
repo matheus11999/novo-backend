@@ -8,6 +8,9 @@ const authenticateUser = async (req, res, next) => {
         console.log('[AUTH] Request URL:', req.url);
         console.log('[AUTH] Authorization Header:', authHeader ? 'Present' : 'Missing');
         console.log('[AUTH] Token extracted:', token ? 'Present' : 'Missing');
+        console.log('[AUTH] Token length:', token ? token.length : 0);
+        console.log('[AUTH] Token segments:', token ? token.split('.').length : 0);
+        console.log('[AUTH] Token preview:', token ? token.substring(0, 50) + '...' : 'N/A');
         
         if (!token) {
             console.error('[AUTH] No token provided');
