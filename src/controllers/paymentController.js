@@ -59,7 +59,11 @@ class PaymentController {
             }
 
             const paymentId = uuidv4();
-            const webhookUrl = `${process.env.WEBHOOK_BASE_URL}/api/webhook/mercadopago`;
+            
+            // Generate webhook URL dynamically based on request
+            const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+            const host = req.get('host');
+            const webhookUrl = `${protocol}://${host}/api/webhook/mercadopago`;
 
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem);
             const valorTotal = parseFloat(plano.preco);
