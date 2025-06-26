@@ -317,6 +317,193 @@ const getSystemInfo = async (req, res) => {
   }
 };
 
+const restartSystem = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/system/restart', credentials, 'POST');
+
+    res.json({
+      success: true,
+      data: response.data,
+      message: 'Comando de reinicialização enviado com sucesso'
+    });
+  } catch (error) {
+    console.error('Restart system error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// ==================== SERVIDORES HOTSPOT ====================
+
+const getHotspotServers = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/hotspot/servers', credentials);
+
+    res.json({
+      success: true,
+      data: response.data,
+      count: response.count
+    });
+  } catch (error) {
+    console.error('Get hotspot servers error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const createHotspotServer = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/hotspot/servers', credentials, 'POST', req.body);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Create hotspot server error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const updateHotspotServer = async (req, res) => {
+  try {
+    const { mikrotikId, serverId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest(`/hotspot/servers?id=${serverId}`, credentials, 'PUT', req.body);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Update hotspot server error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const deleteHotspotServer = async (req, res) => {
+  try {
+    const { mikrotikId, serverId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest(`/hotspot/servers?id=${serverId}`, credentials, 'DELETE');
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Delete hotspot server error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// ==================== SERVER PROFILES ====================
+
+const getHotspotServerProfiles = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/hotspot/server-profiles', credentials);
+
+    res.json({
+      success: true,
+      data: response.data,
+      count: response.count
+    });
+  } catch (error) {
+    console.error('Get hotspot server profiles error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const createHotspotServerProfile = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/hotspot/server-profiles', credentials, 'POST', req.body);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Create hotspot server profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const updateHotspotServerProfile = async (req, res) => {
+  try {
+    const { mikrotikId, serverProfileId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest(`/hotspot/server-profiles?id=${serverProfileId}`, credentials, 'PUT', req.body);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Update hotspot server profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const deleteHotspotServerProfile = async (req, res) => {
+  try {
+    const { mikrotikId, serverProfileId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest(`/hotspot/server-profiles?id=${serverProfileId}`, credentials, 'DELETE');
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Delete hotspot server profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -329,5 +516,14 @@ module.exports = {
   updateHotspotUser,
   deleteHotspotUser,
   disconnectUser,
-  getSystemInfo
+  getSystemInfo,
+  restartSystem,
+  getHotspotServers,
+  createHotspotServer,
+  updateHotspotServer,
+  deleteHotspotServer,
+  getHotspotServerProfiles,
+  createHotspotServerProfile,
+  updateHotspotServerProfile,
+  deleteHotspotServerProfile
 };
