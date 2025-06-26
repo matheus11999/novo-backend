@@ -36,6 +36,4 @@ const authenticateApiToken = async (req, res, next) => {
     }
 };
 
-module.exports = {
-    authenticateApiToken
-};
+module.exports = authenticateApiToken;
