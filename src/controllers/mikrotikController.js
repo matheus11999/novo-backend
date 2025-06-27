@@ -70,24 +70,29 @@ const getStats = async (req, res) => {
     const { mikrotikId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
-    // Get system resource info with detailed logging
-    const [hotspotStats, systemInfo, systemResource] = await Promise.all([
+    // Get system resource info with detailed logging and error handling
+    const [hotspotStats, systemInfo, systemResource] = await Promise.allSettled([
       makeApiRequest('/hotspot/stats', credentials),
       makeApiRequest('/system/info', credentials),
       makeApiRequest('/system/resource', credentials)
     ]);
 
+    // Extract successful results or provide defaults
+    const hotspotData = hotspotStats.status === 'fulfilled' ? hotspotStats.value : { data: {} };
+    const systemData = systemInfo.status === 'fulfilled' ? systemInfo.value : { data: {} };
+    const resourceData = systemResource.status === 'fulfilled' ? systemResource.value : { data: {} };
+
     // Combine system info and resource data for comprehensive stats
     const combinedSystemData = {
-      ...systemInfo.data,
-      resource: systemResource.data
+      ...systemData.data,
+      resource: resourceData.data
     };
 
     res.json({
       success: true,
       data: {
         mikrotik: credentials.mikrotik,
-        hotspot: hotspotStats.data,
+        hotspot: hotspotData.data,
         system: combinedSystemData
       }
     });
@@ -724,25 +729,37 @@ const applyTemplate = async (req, res) => {
     
     console.log('Template will be available at:', downloadUrl)
 
-    // Create a simple script that uses MikroTik fetch to download the template  
-    const fetchScript = `/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html"
-:delay 3s`;
+    // Create a simple script that creates directory and downloads template
+    const fetchScript = `/file print file="flash/mikropix" without-paging
+/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html"`;
 
-    const fetchResponse = await axios.post(`${MIKROTIK_API_URL}/scripts/run`, {
-      script: fetchScript
-    }, {
-      params: {
-        ip: credentials.ip,
-        username: credentials.username,
-        password: credentials.password,
-        port: credentials.port
-      },
-      headers: {
-        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+    let fetchResponse;
+    try {
+      fetchResponse = await axios.post(`${MIKROTIK_API_URL}/scripts/run`, {
+        script: fetchScript
+      }, {
+        params: {
+          ip: credentials.ip,
+          username: credentials.username,
+          password: credentials.password,
+          port: credentials.port
+        },
+        headers: {
+          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+        }
+      })
+    } catch (scriptError) {
+      console.warn('Warning: Script execution failed, but template is available for manual download:', scriptError.message)
+      fetchResponse = { 
+        data: { 
+          success: false, 
+          error: 'Script execution failed, but template is hosted and can be downloaded manually',
+          downloadUrl: downloadUrl
+        } 
       }
-    })
+    }
 
-    // Update server profile to use the new template
+    // Update server profile to use the new template directory
     if (serverProfileId) {
       try {
         console.log('Updating server profile with template path...')
@@ -768,6 +785,51 @@ const applyTemplate = async (req, res) => {
       }
     }
 
+    // Also update the hotspot server itself to use the new directory
+    try {
+      console.log('Getting hotspot servers to update HTML directory...')
+      const serversResponse = await axios.get(`${MIKROTIK_API_URL}/hotspot/servers`, {
+        params: {
+          ip: credentials.ip,
+          username: credentials.username,
+          password: credentials.password,
+          port: credentials.port
+        },
+        headers: {
+          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+        }
+      })
+
+      const servers = serversResponse.data.data || []
+      console.log(`Found ${servers.length} hotspot servers`)
+
+      // Update each server to use the new HTML directory
+      for (const server of servers) {
+        try {
+          console.log(`Updating hotspot server: ${server.name || server['.id']}`)
+          await axios.put(`${MIKROTIK_API_URL}/hotspot/servers`, {
+            'html-directory': '/flash/mikropix'
+          }, {
+            params: {
+              ip: credentials.ip,
+              username: credentials.username,
+              password: credentials.password,
+              port: credentials.port,
+              id: server['.id']
+            },
+            headers: {
+              'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+            }
+          })
+          console.log(`Hotspot server ${server.name || server['.id']} updated successfully`)
+        } catch (serverError) {
+          console.warn(`Warning: Failed to update hotspot server ${server.name || server['.id']}:`, serverError.message)
+        }
+      }
+    } catch (serverListError) {
+      console.warn('Warning: Failed to get/update hotspot servers:', serverListError.message)
+    }
+
     // Clean up the cached template after some time
     setTimeout(() => {
       global.templateCache.delete(templateFileName)
@@ -780,9 +842,12 @@ const applyTemplate = async (req, res) => {
         templateId,
         mikrotikId,
         serverProfileId,
-        fetch: fetchResponse.data
+        fetch: fetchResponse.data,
+        templateHosted: true
       },
-      message: 'Template aplicado com sucesso usando fetch'
+      message: fetchResponse.data.success !== false 
+        ? 'Template aplicado com sucesso usando fetch' 
+        : `Template hospedado com sucesso. Download manual disponível em: ${downloadUrl}`
     })
 
   } catch (error) {
