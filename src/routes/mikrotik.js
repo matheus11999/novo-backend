@@ -34,4 +34,7 @@ router.post('/hotspot/server-profiles/:mikrotikId', mikrotikController.createHot
 router.put('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikController.updateHotspotServerProfile);
 router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikController.deleteHotspotServerProfile);
 
+// Rotas para templates
+router.post('/templates/apply', mikrotikController.applyTemplate);
+
 module.exports = router;

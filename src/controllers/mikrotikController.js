@@ -696,6 +696,68 @@ const deleteHotspotServerProfile = async (req, res) => {
   }
 };
 
+// ==================== TEMPLATES ====================
+
+// Apply template to MikroTik
+const applyTemplate = async (req, res) => {
+  try {
+    const { 
+      mikrotikId, 
+      serverProfileId, 
+      templateId, 
+      templateContent, 
+      variables, 
+      mikrotikParams 
+    } = req.body
+
+    // Get MikroTik credentials
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id)
+
+    // Create directory structure in MikroTik
+    const dirResponse = await makeApiRequest('/files/create-directory', credentials, 'POST', {
+      path: '/flash/mikropix'
+    })
+
+    // Upload template file to MikroTik
+    const uploadResponse = await makeApiRequest('/files/upload', credentials, 'POST', {
+      files: [
+        {
+          path: '/flash/mikropix/login.html',
+          content: templateContent
+        }
+      ]
+    })
+
+    // Update server profile to use the new template
+    try {
+      const updateProfileResponse = await makeApiRequest(`/hotspot/server-profiles?id=${serverProfileId}`, credentials, 'PUT', {
+        'html-directory': '/flash/mikropix',
+        'login-page': 'login.html'
+      })
+    } catch (profileError) {
+      console.warn('Falha ao atualizar perfil do servidor, mas template foi aplicado:', profileError.message)
+    }
+
+    res.json({
+      success: true,
+      data: {
+        upload: uploadResponse.data,
+        templateId,
+        mikrotikId,
+        serverProfileId
+      },
+      message: 'Template aplicado com sucesso'
+    })
+
+  } catch (error) {
+    console.error('Error applying template:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro interno do servidor'
+    })
+  }
+}
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -720,5 +782,6 @@ module.exports = {
   getHotspotServerProfiles,
   createHotspotServerProfile,
   updateHotspotServerProfile,
-  deleteHotspotServerProfile
+  deleteHotspotServerProfile,
+  applyTemplate
 };
