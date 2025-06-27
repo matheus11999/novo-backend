@@ -713,20 +713,42 @@ const applyTemplate = async (req, res) => {
     // Get MikroTik credentials
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id)
 
-    // Create directory structure in MikroTik
-    const dirResponse = await makeApiRequest('/files/create-directory', credentials, 'POST', {
-      path: '/flash/mikropix'
-    })
+    // Create directory structure in MikroTik using the new files API
+    try {
+      const dirResponse = await axios.post(`${MIKROTIK_API_URL}/files/create-directory`, {
+        path: '/flash/mikropix'
+      }, {
+        params: {
+          ip: credentials.ip,
+          username: credentials.username,
+          password: credentials.password,
+          port: credentials.port
+        }
+      })
+      
+      console.log('Directory creation response:', dirResponse.status)
+    } catch (dirError) {
+      console.warn('Warning: Directory creation failed:', dirError.message)
+    }
 
-    // Upload template file to MikroTik
-    const uploadResponse = await makeApiRequest('/files/upload', credentials, 'POST', {
+    // Upload template file to MikroTik using the new files API
+    const uploadResponse = await axios.post(`${MIKROTIK_API_URL}/files/upload`, {
       files: [
         {
           path: '/flash/mikropix/login.html',
           content: templateContent
         }
       ]
+    }, {
+      params: {
+        ip: credentials.ip,
+        username: credentials.username,
+        password: credentials.password,
+        port: credentials.port
+      }
     })
+
+    const uploadResult = uploadResponse.data
 
     // Update server profile to use the new template
     try {
@@ -741,7 +763,7 @@ const applyTemplate = async (req, res) => {
     res.json({
       success: true,
       data: {
-        upload: uploadResponse.data,
+        upload: uploadResult,
         templateId,
         mikrotikId,
         serverProfileId
