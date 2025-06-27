@@ -902,6 +902,168 @@ const applyTemplate = async (req, res) => {
   }
 }
 
+// ==================== WIREGUARD FUNCTIONS ====================
+
+const createWireGuardConfig = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const userId = req.user.id;
+
+    // Verificar se o usuário tem acesso ao MikroTik
+    const credentials = await getMikrotikCredentials(mikrotikId, userId);
+    
+    console.log('Creating WireGuard config for MikroTik:', mikrotikId);
+
+    // Criar cliente WireGuard na API VPS2
+    const response = await axios.post(`${MIKROTIK_API_URL}/wireguard/clients`, {
+      clientName: `mikrotik-${mikrotikId}`,
+      mikrotikId: mikrotikId
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
+      }
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Falha ao criar configuração WireGuard');
+    }
+
+    // Salvar informações WireGuard no banco de dados
+    const { error: updateError } = await supabase
+      .from('mikrotiks')
+      .update({
+        wireguard_client_name: `mikrotik-${mikrotikId}`,
+        wireguard_config_generated: true,
+        wireguard_created_at: new Date().toISOString()
+      })
+      .eq('id', mikrotikId)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.warn('Warning: Failed to save WireGuard info to database:', updateError.message);
+    }
+
+    res.json({
+      success: true,
+      data: response.data.data,
+      message: 'Configuração WireGuard criada com sucesso'
+    });
+
+  } catch (error) {
+    console.error('Error creating WireGuard config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Erro ao criar configuração WireGuard'
+    });
+  }
+};
+
+const getWireGuardConfig = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const userId = req.user.id;
+
+    // Verificar se o usuário tem acesso ao MikroTik
+    const credentials = await getMikrotikCredentials(mikrotikId, userId);
+    
+    console.log('Getting WireGuard config for MikroTik:', mikrotikId);
+
+    // Obter/recriar configuração WireGuard
+    const response = await axios.post(`${MIKROTIK_API_URL}/wireguard/recreate-config`, {
+      mikrotikId: mikrotikId
+    }, {
+      headers: {
+        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
+      }
+    });
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Falha ao obter configuração WireGuard');
+    }
+
+    // Atualizar informações no banco se necessário
+    if (response.data.data.isNewClient) {
+      const { error: updateError } = await supabase
+        .from('mikrotiks')
+        .update({
+          wireguard_client_name: `mikrotik-${mikrotikId}`,
+          wireguard_config_generated: true,
+          wireguard_created_at: new Date().toISOString()
+        })
+        .eq('id', mikrotikId)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.warn('Warning: Failed to save WireGuard info to database:', updateError.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: response.data.data,
+      message: response.data.message
+    });
+
+  } catch (error) {
+    console.error('Error getting WireGuard config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Erro ao obter configuração WireGuard'
+    });
+  }
+};
+
+const deleteWireGuardConfig = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const userId = req.user.id;
+
+    // Verificar se o usuário tem acesso ao MikroTik
+    const credentials = await getMikrotikCredentials(mikrotikId, userId);
+    
+    console.log('Deleting WireGuard config for MikroTik:', mikrotikId);
+
+    // Deletar cliente WireGuard na API VPS2
+    const clientName = `mikrotik-${mikrotikId}`;
+    const response = await axios.delete(`${MIKROTIK_API_URL}/wireguard/clients/${clientName}`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
+      }
+    });
+
+    // Limpar informações WireGuard no banco de dados
+    const { error: updateError } = await supabase
+      .from('mikrotiks')
+      .update({
+        wireguard_client_name: null,
+        wireguard_config_generated: false,
+        wireguard_created_at: null
+      })
+      .eq('id', mikrotikId)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.warn('Warning: Failed to clear WireGuard info from database:', updateError.message);
+    }
+
+    res.json({
+      success: true,
+      data: response.data,
+      message: 'Configuração WireGuard removida com sucesso'
+    });
+
+  } catch (error) {
+    console.error('Error deleting WireGuard config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Erro ao remover configuração WireGuard'
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -927,5 +1089,8 @@ module.exports = {
   createHotspotServerProfile,
   updateHotspotServerProfile,
   deleteHotspotServerProfile,
-  applyTemplate
+  applyTemplate,
+  createWireGuardConfig,
+  getWireGuardConfig,
+  deleteWireGuardConfig
 };
