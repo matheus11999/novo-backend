@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { supabase } = require('../config/database');
 
-const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL;
+const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL || 'http://localhost:3001';
 
 const getMikrotikCredentials = async (mikrotikId, userId) => {
   const { data: mikrotik, error } = await supabase
@@ -721,7 +721,7 @@ const applyTemplate = async (req, res) => {
     global.templateCache.set(templateFileName, templateContent)
     
     // Create the download URL that MikroTik will fetch from
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3001'
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000'
     const downloadUrl = `${baseUrl}/api/mikrotik/template/${templateFileName}`
     
     console.log('Template will be available at:', downloadUrl)
