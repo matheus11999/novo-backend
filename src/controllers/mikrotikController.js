@@ -762,24 +762,86 @@ const applyTemplate = async (req, res) => {
     if (serverProfileId) {
       try {
         console.log('Updating server profile with template path...')
-        const updateProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
-          'html_directory': '/flash/mikropix'
-        }, {
-          params: {
-            ip: credentials.ip,
-            username: credentials.username,
-            password: credentials.password,
-            port: credentials.port,
-            id: serverProfileId
-          },
-          headers: {
-            'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
-          }
-        })
         
-        console.log('Server profile updated successfully:', updateProfileResponse.status)
+        // First, get list of available server profiles to check if target exists
+        let serverProfiles = []
+        try {
+          const listResponse = await axios.get(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
+            params: {
+              ip: credentials.ip,
+              username: credentials.username,
+              password: credentials.password,
+              port: credentials.port
+            },
+            headers: {
+              'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+            }
+          })
+          serverProfiles = listResponse.data.data || []
+          console.log('Available server profiles:', serverProfiles.map(p => ({ id: p['.id'], name: p.name })))
+        } catch (listError) {
+          console.warn('Could not list server profiles:', listError.message)
+        }
+
+        // Check if the serverProfileId exists in server profiles
+        const targetServerProfile = serverProfiles.find(p => p['.id'] === serverProfileId || p.name === serverProfileId)
+        
+        if (targetServerProfile) {
+          console.log(`Found target server profile: ${targetServerProfile.name} (ID: ${targetServerProfile['.id']})`)
+          try {
+            const updateServerProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
+              'html_directory': '/flash/mikropix'
+            }, {
+              params: {
+                ip: credentials.ip,
+                username: credentials.username,
+                password: credentials.password,
+                port: credentials.port,
+                id: targetServerProfile['.id']
+              },
+              headers: {
+                'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+              }
+            })
+            console.log('Server profile updated successfully:', updateServerProfileResponse.status)
+          } catch (updateError) {
+            console.error('Failed to update server profile:', updateError.message)
+            throw updateError
+          }
+        } else {
+          console.log('Server profile not found, trying to find and update first available server profile...')
+          
+          if (serverProfiles.length > 0) {
+            const firstProfile = serverProfiles[0]
+            console.log(`Using first available server profile: ${firstProfile.name} (ID: ${firstProfile['.id']})`)
+            
+            try {
+              const updateServerProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
+                'html_directory': '/flash/mikropix'
+              }, {
+                params: {
+                  ip: credentials.ip,
+                  username: credentials.username,
+                  password: credentials.password,
+                  port: credentials.port,
+                  id: firstProfile['.id']
+                },
+                headers: {
+                  'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+                }
+              })
+              console.log('Server profile updated successfully:', updateServerProfileResponse.status)
+            } catch (updateError) {
+              console.error('Failed to update server profile:', updateError.message)
+              throw updateError
+            }
+          } else {
+            console.warn('No server profiles found. Template uploaded but directory not changed.')
+          }
+        }
       } catch (profileError) {
-        console.warn('Warning: Failed to update server profile:', profileError.message)
+        console.error('Error updating server profile:', profileError.message)
+        throw new Error(`Failed to update hotspot directory: ${profileError.message}`)
       }
     }
 
