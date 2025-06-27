@@ -106,9 +106,5 @@ router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikC
 // Rotas para templates
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
-// Rotas para WireGuard
-router.post('/wireguard/config/:mikrotikId', mikrotikController.createWireGuardConfig);
-router.get('/wireguard/config/:mikrotikId', mikrotikController.getWireGuardConfig);
-router.delete('/wireguard/config/:mikrotikId', mikrotikController.deleteWireGuardConfig);
 
 module.exports = router;
