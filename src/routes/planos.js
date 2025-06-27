@@ -223,6 +223,8 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { mikrotik_id, nome, descricao, valor, minutos, velocidade_download, velocidade_upload, limite_dados, ativo, visivel, ordem, rate_limit, session_timeout, idle_timeout } = req.body;
     
+    console.log('Updating plan:', { id, nome, valor, rate_limit, session_timeout, idle_timeout });
+    
     // Buscar plano existente
     const { data: planoExistente, error: planoError } = await supabase
       .from('planos')
@@ -231,6 +233,7 @@ router.put('/:id', async (req, res) => {
       .single();
     
     if (planoError || !planoExistente) {
+      console.error('Plan not found:', planoError);
       return res.status(404).json({
         success: false,
         error: 'Plano não encontrado'
@@ -239,16 +242,26 @@ router.put('/:id', async (req, res) => {
     
     // Atualizar profile no MikroTik se existir mikrotik_profile_id
     if (planoExistente.mikrotik_profile_id && mikrotik_id) {
-      const credentials = await getMikrotikCredentials(mikrotik_id, req.user.id);
-      
-      const mikrotikProfileData = {
-        name: nome,
-        'rate-limit': rate_limit || `${velocidade_upload || '1M'}/${velocidade_download || '1M'}`,
-        'session-timeout': session_timeout || (minutos ? `${minutos * 60}` : '3600'),
-        'idle-timeout': idle_timeout || '300'
-      };
-      
-      await makeApiRequest(`/hotspot/profiles?id=${planoExistente.mikrotik_profile_id}`, credentials, 'PUT', mikrotikProfileData);
+      try {
+        const credentials = await getMikrotikCredentials(mikrotik_id, req.user.id);
+        
+        const mikrotikProfileData = {
+          name: nome,
+          'rate-limit': rate_limit || `${velocidade_upload || '1M'}/${velocidade_download || '1M'}`,
+          'session-timeout': session_timeout || (minutos ? `${minutos * 60}` : '3600'),
+          'idle-timeout': idle_timeout || '300'
+        };
+        
+        console.log('Updating MikroTik profile:', { profileId: planoExistente.mikrotik_profile_id, data: mikrotikProfileData });
+        
+        // Use the profile name instead of ID for the API call
+        await makeApiRequest(`/hotspot/profiles?name=${planoExistente.nome}`, credentials, 'PUT', mikrotikProfileData);
+        
+        console.log('MikroTik profile updated successfully');
+      } catch (mikrotikError) {
+        console.warn('Failed to update MikroTik profile, continuing with database update:', mikrotikError.message);
+        // Continue with database update even if MikroTik update fails
+      }
     }
     
     // Atualizar no Supabase
@@ -267,7 +280,8 @@ router.put('/:id', async (req, res) => {
         limite_dados: limite_dados || planoExistente.limite_dados,
         ativo: ativo !== undefined ? ativo : planoExistente.ativo,
         visivel: visivel !== undefined ? visivel : planoExistente.visivel,
-        ordem: ordem !== undefined ? ordem : planoExistente.ordem
+        ordem: ordem !== undefined ? ordem : planoExistente.ordem,
+        updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
@@ -280,6 +294,8 @@ router.put('/:id', async (req, res) => {
         error: 'Erro ao atualizar plano no banco de dados'
       });
     }
+    
+    console.log('Plan updated successfully in database:', data.nome);
     
     res.json({
       success: true,
