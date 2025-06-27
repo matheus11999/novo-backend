@@ -425,6 +425,78 @@ const getSystemInfo = async (req, res) => {
   }
 };
 
+const getDetailedSystemInfo = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const [systemInfo, resource, interfaces, logs] = await Promise.all([
+      makeApiRequest('/system/info', credentials),
+      makeApiRequest('/system/resource', credentials),
+      makeApiRequest('/system/interfaces', credentials),
+      makeApiRequest('/system/logs', credentials).catch(() => ({ data: [] }))
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        mikrotik: credentials.mikrotik,
+        system: systemInfo.data,
+        resource: resource.data,
+        interfaces: interfaces.data,
+        logs: logs.data,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Get detailed system info error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const getSystemResource = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/system/resource', credentials);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Get system resource error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+const getSystemInterfaces = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    const response = await makeApiRequest('/system/interfaces', credentials);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Get system interfaces error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 const restartSystem = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
@@ -625,6 +697,9 @@ module.exports = {
   deleteHotspotUser,
   disconnectUser,
   getSystemInfo,
+  getDetailedSystemInfo,
+  getSystemResource,
+  getSystemInterfaces,
   restartSystem,
   getHotspotServers,
   createHotspotServer,

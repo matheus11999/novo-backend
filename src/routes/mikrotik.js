@@ -17,6 +17,9 @@ router.put('/hotspot/users/:mikrotikId/:userId', mikrotikController.updateHotspo
 router.delete('/hotspot/users/:mikrotikId/:userId', mikrotikController.deleteHotspotUser);
 router.post('/hotspot/disconnect/:mikrotikId/:userId', mikrotikController.disconnectUser);
 router.get('/system/info/:mikrotikId', mikrotikController.getSystemInfo);
+router.get('/system/detailed-info/:mikrotikId', mikrotikController.getDetailedSystemInfo);
+router.get('/system/resource/:mikrotikId', mikrotikController.getSystemResource);
+router.get('/system/interfaces/:mikrotikId', mikrotikController.getSystemInterfaces);
 router.post('/system/restart/:mikrotikId', mikrotikController.restartSystem);
 
 // Rotas para servidores hotspot

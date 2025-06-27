@@ -306,6 +306,7 @@ router.delete('/:id', async (req, res) => {
     if (plano.mikrotik_profile_id && plano.mikrotik_id) {
       try {
         const credentials = await getMikrotikCredentials(plano.mikrotik_id, req.user.id);
+        // Para deletar, precisamos passar o ID via query parameter
         await makeApiRequest(`/hotspot/profiles?id=${plano.mikrotik_profile_id}`, credentials, 'DELETE');
       } catch (mikrotikError) {
         console.warn('Erro ao deletar profile do MikroTik:', mikrotikError.message);
