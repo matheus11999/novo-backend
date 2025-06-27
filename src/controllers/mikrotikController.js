@@ -1116,7 +1116,11 @@ const deleteWireRestPeer = async (req, res) => {
     
     console.log(`[DELETE-PEER] Deletando peer: ${publicKey}`);
     
-    const response = await axios.delete(`${WIREREST_URL}/v1/peers/${publicKey}`, {
+    // Use query parameter as expected by the WireRest API
+    const response = await axios.delete(`${WIREREST_URL}/v1/peers`, {
+      params: {
+        publicKey: publicKey
+      },
       headers: {
         'accept': 'application/json',
         'Authorization': `Bearer ${WIREREST_TOKEN}`
