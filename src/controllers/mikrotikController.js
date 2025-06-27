@@ -46,10 +46,8 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
       headers: {}
     };
 
-    // Adicionar token da API MikroTik se configurado
-    if (process.env.MIKROTIK_API_TOKEN) {
-      config.headers['Authorization'] = `Bearer ${process.env.MIKROTIK_API_TOKEN}`;
-    }
+    // Adicionar token da API MikroTik
+    config.headers['Authorization'] = `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`;
 
     if (data && (method === 'POST' || method === 'PUT')) {
       config.data = data;
@@ -721,7 +719,7 @@ const applyTemplate = async (req, res) => {
     global.templateCache.set(templateFileName, templateContent)
     
     // Create the download URL that MikroTik will fetch from
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3001'
+    const baseUrl = process.env.BASE_URL || 'https://api.mikropix.online'
     const downloadUrl = `${baseUrl}/api/mikrotik/template/${templateFileName}`
     
     console.log('Template will be available at:', downloadUrl)
@@ -746,6 +744,9 @@ const applyTemplate = async (req, res) => {
         username: credentials.username,
         password: credentials.password,
         port: credentials.port
+      },
+      headers: {
+        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
       }
     })
 
@@ -763,6 +764,9 @@ const applyTemplate = async (req, res) => {
             password: credentials.password,
             port: credentials.port,
             id: serverProfileId
+          },
+          headers: {
+            'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
           }
         })
         
