@@ -1043,6 +1043,78 @@ const createWireRestPeer = async (req, res) => {
   }
 };
 
+const getWireRestPeers = async (req, res) => {
+  try {
+    const WIREREST_URL = 'http://193.181.208.141:8081';
+    const WIREREST_TOKEN = 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
+    
+    const response = await axios.get(`${WIREREST_URL}/v1/peers`, {
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${WIREREST_TOKEN}`
+      },
+      timeout: 10000
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error getting WireRest peers:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao buscar peers WireGuard'
+    });
+  }
+};
+
+const updateWireRestPeer = async (req, res) => {
+  try {
+    const { publicKey } = req.params;
+    const WIREREST_URL = 'http://193.181.208.141:8081';
+    const WIREREST_TOKEN = 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
+    
+    const response = await axios.put(`${WIREREST_URL}/v1/peers/${publicKey}`, req.body, {
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${WIREREST_TOKEN}`
+      },
+      timeout: 10000
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error updating WireRest peer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao atualizar peer WireGuard'
+    });
+  }
+};
+
+const deleteWireRestPeer = async (req, res) => {
+  try {
+    const { publicKey } = req.params;
+    const WIREREST_URL = 'http://193.181.208.141:8081';
+    const WIREREST_TOKEN = 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
+    
+    const response = await axios.delete(`${WIREREST_URL}/v1/peers/${publicKey}`, {
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${WIREREST_TOKEN}`
+      },
+      timeout: 10000
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error deleting WireRest peer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao deletar peer WireGuard'
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1070,5 +1142,8 @@ module.exports = {
   deleteHotspotServerProfile,
   applyTemplate,
   getWireRestInterface,
-  createWireRestPeer
+  createWireRestPeer,
+  getWireRestPeers,
+  updateWireRestPeer,
+  deleteWireRestPeer
 };

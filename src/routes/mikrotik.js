@@ -108,6 +108,9 @@ router.post('/templates/apply', mikrotikController.applyTemplate);
 
 // Rotas para WireRest proxy (corrigir CORS)
 router.get('/wirerest/interface', mikrotikController.getWireRestInterface);
+router.get('/wirerest/peers', mikrotikController.getWireRestPeers);
 router.post('/wirerest/peers', mikrotikController.createWireRestPeer);
+router.put('/wirerest/peers/:publicKey', mikrotikController.updateWireRestPeer);
+router.delete('/wirerest/peers/:publicKey', mikrotikController.deleteWireRestPeer);
 
 module.exports = router;
