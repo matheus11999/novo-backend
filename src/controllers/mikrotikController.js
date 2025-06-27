@@ -1132,6 +1132,108 @@ const deleteWireRestPeer = async (req, res) => {
   }
 };
 
+// Gerar configuração WireGuard para MikroTik
+const generateWireGuardConfig = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    
+    // Buscar MikroTik com dados WireGuard
+    const { data: mikrotik, error } = await supabase
+      .from('mikrotiks')
+      .select('*')
+      .eq('id', mikrotikId)
+      .eq('user_id', req.user.id)
+      .single();
+    
+    if (error || !mikrotik) {
+      return res.status(404).json({
+        success: false,
+        error: 'MikroTik não encontrado'
+      });
+    }
+    
+    if (!mikrotik.wireguard_public_key) {
+      return res.status(400).json({
+        success: false,
+        error: 'MikroTik não possui configuração WireGuard'
+      });
+    }
+    
+    // Buscar chave pública do servidor WireRest
+    let serverPublicKey = 'ciFLsDGcfJLg4pxT/+lMIqUlcbeaVbqn/bxz9E+Qjy8='; // fallback
+    try {
+      const serverInfo = await getWireRestInterface();
+      if (serverInfo.success && serverInfo.data.publicKey) {
+        serverPublicKey = serverInfo.data.publicKey;
+      }
+    } catch (error) {
+      console.warn('Usando chave pública padrão do servidor');
+    }
+    
+    // Extrair IP do cliente
+    const clientIP = mikrotik.wireguard_allowed_subnets?.split(',')[0] || '10.8.0.3/24';
+    
+    // Gerar configuração MikroTik
+    const mikrotikConfig = `/interface/wireguard
+add name="wg-client" private-key="${mikrotik.wireguard_private_key}" listen-port=51820 comment="Interface WireGuard cliente - Criado automaticamente"
+/interface/wireguard/peers
+add interface="wg-client" public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="193.181.208.141" endpoint-port="51820" persistent-keepalive="25s" comment="Peer servidor WireGuard - Criado automaticamente"
+/ip/address
+add address="${clientIP}" interface="wg-client" comment="IP WireGuard tunnel - Criado automaticamente"
+/ip/dns
+set servers="1.1.1.1" allow-remote-requests=yes
+/ip/route
+add dst-address="0.0.0.0/0" gateway="wg-client" distance=1 comment="Rota padrão via WireGuard - Criado automaticamente"
+/ip/firewall/filter
+add chain="input" protocol="udp" port="51820" action="accept" comment="Permitir WireGuard UDP - Criado automaticamente"
+add chain="forward" out-interface="wg-client" action="accept" comment="Permitir forward para WireGuard - Criado automaticamente"
+add chain="forward" in-interface="wg-client" action="accept" comment="Permitir forward do WireGuard - Criado automaticamente"
+/ip/firewall/nat
+add chain="srcnat" out-interface="wg-client" action="masquerade" comment="NAT para WireGuard - Criado automaticamente"
+/ip/firewall/mangle
+add chain="prerouting" in-interface="wg-client" action="mark-connection" new-connection-mark="wireguard-conn" comment="Marcar conexões WireGuard - Criado automaticamente"
+add chain="prerouting" connection-mark="wireguard-conn" action="mark-packet" new-packet-mark="wireguard-packet" comment="Marcar pacotes WireGuard - Criado automaticamente"
+/interface/wireguard
+set [find name="wg-client"] disabled=no`;
+    
+    // Dados para QR Code
+    const clientConfig = `[Interface]
+PrivateKey = ${mikrotik.wireguard_private_key}
+Address = ${clientIP}
+DNS = 1.1.1.1
+
+[Peer]
+PublicKey = ${serverPublicKey}
+PresharedKey = ${mikrotik.wireguard_preshared_key || ''}
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = 193.181.208.141:51820
+PersistentKeepalive = 25`;
+    
+    res.json({
+      success: true,
+      data: {
+        mikrotikConfig,
+        clientConfig,
+        client: {
+          clientName: mikrotik.nome,
+          clientAddress: clientIP,
+          serverEndpoint: '193.181.208.141',
+          serverPort: '51820',
+          publicKey: mikrotik.wireguard_public_key,
+          privateKey: mikrotik.wireguard_private_key,
+          presharedKey: mikrotik.wireguard_preshared_key
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao gerar configuração WireGuard:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro interno do servidor'
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1162,5 +1264,6 @@ module.exports = {
   createWireRestPeer,
   getWireRestPeers,
   updateWireRestPeer,
-  deleteWireRestPeer
+  deleteWireRestPeer,
+  generateWireGuardConfig
 };

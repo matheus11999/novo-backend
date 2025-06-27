@@ -113,4 +113,7 @@ router.post('/wirerest/peers', mikrotikController.createWireRestPeer);
 router.put('/wirerest/peers/:publicKey', mikrotikController.updateWireRestPeer);
 router.delete('/wirerest/peers/:publicKey', mikrotikController.deleteWireRestPeer);
 
+// Rota para gerar configuração WireGuard
+router.get('/wireguard/config/:mikrotikId', mikrotikController.generateWireGuardConfig);
+
 module.exports = router;
