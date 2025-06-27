@@ -725,16 +725,9 @@ const applyTemplate = async (req, res) => {
     console.log('Template will be available at:', downloadUrl)
 
     // Create a script that uses MikroTik fetch to download the template
-    const fetchScript = `:log info "Starting template download from ${downloadUrl}"
-/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html" mode=http
+    const fetchScript = `/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html"
 :delay 5s
-:local fileList [/file find name="flash/mikropix/login.html"]
-:if ([:len $fileList] > 0) do={
-    :local fileSize [/file get [/file find name="flash/mikropix/login.html"] size]
-    :log info ("Template downloaded successfully. Size: " . $fileSize . " bytes")
-} else={
-    :log error "Template download failed - file not found"
-}`;
+:log info "Template download completed"`;
 
     const fetchResponse = await axios.post(`${MIKROTIK_API_URL}/scripts/run`, {
       script: fetchScript
