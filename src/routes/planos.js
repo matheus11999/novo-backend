@@ -37,6 +37,11 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
     port: credentials.port
   });
 
+  // Add id parameter if it exists in data for PUT/DELETE operations
+  if (data && data.id && (method === 'PUT' || method === 'DELETE')) {
+    params.append('id', data.id);
+  }
+
   const config = {
     method,
     url: `${process.env.MIKROTIK_API_URL}${endpoint}?${params}`,
@@ -47,7 +52,9 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
   };
 
   if (data && (method === 'POST' || method === 'PUT')) {
-    config.data = data;
+    // Remove id from body data since it's now in URL params
+    const { id, ...bodyData } = data;
+    config.data = bodyData;
   }
 
   const response = await axios(config);
@@ -254,8 +261,11 @@ router.put('/:id', async (req, res) => {
         
         console.log('Updating MikroTik profile:', { profileId: planoExistente.mikrotik_profile_id, data: mikrotikProfileData });
         
-        // Use the profile name instead of ID for the API call
-        await makeApiRequest(`/hotspot/profiles?name=${planoExistente.nome}`, credentials, 'PUT', mikrotikProfileData);
+        // Use the profile ID for the API call
+        await makeApiRequest(`/hotspot/profiles`, credentials, 'PUT', {
+          ...mikrotikProfileData,
+          id: planoExistente.mikrotik_profile_id
+        });
         
         console.log('MikroTik profile updated successfully');
       } catch (mikrotikError) {
