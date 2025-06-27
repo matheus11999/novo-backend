@@ -1056,7 +1056,24 @@ const getWireRestPeers = async (req, res) => {
       timeout: 10000
     });
     
-    res.json(response.data);
+    console.log('WireRest peers response:', response.data);
+    
+    // Process the response data to add status and other info
+    const peers = response.data.content || [];
+    const processedPeers = peers.map(peer => ({
+      ...peer,
+      id: peer.publicKey, // Use publicKey as ID
+      enabled: true, // WireRest doesn't have disabled state, assume enabled
+      isConnected: peer.latestHandshake > 0 && (Date.now() - peer.latestHandshake) < 300000, // Connected if handshake within 5 minutes
+      lastHandshake: peer.latestHandshake > 0 ? new Date(peer.latestHandshake).toISOString() : null
+    }));
+    
+    res.json({
+      success: true,
+      peers: processedPeers,
+      total: response.data.totalPages || 1,
+      currentPage: response.data.currentPage || 0
+    });
   } catch (error) {
     console.error('Error getting WireRest peers:', error);
     res.status(500).json({
