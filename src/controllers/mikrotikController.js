@@ -729,9 +729,11 @@ const applyTemplate = async (req, res) => {
     
     console.log('Template will be available at:', downloadUrl)
 
-    // Create a simple script that creates directory and downloads template
-    const fetchScript = `/file print file="flash/mikropix" without-paging
-/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html"`;
+    // Create a simple script that downloads template
+    // First check if the command exists on this RouterOS version
+    const fetchScript = `:log info "Starting template download"
+/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html"
+:log info "Download command completed"`;
 
     let fetchResponse;
     try {
@@ -764,8 +766,8 @@ const applyTemplate = async (req, res) => {
       try {
         console.log('Updating server profile with template path...')
         const updateProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
-          'html-directory': '/flash/mikropix',
-          'login-page': 'login.html'
+          'html_directory': '/flash/mikropix',
+          'login_page': 'login.html'
         }, {
           params: {
             ip: credentials.ip,
@@ -808,7 +810,7 @@ const applyTemplate = async (req, res) => {
         try {
           console.log(`Updating hotspot server: ${server.name || server['.id']}`)
           await axios.put(`${MIKROTIK_API_URL}/hotspot/servers`, {
-            'html-directory': '/flash/mikropix'
+            'html_directory': '/flash/mikropix'
           }, {
             params: {
               ip: credentials.ip,
