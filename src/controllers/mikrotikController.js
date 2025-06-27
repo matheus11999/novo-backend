@@ -1007,13 +1007,17 @@ const createWireGuardConfig = async (req, res) => {
     console.log('Creating WireGuard config for MikroTik:', mikrotikId);
 
     // Criar cliente WireGuard na API VPS2
+    const clientName = `mikrotik-${mikrotikId}`;
+    
     const response = await axios.post(`${MIKROTIK_API_URL}/wireguard/clients`, {
-      clientName: `mikrotik-${mikrotikId}`,
+      clientName: clientName,
       mikrotikId: mikrotikId
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-      }
+        'Content-Type': 'application/json'
+        // Remover header de Authorization pois o VPS2 não está configurado com token
+      },
+      timeout: 30000
     });
 
     if (!response.data.success) {
@@ -1022,18 +1026,11 @@ const createWireGuardConfig = async (req, res) => {
 
     const wireguardData = response.data.data;
 
-    // Gerar configuração MikroTik
-    const configResponse = await axios.get(`${MIKROTIK_API_URL}/wireguard/clients/${wireguardData.client.clientName}/mikrotik-config/${mikrotikId}`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-      }
-    });
-
     // Salvar informações WireGuard no banco de dados
     const { error: updateError } = await supabase
       .from('mikrotiks')
       .update({
-        wireguard_client_name: `mikrotik-${mikrotikId}`,
+        wireguard_client_name: clientName,
         wireguard_config_generated: true,
         wireguard_created_at: new Date().toISOString()
       })
@@ -1048,13 +1045,20 @@ const createWireGuardConfig = async (req, res) => {
       success: true,
       data: {
         ...wireguardData,
-        mikrotikConfig: configResponse.data.data.mikrotikConfig
+        mikrotikConfig: wireguardData.mikrotikConfig
       },
       message: 'Configuração WireGuard criada com sucesso'
     });
 
   } catch (error) {
     console.error('Error creating WireGuard config:', error);
+    
+    // Log detalhado do erro
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message,
@@ -1078,8 +1082,9 @@ const getWireGuardConfig = async (req, res) => {
       mikrotikId: mikrotikId
     }, {
       headers: {
-        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-      }
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
     });
 
     if (!response.data.success) {
@@ -1111,6 +1116,13 @@ const getWireGuardConfig = async (req, res) => {
 
   } catch (error) {
     console.error('Error getting WireGuard config:', error);
+    
+    // Log detalhado do erro
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message,
@@ -1133,8 +1145,9 @@ const deleteWireGuardConfig = async (req, res) => {
     const clientName = `mikrotik-${mikrotikId}`;
     const response = await axios.delete(`${MIKROTIK_API_URL}/wireguard/clients/${clientName}`, {
       headers: {
-        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-      }
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
     });
 
     // Limpar informações WireGuard no banco de dados
@@ -1160,6 +1173,13 @@ const deleteWireGuardConfig = async (req, res) => {
 
   } catch (error) {
     console.error('Error deleting WireGuard config:', error);
+    
+    // Log detalhado do erro
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message,
