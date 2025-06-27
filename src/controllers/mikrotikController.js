@@ -763,8 +763,9 @@ const applyTemplate = async (req, res) => {
       try {
         console.log('Updating server profile with template path...')
         
-        // First, get list of available server profiles to check if target exists
+        // Get list of hotspot profiles (comando que funciona)
         let serverProfiles = []
+        
         try {
           const listResponse = await axios.get(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
             params: {
@@ -778,17 +779,18 @@ const applyTemplate = async (req, res) => {
             }
           })
           serverProfiles = listResponse.data.data || []
-          console.log('Available server profiles:', serverProfiles.map(p => ({ id: p['.id'], name: p.name })))
+          console.log('Available hotspot profiles:', serverProfiles.map(p => ({ id: p['.id'], name: p.name })))
         } catch (listError) {
-          console.warn('Could not list server profiles:', listError.message)
+          console.warn('Could not list hotspot profiles:', listError.message)
         }
 
         // Check if the serverProfileId exists in server profiles
         const targetServerProfile = serverProfiles.find(p => p['.id'] === serverProfileId || p.name === serverProfileId)
         
         if (targetServerProfile) {
-          console.log(`Found target server profile: ${targetServerProfile.name} (ID: ${targetServerProfile['.id']})`)
+          console.log(`Found target hotspot profile: ${targetServerProfile.name} (ID: ${targetServerProfile['.id']})`)
           try {
+            // Usar endpoint que funciona com /ip/hotspot/profile
             const updateServerProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
               'html_directory': '/flash/mikropix'
             }, {
@@ -803,17 +805,17 @@ const applyTemplate = async (req, res) => {
                 'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
               }
             })
-            console.log('Server profile updated successfully:', updateServerProfileResponse.status)
+            console.log('Hotspot profile updated successfully:', updateServerProfileResponse.status)
           } catch (updateError) {
-            console.error('Failed to update server profile:', updateError.message)
+            console.error('Failed to update hotspot profile:', updateError.message)
             throw updateError
           }
         } else {
-          console.log('Server profile not found, trying to find and update first available server profile...')
+          console.log('Profile not found, trying to find and update first available hotspot profile...')
           
           if (serverProfiles.length > 0) {
             const firstProfile = serverProfiles[0]
-            console.log(`Using first available server profile: ${firstProfile.name} (ID: ${firstProfile['.id']})`)
+            console.log(`Using first available hotspot profile: ${firstProfile.name} (ID: ${firstProfile['.id']})`)
             
             try {
               const updateServerProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
@@ -830,13 +832,36 @@ const applyTemplate = async (req, res) => {
                   'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
                 }
               })
-              console.log('Server profile updated successfully:', updateServerProfileResponse.status)
+              console.log('Hotspot profile updated successfully:', updateServerProfileResponse.status)
             } catch (updateError) {
-              console.error('Failed to update server profile:', updateError.message)
+              console.error('Failed to update hotspot profile:', updateError.message)
               throw updateError
             }
           } else {
-            console.warn('No server profiles found. Template uploaded but directory not changed.')
+            console.log('No hotspot profiles found. Creating default profile for templates...')
+            
+            try {
+              // Criar um profile padrão para templates com html-directory correto
+              const createProfileResponse = await axios.post(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
+                name: 'mikropix-templates',
+                html_directory: '/flash/mikropix',
+                login_by: 'http-chap,http-pap'
+              }, {
+                params: {
+                  ip: credentials.ip,
+                  username: credentials.username,
+                  password: credentials.password,
+                  port: credentials.port
+                },
+                headers: {
+                  'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+                }
+              })
+              console.log('Default hotspot profile created successfully for templates')
+            } catch (createError) {
+              console.warn('Could not create default profile:', createError.message)
+              console.warn('Template uploaded but no hotspot profile available for html-directory setting.')
+            }
           }
         }
       } catch (profileError) {
