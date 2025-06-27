@@ -729,16 +729,13 @@ const applyTemplate = async (req, res) => {
     
     console.log('Template will be available at:', downloadUrl)
 
-    // Create a simple script that downloads template
-    // First check if the command exists on this RouterOS version
-    const fetchScript = `:log info "Starting template download"
-/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html"
-:log info "Download command completed"`;
-
+    // Execute fetch command directly via RouterOS API
     let fetchResponse;
     try {
-      fetchResponse = await axios.post(`${MIKROTIK_API_URL}/scripts/run`, {
-        script: fetchScript
+      console.log('Executing fetch command directly...')
+      fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
+        url: downloadUrl,
+        'dst-path': 'flash/mikropix/login.html'
       }, {
         params: {
           ip: credentials.ip,
@@ -750,12 +747,12 @@ const applyTemplate = async (req, res) => {
           'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
         }
       })
-    } catch (scriptError) {
-      console.warn('Warning: Script execution failed, but template is available for manual download:', scriptError.message)
+    } catch (fetchError) {
+      console.warn('Warning: Direct fetch failed, template is available for manual download:', fetchError.message)
       fetchResponse = { 
         data: { 
           success: false, 
-          error: 'Script execution failed, but template is hosted and can be downloaded manually',
+          error: 'Direct fetch failed, but template is hosted and can be downloaded manually',
           downloadUrl: downloadUrl
         } 
       }
@@ -766,8 +763,7 @@ const applyTemplate = async (req, res) => {
       try {
         console.log('Updating server profile with template path...')
         const updateProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
-          'html_directory': '/flash/mikropix',
-          'login_page': 'login.html'
+          'html_directory': '/flash/mikropix'
         }, {
           params: {
             ip: credentials.ip,
@@ -787,50 +783,8 @@ const applyTemplate = async (req, res) => {
       }
     }
 
-    // Also update the hotspot server itself to use the new directory
-    try {
-      console.log('Getting hotspot servers to update HTML directory...')
-      const serversResponse = await axios.get(`${MIKROTIK_API_URL}/hotspot/servers`, {
-        params: {
-          ip: credentials.ip,
-          username: credentials.username,
-          password: credentials.password,
-          port: credentials.port
-        },
-        headers: {
-          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
-        }
-      })
-
-      const servers = serversResponse.data.data || []
-      console.log(`Found ${servers.length} hotspot servers`)
-
-      // Update each server to use the new HTML directory
-      for (const server of servers) {
-        try {
-          console.log(`Updating hotspot server: ${server.name || server['.id']}`)
-          await axios.put(`${MIKROTIK_API_URL}/hotspot/servers`, {
-            'html_directory': '/flash/mikropix'
-          }, {
-            params: {
-              ip: credentials.ip,
-              username: credentials.username,
-              password: credentials.password,
-              port: credentials.port,
-              id: server['.id']
-            },
-            headers: {
-              'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
-            }
-          })
-          console.log(`Hotspot server ${server.name || server['.id']} updated successfully`)
-        } catch (serverError) {
-          console.warn(`Warning: Failed to update hotspot server ${server.name || server['.id']}:`, serverError.message)
-        }
-      }
-    } catch (serverListError) {
-      console.warn('Warning: Failed to get/update hotspot servers:', serverListError.message)
-    }
+    // Note: Hotspot servers don't have html_directory parameter
+    // Only server profiles have this parameter, which we already updated above
 
     // Clean up the cached template after some time
     setTimeout(() => {
