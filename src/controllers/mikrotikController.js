@@ -1,5 +1,5 @@
 const axios = require('axios');
-const supabase = require('../config/database');
+const { supabase } = require('../config/database');
 
 const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL;
 
@@ -72,17 +72,25 @@ const getStats = async (req, res) => {
     const { mikrotikId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
-    const [hotspotStats, systemInfo] = await Promise.all([
+    // Get system resource info with detailed logging
+    const [hotspotStats, systemInfo, systemResource] = await Promise.all([
       makeApiRequest('/hotspot/stats', credentials),
-      makeApiRequest('/system/info', credentials)
+      makeApiRequest('/system/info', credentials),
+      makeApiRequest('/system/resource', credentials)
     ]);
+
+    // Combine system info and resource data for comprehensive stats
+    const combinedSystemData = {
+      ...systemInfo.data,
+      resource: systemResource.data
+    };
 
     res.json({
       success: true,
       data: {
         mikrotik: credentials.mikrotik,
         hotspot: hotspotStats.data,
-        system: systemInfo.data
+        system: combinedSystemData
       }
     });
   } catch (error) {

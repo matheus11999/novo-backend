@@ -1,4 +1,4 @@
-const supabase = require('../config/database');
+const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
 const { generateMikrotikUser } = require('../utils/mikrotikUtils');
 

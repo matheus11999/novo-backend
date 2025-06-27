@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const supabase = require('../config/database');
+const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
 
 class PaymentController {
