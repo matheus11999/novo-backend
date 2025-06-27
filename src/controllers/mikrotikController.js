@@ -698,7 +698,7 @@ const deleteHotspotServerProfile = async (req, res) => {
 
 // ==================== TEMPLATES ====================
 
-// Apply template to MikroTik
+// Apply template to MikroTik using fetch method
 const applyTemplate = async (req, res) => {
   try {
     const { 
@@ -713,28 +713,49 @@ const applyTemplate = async (req, res) => {
     // Get MikroTik credentials
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id)
 
-    // Create directory structure in MikroTik using the new files API
-    try {
-      const dirResponse = await axios.post(`${MIKROTIK_API_URL}/files/create-directory`, {
-        path: '/flash/mikropix'
-      }, {
-        params: {
-          ip: credentials.ip,
-          username: credentials.username,
-          password: credentials.password,
-          port: credentials.port
-        }
-      })
-      
-      console.log('Directory creation response:', dirResponse.status)
-    } catch (dirError) {
-      console.warn('Warning: Directory creation failed:', dirError.message)
-    }
+    // Generate unique filename for this template
+    const templateFileName = `template_${mikrotikId}_${Date.now()}.html`
+    
+    // Store the processed template content temporarily (in memory for now)
+    global.templateCache = global.templateCache || new Map()
+    global.templateCache.set(templateFileName, templateContent)
+    
+    // Create the download URL that MikroTik will fetch from
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001'
+    const downloadUrl = `${baseUrl}/api/mikrotik/template/${templateFileName}`
+    
+    console.log('Template will be available at:', downloadUrl)
 
-    // Apply template using the specialized template service
-    const uploadResponse = await axios.post(`${MIKROTIK_API_URL}/templates/apply`, {
-      templateContent: templateContent,
-      serverProfileId: serverProfileId
+    // Create a script that uses MikroTik fetch to download the template
+    const fetchScript = `
+# Create directories if they don't exist
+:do {
+    /file print file="flash" without-paging
+} on-error={}
+
+:do {
+    /file print file="flash/mikropix" without-paging
+} on-error={}
+
+# Download template using fetch
+:log info "Starting template download from ${downloadUrl}"
+/tool fetch url="${downloadUrl}" dst-path="flash/mikropix/login.html" mode=http
+
+# Wait for download to complete
+:delay 5s
+
+# Verify download
+:local fileList [/file find name="flash/mikropix/login.html"]
+:if ([:len \$fileList] > 0) do={
+    :local fileSize [/file get [/file find name="flash/mikropix/login.html"] size]
+    :log info ("Template downloaded successfully. Size: " . \$fileSize . " bytes")
+} else={
+    :log error "Template download failed - file not found"
+}
+`;
+
+    const fetchResponse = await axios.post(`${MIKROTIK_API_URL}/scripts/run`, {
+      script: fetchScript
     }, {
       params: {
         ip: credentials.ip,
@@ -744,19 +765,44 @@ const applyTemplate = async (req, res) => {
       }
     })
 
-    const uploadResult = uploadResponse.data
+    // Update server profile to use the new template
+    if (serverProfileId) {
+      try {
+        console.log('Updating server profile with template path...')
+        const updateProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
+          'html-directory': '/flash/mikropix',
+          'login-page': 'login.html'
+        }, {
+          params: {
+            ip: credentials.ip,
+            username: credentials.username,
+            password: credentials.password,
+            port: credentials.port,
+            id: serverProfileId
+          }
+        })
+        
+        console.log('Server profile updated successfully:', updateProfileResponse.status)
+      } catch (profileError) {
+        console.warn('Warning: Failed to update server profile:', profileError.message)
+      }
+    }
 
-    // The TemplateService handles both file upload and server profile update
+    // Clean up the cached template after some time
+    setTimeout(() => {
+      global.templateCache.delete(templateFileName)
+    }, 300000) // Clean up after 5 minutes
 
     res.json({
       success: true,
       data: {
-        upload: uploadResult,
+        downloadUrl,
         templateId,
         mikrotikId,
-        serverProfileId
+        serverProfileId,
+        fetch: fetchResponse.data
       },
-      message: 'Template aplicado com sucesso'
+      message: 'Template aplicado com sucesso usando fetch'
     })
 
   } catch (error) {
