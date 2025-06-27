@@ -1257,6 +1257,44 @@ PersistentKeepalive = 25`;
   }
 };
 
+const checkConnection = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    
+    // Try to get credentials first
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
+
+    // Just do a simple system identity check to test connectivity
+    const response = await makeApiRequest('/system/identity', credentials);
+
+    res.json({
+      success: true,
+      data: {
+        isOnline: true,
+        identity: response.data?.name || 'MikroTik',
+        mikrotik: credentials.mikrotik
+      }
+    });
+  } catch (error) {
+    console.error('Check connection error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      isOnline: false
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1288,5 +1326,6 @@ module.exports = {
   getWireRestPeers,
   updateWireRestPeer,
   deleteWireRestPeer,
-  generateWireGuardConfig
+  generateWireGuardConfig,
+  checkConnection
 };
