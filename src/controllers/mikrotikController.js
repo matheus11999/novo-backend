@@ -1020,6 +1020,15 @@ const createWireGuardConfig = async (req, res) => {
       throw new Error(response.data.error || 'Falha ao criar configuração WireGuard');
     }
 
+    const wireguardData = response.data.data;
+
+    // Gerar configuração MikroTik
+    const configResponse = await axios.get(`${MIKROTIK_API_URL}/wireguard/clients/${wireguardData.client.clientName}/mikrotik-config/${mikrotikId}`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
+      }
+    });
+
     // Salvar informações WireGuard no banco de dados
     const { error: updateError } = await supabase
       .from('mikrotiks')
@@ -1037,7 +1046,10 @@ const createWireGuardConfig = async (req, res) => {
 
     res.json({
       success: true,
-      data: response.data.data,
+      data: {
+        ...wireguardData,
+        mikrotikConfig: configResponse.data.data.mikrotikConfig
+      },
       message: 'Configuração WireGuard criada com sucesso'
     });
 
