@@ -106,5 +106,8 @@ router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikC
 // Rotas para templates
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
+// Rotas para WireRest proxy (corrigir CORS)
+router.get('/wirerest/interface', mikrotikController.getWireRestInterface);
+router.post('/wirerest/peers', mikrotikController.createWireRestPeer);
 
 module.exports = router;

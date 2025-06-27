@@ -995,6 +995,54 @@ const applyTemplate = async (req, res) => {
 }
 
 
+// ==================== WIREREST PROXY FUNCTIONS ====================
+
+const getWireRestInterface = async (req, res) => {
+  try {
+    const WIREREST_URL = 'http://193.181.208.141:8081';
+    const WIREREST_TOKEN = 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
+    
+    const response = await axios.get(`${WIREREST_URL}/v1/interface`, {
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${WIREREST_TOKEN}`
+      },
+      timeout: 10000
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error getting WireRest interface:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao conectar com WireRest'
+    });
+  }
+};
+
+const createWireRestPeer = async (req, res) => {
+  try {
+    const WIREREST_URL = 'http://193.181.208.141:8081';
+    const WIREREST_TOKEN = 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
+    
+    const response = await axios.post(`${WIREREST_URL}/v1/peers`, {}, {
+      headers: {
+        'accept': 'application/json',
+        'Authorization': `Bearer ${WIREREST_TOKEN}`
+      },
+      timeout: 15000
+    });
+    
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error creating WireRest peer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erro ao criar peer WireGuard'
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1020,5 +1068,7 @@ module.exports = {
   createHotspotServerProfile,
   updateHotspotServerProfile,
   deleteHotspotServerProfile,
-  applyTemplate
+  applyTemplate,
+  getWireRestInterface,
+  createWireRestPeer
 };
