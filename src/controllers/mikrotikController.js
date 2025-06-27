@@ -731,14 +731,10 @@ const applyTemplate = async (req, res) => {
       console.warn('Warning: Directory creation failed:', dirError.message)
     }
 
-    // Upload template file to MikroTik using the new files API
-    const uploadResponse = await axios.post(`${MIKROTIK_API_URL}/files/upload`, {
-      files: [
-        {
-          path: '/flash/mikropix/login.html',
-          content: templateContent
-        }
-      ]
+    // Apply template using the specialized template service
+    const uploadResponse = await axios.post(`${MIKROTIK_API_URL}/templates/apply`, {
+      templateContent: templateContent,
+      serverProfileId: serverProfileId
     }, {
       params: {
         ip: credentials.ip,
@@ -750,15 +746,7 @@ const applyTemplate = async (req, res) => {
 
     const uploadResult = uploadResponse.data
 
-    // Update server profile to use the new template
-    try {
-      const updateProfileResponse = await makeApiRequest(`/hotspot/server-profiles?id=${serverProfileId}`, credentials, 'PUT', {
-        'html-directory': '/flash/mikropix',
-        'login-page': 'login.html'
-      })
-    } catch (profileError) {
-      console.warn('Falha ao atualizar perfil do servidor, mas template foi aplicado:', profileError.message)
-    }
+    // The TemplateService handles both file upload and server profile update
 
     res.json({
       success: true,
