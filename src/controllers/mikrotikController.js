@@ -1064,7 +1064,7 @@ const getWireRestPeers = async (req, res) => {
       ...peer,
       id: peer.publicKey, // Use publicKey as ID
       enabled: true, // WireRest doesn't have disabled state, assume enabled
-      isConnected: peer.latestHandshake > 0 && (Date.now() - peer.latestHandshake) < 300000, // Connected if handshake within 5 minutes
+      isConnected: peer.latestHandshake > 0 && (Date.now() / 1000 - peer.latestHandshake) < 300, // Connected if handshake within 5 minutes
       lastHandshake: peer.latestHandshake > 0 ? new Date(peer.latestHandshake).toISOString() : null
     }));
     
@@ -1114,6 +1114,8 @@ const deleteWireRestPeer = async (req, res) => {
     const WIREREST_URL = 'http://193.181.208.141:8081';
     const WIREREST_TOKEN = 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
     
+    console.log(`[DELETE-PEER] Deletando peer: ${publicKey}`);
+    
     const response = await axios.delete(`${WIREREST_URL}/v1/peers/${publicKey}`, {
       headers: {
         'accept': 'application/json',
@@ -1122,9 +1124,26 @@ const deleteWireRestPeer = async (req, res) => {
       timeout: 10000
     });
     
-    res.json(response.data);
+    console.log(`[DELETE-PEER] Peer ${publicKey} deletado com sucesso`);
+    
+    // Always return success format
+    res.json({
+      success: true,
+      message: 'Peer deletado com sucesso',
+      data: response.data
+    });
   } catch (error) {
     console.error('Error deleting WireRest peer:', error);
+    
+    // Handle 404 as success (peer already doesn't exist)
+    if (error.response && error.response.status === 404) {
+      return res.json({
+        success: true,
+        message: 'Peer não encontrado (já foi removido)',
+        data: null
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: error.message || 'Erro ao deletar peer WireGuard'
@@ -1160,7 +1179,7 @@ const generateWireGuardConfig = async (req, res) => {
     }
     
     // Buscar chave pública do servidor WireRest
-    let serverPublicKey = 'ciFLsDGcfJLg4pxT/+lMIqUlcbeaVbqn/bxz9E+Qjy8='; // fallback
+    let serverPublicKey = 'pKTynf0wxJpeuPtqiOoYMN3a44qQTYFKYwSETKhXinw='; // fallback
     try {
       const serverInfo = await getWireRestInterface();
       if (serverInfo.success && serverInfo.data.publicKey) {
@@ -1175,9 +1194,9 @@ const generateWireGuardConfig = async (req, res) => {
     
     // Gerar configuração MikroTik
     const mikrotikConfig = `/interface/wireguard
-add name="wg-client" private-key="${mikrotik.wireguard_private_key}" listen-port=51820 comment="Interface WireGuard cliente - Criado automaticamente"
+add name="wg-client" private-key="${mikrotik.wireguard_private_key}" listen-port=64326 comment="Interface WireGuard cliente - Criado automaticamente"
 /interface/wireguard/peers
-add interface="wg-client" public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="193.181.208.141" endpoint-port="51820" persistent-keepalive="25s" comment="Peer servidor WireGuard - Criado automaticamente"
+add interface="wg-client" public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="193.181.208.141" endpoint-port="64326" persistent-keepalive="25s" comment="Peer servidor WireGuard - Criado automaticamente"
 /ip/address
 add address="${clientIP}" interface="wg-client" comment="IP WireGuard tunnel - Criado automaticamente"
 /ip/dns
@@ -1185,7 +1204,7 @@ set servers="1.1.1.1" allow-remote-requests=yes
 /ip/route
 add dst-address="0.0.0.0/0" gateway="wg-client" distance=1 comment="Rota padrão via WireGuard - Criado automaticamente"
 /ip/firewall/filter
-add chain="input" protocol="udp" port="51820" action="accept" comment="Permitir WireGuard UDP - Criado automaticamente"
+add chain="input" protocol="udp" port="64326" action="accept" comment="Permitir WireGuard UDP - Criado automaticamente"
 add chain="forward" out-interface="wg-client" action="accept" comment="Permitir forward para WireGuard - Criado automaticamente"
 add chain="forward" in-interface="wg-client" action="accept" comment="Permitir forward do WireGuard - Criado automaticamente"
 /ip/firewall/nat
@@ -1206,7 +1225,7 @@ DNS = 1.1.1.1
 PublicKey = ${serverPublicKey}
 PresharedKey = ${mikrotik.wireguard_preshared_key || ''}
 AllowedIPs = 0.0.0.0/0, ::/0
-Endpoint = 193.181.208.141:51820
+Endpoint = 193.181.208.141:64326
 PersistentKeepalive = 25`;
     
     res.json({
@@ -1218,7 +1237,7 @@ PersistentKeepalive = 25`;
           clientName: mikrotik.nome,
           clientAddress: clientIP,
           serverEndpoint: '193.181.208.141',
-          serverPort: '51820',
+          serverPort: '64326',
           publicKey: mikrotik.wireguard_public_key,
           privateKey: mikrotik.wireguard_private_key,
           presharedKey: mikrotik.wireguard_preshared_key
