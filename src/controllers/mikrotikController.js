@@ -19,10 +19,19 @@ const getMikrotikCredentials = async (mikrotikId, userId) => {
     throw new Error('MikroTik está inativo');
   }
 
+  // Check if essential fields are present
+  const ip = mikrotik.ip_address || mikrotik.ip;
+  const username = mikrotik.usuario || mikrotik.username;
+  const password = mikrotik.senha || mikrotik.password;
+
+  if (!ip || !username || !password) {
+    throw new Error('Credenciais do MikroTik incompletas. Verifique se IP, usuário e senha estão configurados.');
+  }
+
   return {
-    ip: mikrotik.ip_address || mikrotik.ip,
-    username: mikrotik.usuario || mikrotik.username,
-    password: mikrotik.senha || mikrotik.password,
+    ip,
+    username,
+    password,
     port: mikrotik.porta || mikrotik.port || 8728,
     mikrotik
   };
@@ -68,7 +77,19 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
 const getStats = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    
+    // Try to get credentials first
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
 
     // Get system resource info with detailed logging and error handling
     const [hotspotStats, systemInfo, systemResource] = await Promise.allSettled([
@@ -82,6 +103,17 @@ const getStats = async (req, res) => {
     const systemData = systemInfo.status === 'fulfilled' ? systemInfo.value : { data: {} };
     const resourceData = systemResource.status === 'fulfilled' ? systemResource.value : { data: {} };
 
+    // Log any failures for debugging
+    if (hotspotStats.status === 'rejected') {
+      console.warn('Hotspot stats failed:', hotspotStats.reason?.message);
+    }
+    if (systemInfo.status === 'rejected') {
+      console.warn('System info failed:', systemInfo.reason?.message);
+    }
+    if (systemResource.status === 'rejected') {
+      console.warn('System resource failed:', systemResource.reason?.message);
+    }
+
     // Combine system info and resource data for comprehensive stats
     const combinedSystemData = {
       ...systemData.data,
@@ -94,6 +126,11 @@ const getStats = async (req, res) => {
         mikrotik: credentials.mikrotik,
         hotspot: hotspotData.data,
         system: combinedSystemData
+      },
+      warnings: {
+        hotspotFailed: hotspotStats.status === 'rejected',
+        systemInfoFailed: systemInfo.status === 'rejected',
+        resourceFailed: systemResource.status === 'rejected'
       }
     });
   } catch (error) {
@@ -108,7 +145,18 @@ const getStats = async (req, res) => {
 const getHotspotUsers = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
 
     const response = await makeApiRequest('/hotspot/users', credentials);
 
@@ -129,7 +177,18 @@ const getHotspotUsers = async (req, res) => {
 const getActiveUsers = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
 
     const response = await makeApiRequest('/hotspot/active-users', credentials);
 
@@ -150,7 +209,18 @@ const getActiveUsers = async (req, res) => {
 const getHotspotProfiles = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
 
     // Get profiles from MikroTik
     const response = await makeApiRequest('/hotspot/profiles', credentials);
@@ -538,7 +608,18 @@ const restartSystem = async (req, res) => {
 const getHotspotServers = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
 
     const response = await makeApiRequest('/hotspot/servers', credentials);
 
@@ -621,7 +702,18 @@ const deleteHotspotServer = async (req, res) => {
 const getHotspotServerProfiles = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error('Credentials error:', credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
 
     const response = await makeApiRequest('/hotspot/server-profiles', credentials);
 
