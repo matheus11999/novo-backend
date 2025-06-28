@@ -1457,6 +1457,11 @@ const getEssentialSystemInfo = async (req, res) => {
     let credentials;
     try {
       credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+      console.log(`[ESSENTIAL-INFO] Got credentials for mikrotik ${mikrotikId}:`, {
+        ip: credentials.ip,
+        port: credentials.port,
+        username: credentials.username
+      });
     } catch (credError) {
       console.error(`[ESSENTIAL-INFO] Credentials error for user ${req.user.id}, mikrotik ${mikrotikId}:`, credError.message);
       return res.status(400).json({
@@ -1479,10 +1484,15 @@ const getEssentialSystemInfo = async (req, res) => {
       timeoutPromise
     ]);
 
-    res.json({
+    console.log('[ESSENTIAL-INFO] Raw API response:', JSON.stringify(response, null, 2));
+
+    const finalResponse = {
       success: true,
       data: response.data
-    });
+    };
+
+    console.log('[ESSENTIAL-INFO] Final response:', JSON.stringify(finalResponse, null, 2));
+    res.json(finalResponse);
   } catch (error) {
     console.error('[ESSENTIAL-INFO] Error:', error);
     res.status(500).json({
@@ -1490,6 +1500,110 @@ const getEssentialSystemInfo = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// ==================== CPU & MEMORY SPECIFIC ====================
+
+const getCpuMemoryStats = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    
+    // Try to get credentials first
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error(`[CPU-MEMORY] Credentials error for user ${req.user.id}, mikrotik ${mikrotikId}:`, credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
+
+    console.log(`[CPU-MEMORY] Getting CPU/Memory stats from ${credentials.ip}`);
+
+    // Create a timeout promise for quick response
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout after 8 seconds')), 8000);
+    });
+
+    // Get system resource info only
+    const response = await Promise.race([
+      makeApiRequest('/system/resource', credentials),
+      timeoutPromise
+    ]);
+
+    const resourceData = response.data || {};
+
+    // Calculate memory usage percentage
+    const totalMemory = parseInt(resourceData['total-memory'] || '0');
+    const freeMemory = parseInt(resourceData['free-memory'] || '0');
+    const usedMemory = totalMemory - freeMemory;
+    const memoryUsagePercent = totalMemory > 0 ? Math.round((usedMemory / totalMemory) * 100) : 0;
+
+    // Extract CPU percentage
+    const cpuLoad = resourceData['cpu-load'] || '0%';
+    const cpuPercent = parseInt(cpuLoad.replace('%', '')) || 0;
+
+    console.log(`[CPU-MEMORY] CPU: ${cpuPercent}%, Memory: ${memoryUsagePercent}%`);
+
+    res.json({
+      success: true,
+      data: {
+        cpu: {
+          percentage: cpuPercent,
+          load: cpuLoad,
+          frequency: resourceData['cpu-frequency'] || 'N/A',
+          count: resourceData['cpu-count'] || 'N/A'
+        },
+        memory: {
+          percentage: memoryUsagePercent,
+          total: totalMemory,
+          free: freeMemory,
+          used: usedMemory,
+          totalFormatted: formatBytes(totalMemory),
+          freeFormatted: formatBytes(freeMemory),
+          usedFormatted: formatBytes(usedMemory)
+        },
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('[CPU-MEMORY] Error:', error);
+    
+    let errorMessage = 'Erro de conexão';
+    let statusCode = 500;
+    
+    if (error.message.includes('timeout')) {
+      errorMessage = 'Timeout de conexão';
+      statusCode = 408;
+    } else if (error.message.includes('ECONNREFUSED')) {
+      errorMessage = 'Conexão recusada';
+      statusCode = 503;
+    } else if (error.message.includes('authentication')) {
+      errorMessage = 'Falha na autenticação';
+      statusCode = 401;
+    } else {
+      errorMessage = error.message;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage
+    });
+  }
+};
+
+// Helper function to format bytes
+const formatBytes = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B';
+  
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
 module.exports = {
@@ -1526,5 +1640,6 @@ module.exports = {
   generateWireGuardConfig,
   checkConnection,
   getBasicSystemInfo,
-  getEssentialSystemInfo
+  getEssentialSystemInfo,
+  getCpuMemoryStats
 };
