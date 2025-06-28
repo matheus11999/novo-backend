@@ -17,7 +17,7 @@ async function testSimpleUserCreation() {
         console.log('📤 Enviando requisição para criação de usuário...');
         console.log('📊 Dados:', testData);
 
-        const response = await axios.post(`${BASE_URL}/api/test/create-mikrotik-user`, testData, {
+        const response = await axios.post(`http://193.181.208.141:3000/api/test/create-mikrotik-user`, testData, {
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -42,7 +42,7 @@ async function testSimpleUserCreation() {
     try {
         console.log('\n🔍 Verificando dados do MikroTik no banco...');
         
-        const mikrotikResponse = await axios.post(`${BASE_URL}/api/test/check-mikrotik`, {
+        const mikrotikResponse = await axios.post(`http://193.181.208.141:3000/api/test/check-mikrotik`, {
             mikrotik_id: testData.mikrotik_id
         });
 
