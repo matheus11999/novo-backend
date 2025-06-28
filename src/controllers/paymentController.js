@@ -276,6 +276,43 @@ class PaymentController {
                 });
             }
 
+            // Check for existing pending payments for this MAC
+            const { data: existingPayment, error: existingError } = await supabase
+                .from('vendas')
+                .select(`
+                    *,
+                    planos (nome, session_timeout, valor),
+                    mikrotiks (nome)
+                `)
+                .eq('mikrotik_id', mikrotik_id)
+                .eq('mac_address', mac_address.toUpperCase())
+                .in('status', ['pending', 'processing'])
+                .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()) // Últimos 30 minutos
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (!existingError && existingPayment && existingPayment.length > 0) {
+                const payment = existingPayment[0];
+                console.log(`🔄 [PAYMENT] Retornando pagamento existente: ${payment.payment_id}`);
+                
+                return res.json({
+                    success: true,
+                    data: {
+                        payment_id: payment.payment_id,
+                        mercadopago_payment_id: payment.mercadopago_payment_id,
+                        qr_code: payment.qr_code,
+                        pix_code: payment.pix_code,
+                        amount: payment.valor_total,
+                        expires_at: payment.expires_at,
+                        status: payment.status,
+                        plan_name: payment.planos?.nome,
+                        plan_duration: formatDuration(payment.planos?.session_timeout),
+                        existing: true,
+                        message: 'Pagamento existente encontrado'
+                    }
+                });
+            }
+
             // Get MikroTik info
             const { data: mikrotik, error: mikrotikError } = await supabase
                 .from('mikrotiks')
@@ -317,15 +354,37 @@ class PaymentController {
             const valorAdmin = (valorTotal * porcentagemAdmin) / 100;
             const valorUsuario = valorTotal - valorAdmin;
 
+            // Gerar dados do pagador baseado no MAC address
+            const cleanMac = mac_address.replace(/[:-]/g, '');
+            const payerEmail = `cliente.${cleanMac.slice(-6)}@hotspot.com`;
+            
             const paymentData = {
                 transaction_amount: valorTotal,
-                description: `${plano.nome} - ${formatDuration(plano.session_timeout)}`,
+                description: `${plano.nome} - ${formatDuration(plano.session_timeout)} - Hotspot`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
                 payer: {
-                    email: 'cliente@mikrotik.com',
+                    email: payerEmail,
                     first_name: 'Cliente',
-                    last_name: 'MikroTik'
+                    last_name: 'Hotspot',
+                    identification: {
+                        type: 'CPF',
+                        number: '00000000000' // CPF genérico para hotspot
+                    },
+                    address: {
+                        zip_code: '00000000',
+                        street_name: 'Acesso Hotspot',
+                        street_number: 1,
+                        neighborhood: 'Centro',
+                        city: 'Cidade',
+                        federal_unit: 'SP'
+                    }
+                },
+                metadata: {
+                    mac_address: mac_address,
+                    mikrotik_id: mikrotik_id,
+                    plano_id: plano_id,
+                    provedor: mikrotik.nome
                 }
             };
 

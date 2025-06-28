@@ -46,9 +46,16 @@ class MikroTikUserService {
                 port: vendaData.mikrotiks.porta || 8728
             };
             
-            // 4. Fazer requisição para API MikroTik (criação direta)
-            const response = await axios.post(`${this.mikrotikApiUrl}/hotspot/users/create-directly`, userData, {
-                params: credentials,
+            // 4. Combinar dados do usuário com credenciais
+            const requestData = {
+                ...userData,
+                ...credentials
+            };
+            
+            console.log(`🔗 [MIKROTIK-USER-SERVICE] Conectando em: ${credentials.ip}:${credentials.port}`);
+            
+            // 5. Fazer requisição para API MikroTik (criação direta)
+            const response = await axios.post(`${this.mikrotikApiUrl}/hotspot/users/create-directly`, requestData, {
                 headers: {
                     'Authorization': `Bearer ${this.mikrotikApiToken}`,
                     'Content-Type': 'application/json'
