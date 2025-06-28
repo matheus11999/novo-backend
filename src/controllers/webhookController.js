@@ -72,11 +72,8 @@ class WebhookController {
                         'mac-address': macAddress
                     };
 
-                    // First try to delete existing user with same MAC to avoid conflicts
-                    await this.deleteMikrotikUserByMac(venda.mikrotiks, macAddress);
-                    
-                    // Create new user in MikroTik
-                    const userCreated = await this.createMikrotikUserAPI(venda.mikrotiks, mikrotikUser, venda.planos);
+                    // Use new route to manage user (delete + create)
+                    const userCreated = await this.manageMikrotikUser(venda.mikrotiks, mikrotikUser, venda.id);
                     
                     if (userCreated.success) {
                         updateData.usuario_criado = cleanMac;
@@ -334,6 +331,56 @@ class WebhookController {
             }
         } catch (error) {
             console.error('❌ MikroTik API Error:', error.message);
+            if (error.response) {
+                console.error('❌ Error response:', error.response.data);
+            }
+            return {
+                success: false,
+                error: error.response?.data?.error || error.response?.data?.message || error.message
+            };
+        }
+    }
+
+    async manageMikrotikUser(mikrotik, userData, vendaId) {
+        try {
+            console.log(`🔧 Managing MikroTik user: ${userData.username || userData.name}`);
+            
+            const backendApiUrl = process.env.BACKEND_API_URL || 'http://localhost:3000';
+            
+            const payload = {
+                mikrotik_id: mikrotik.id,
+                mac_address: userData['mac-address'],
+                username: userData.username || userData.name,
+                password: userData.password,
+                profile: userData.profile,
+                comment: userData.comment
+            };
+
+            console.log(`📡 Calling internal API to manage user...`);
+            
+            const response = await axios.post(`${backendApiUrl}/api/mikrotik-user/manage-user`, payload, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000
+            });
+
+            console.log(`📥 User management response:`, response.data);
+
+            if (response.data?.success) {
+                return {
+                    success: true,
+                    user_id: response.data.data?.create_result?.response?.data?.['.id'] || null,
+                    data: response.data
+                };
+            } else {
+                return {
+                    success: false,
+                    error: response.data?.message || 'User management failed'
+                };
+            }
+        } catch (error) {
+            console.error('❌ MikroTik user management error:', error.message);
             if (error.response) {
                 console.error('❌ Error response:', error.response.data);
             }

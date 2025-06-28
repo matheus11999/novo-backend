@@ -10,6 +10,7 @@ const mikrotikRoutes = require('./routes/mikrotik');
 const planosRoutes = require('./routes/planos');
 const recentSalesRoutes = require('./routes/recent-sales');
 const testRoutes = require('./routes/test');
+const mikrotikUserRoutes = require('./routes/mikrotik-user');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,6 +60,7 @@ app.use('/api/mikrotik', mikrotikRoutes);
 app.use('/api/planos', planosRoutes);
 app.use('/api/recent-sales', recentSalesRoutes);
 app.use('/api/test', testRoutes);
+app.use('/api/mikrotik-user', mikrotikUserRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
