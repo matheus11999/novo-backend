@@ -10,10 +10,19 @@ router.use(generalLimiter);
 // Get plans for authenticated user
 router.get('/plans', authenticateUser, paymentController.getPlans);
 
-// Create a new payment
+// Get plans by mikrotik_id (public endpoint for captive portal)
+router.post('/plans-by-mikrotik', paymentController.getPlansByMikrotik);
+
+// Create a new payment (authenticated)
 router.post('/create', authenticateUser, createPaymentLimiter, paymentController.createPayment);
 
-// Get payment status
+// Create a new payment for captive portal (public endpoint)
+router.post('/create-captive', createPaymentLimiter, paymentController.createCaptivePayment);
+
+// Get payment status (authenticated)
 router.get('/status/:payment_id', authenticateUser, paymentController.getPaymentStatus);
+
+// Get payment status for captive portal (public endpoint)
+router.post('/status-captive', paymentController.getCaptivePaymentStatus);
 
 module.exports = router;
