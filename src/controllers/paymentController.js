@@ -129,9 +129,8 @@ class PaymentController {
 
             const paymentId = uuidv4();
             
-            // Generate webhook URL using BASE_URL for production compatibility
-            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-            const webhookUrl = `${baseUrl}/api/webhook/mercadopago`;
+            // Always use production URL for webhooks
+            const webhookUrl = 'https://api.mikropix.online/api/webhook/mercadopago';
 
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem);
             const valorTotal = parseFloat(plano.preco);
@@ -143,13 +142,16 @@ class PaymentController {
                 description: `Plano ${plano.name} - ${plano.session_timeout}`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
-                notification_url: webhookUrl,
                 payer: {
                     email: 'customer@example.com',
                     first_name: 'Cliente',
                     last_name: 'Mikrotik'
                 }
             };
+
+            // Sempre configurar webhook em produção
+            console.log(`[PAYMENT] Configurando webhook: ${webhookUrl}`);
+            paymentData.notification_url = webhookUrl;
 
             const mpPayment = await payment.create({ body: paymentData });
 
@@ -307,9 +309,8 @@ class PaymentController {
 
             const paymentId = uuidv4();
             
-            // Generate webhook URL using BASE_URL for production compatibility
-            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-            const webhookUrl = `${baseUrl}/api/webhook/mercadopago`;
+            // Always use production URL for webhooks
+            const webhookUrl = 'https://api.mikropix.online/api/webhook/mercadopago';
 
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem_admin) || 10;
             const valorTotal = parseFloat(plano.valor);
@@ -321,13 +322,16 @@ class PaymentController {
                 description: `${plano.nome} - ${formatDuration(plano.session_timeout)}`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
-                notification_url: webhookUrl,
                 payer: {
                     email: 'cliente@mikrotik.com',
                     first_name: 'Cliente',
                     last_name: 'MikroTik'
                 }
             };
+
+            // Sempre configurar webhook em produção
+            console.log(`[PAYMENT] Configurando webhook: ${webhookUrl}`);
+            paymentData.notification_url = webhookUrl;
 
             const mpPayment = await payment.create({ body: paymentData });
 
