@@ -1449,6 +1449,49 @@ const getBasicSystemInfo = async (req, res) => {
   }
 };
 
+const getEssentialSystemInfo = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    
+    // Try to get credentials first
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error(`[ESSENTIAL-INFO] Credentials error for user ${req.user.id}, mikrotik ${mikrotikId}:`, credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
+
+    console.log(`[ESSENTIAL-INFO] Getting essential info from ${credentials.ip} for user ${req.user.id}`);
+
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000);
+    });
+
+    // Get only essential system information
+    const response = await Promise.race([
+      makeApiRequest('/system/essential-info', credentials),
+      timeoutPromise
+    ]);
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('[ESSENTIAL-INFO] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1482,5 +1525,6 @@ module.exports = {
   deleteWireRestPeer,
   generateWireGuardConfig,
   checkConnection,
-  getBasicSystemInfo
+  getBasicSystemInfo,
+  getEssentialSystemInfo
 };
