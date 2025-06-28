@@ -2,6 +2,7 @@ const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
 const axios = require('axios');
 const MikroTikUserService = require('../services/mikrotikUserService');
+const paymentPollingService = require('../services/paymentPollingService');
 
 class WebhookController {
     constructor() {
@@ -64,27 +65,44 @@ class WebhookController {
                 updateData.status = 'completed';
                 updateData.paid_at = new Date().toISOString();
 
-                try {
-                    // Create user in MikroTik using new service with retry
-                    console.log(`🔧 [WEBHOOK] Criando usuário MikroTik para MAC: ${venda.mac_address}`);
-                    
-                    const userResult = await this.mikrotikUserService.createUserWithRetry(venda);
-                    
-                    if (userResult.success) {
-                        updateData.usuario_criado = userResult.username;
-                        updateData.senha_usuario = userResult.username;
-                        updateData.mikrotik_user_id = userResult.mikrotikUserId;
+                // Verificar se o polling service não está processando este pagamento
+                const isBeingProcessed = paymentPollingService.processingPayments?.has(venda.payment_id);
+                
+                if (isBeingProcessed) {
+                    console.log(`⏭️ [WEBHOOK] Pagamento ${venda.payment_id} sendo processado pelo polling, pulando...`);
+                } else {
+                    try {
+                        // Marcar como sendo processado para evitar conflito
+                        if (paymentPollingService.processingPayments) {
+                            paymentPollingService.processingPayments.add(venda.payment_id);
+                        }
+
+                        // Create user in MikroTik using new service with retry
+                        console.log(`🔧 [WEBHOOK] Criando usuário MikroTik para MAC: ${venda.mac_address}`);
                         
-                        console.log(`✅ [WEBHOOK] Usuário MikroTik criado: ${userResult.username} (tentativa ${userResult.attempt})`);
-                    } else {
-                        console.error(`❌ [WEBHOOK] Falha na criação do usuário MikroTik:`, userResult.error);
-                        updateData.error_message = userResult.error;
-                        // Não falhar o pagamento, pois o sistema de retry cuidará disso
+                        const userResult = await this.mikrotikUserService.createUserWithRetry(venda);
+                        
+                        if (userResult.success) {
+                            updateData.usuario_criado = userResult.username;
+                            updateData.senha_usuario = userResult.username;
+                            updateData.mikrotik_user_id = userResult.mikrotikUserId;
+                            
+                            console.log(`✅ [WEBHOOK] Usuário MikroTik criado: ${userResult.username} (tentativa ${userResult.attempt})`);
+                        } else {
+                            console.error(`❌ [WEBHOOK] Falha na criação do usuário MikroTik:`, userResult.error);
+                            updateData.error_message = userResult.error;
+                            // Não falhar o pagamento, pois o sistema de retry cuidará disso
+                        }
+                    } catch (userError) {
+                        console.error('❌ [WEBHOOK] Erro crítico na criação do usuário:', userError.message);
+                        updateData.error_message = userError.message;
+                        // Não falhar o pagamento, sistema de retry tentará novamente
+                    } finally {
+                        // Remover do conjunto de processamento
+                        if (paymentPollingService.processingPayments) {
+                            paymentPollingService.processingPayments.delete(venda.payment_id);
+                        }
                     }
-                } catch (userError) {
-                    console.error('❌ [WEBHOOK] Erro crítico na criação do usuário:', userError.message);
-                    updateData.error_message = userError.message;
-                    // Não falhar o pagamento, sistema de retry tentará novamente
                 }
 
                 // Update the sale

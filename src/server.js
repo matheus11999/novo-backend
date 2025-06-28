@@ -12,6 +12,8 @@ const recentSalesRoutes = require('./routes/recent-sales');
 const testRoutes = require('./routes/test');
 const mikrotikUserRoutes = require('./routes/mikrotik-user');
 const mikrotikRetryRoutes = require('./routes/mikrotik-retry');
+const paymentPollingRoutes = require('./routes/payment-polling');
+const paymentPollingService = require('./services/paymentPollingService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -66,6 +68,7 @@ app.use('/api/recent-sales', recentSalesRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/mikrotik-user', mikrotikUserRoutes);
 app.use('/api/mikrotik-retry', mikrotikRetryRoutes);
+app.use('/api/payment-polling', paymentPollingRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -89,11 +92,13 @@ app.use((error, req, res, next) => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down gracefully');
+    paymentPollingService.stop();
     process.exit(0);
 });
 
 process.on('SIGINT', () => {
     console.log('SIGINT received, shutting down gracefully');
+    paymentPollingService.stop();
     process.exit(0);
 });
 
@@ -101,6 +106,12 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    
+    // Iniciar polling de pagamentos automaticamente
+    setTimeout(() => {
+        console.log('🔄 Starting payment polling service...');
+        paymentPollingService.start();
+    }, 5000); // Aguardar 5 segundos para garantir que tudo foi inicializado
 });
 
 module.exports = app;
