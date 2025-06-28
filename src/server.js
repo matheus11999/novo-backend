@@ -16,6 +16,9 @@ const mikrotikRetryRoutes = require('./routes/mikrotik-retry');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy for accurate IP detection behind reverse proxy
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet({
     contentSecurityPolicy: false,
