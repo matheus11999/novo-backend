@@ -2,6 +2,28 @@ const { v4: uuidv4 } = require('uuid');
 const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
 
+// Helper function to format duration
+function formatDuration(sessionTimeout) {
+    if (!sessionTimeout) return 'Ilimitado';
+    
+    const seconds = parseInt(sessionTimeout);
+    if (isNaN(seconds)) return sessionTimeout;
+    
+    const days = Math.floor(seconds / (24 * 3600));
+    const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (days > 0) {
+        return `${days} dia${days > 1 ? 's' : ''}`;
+    } else if (hours > 0) {
+        return `${hours} hora${hours > 1 ? 's' : ''}`;
+    } else if (minutes > 0) {
+        return `${minutes} minuto${minutes > 1 ? 's' : ''}`;
+    } else {
+        return `${seconds} segundo${seconds > 1 ? 's' : ''}`;
+    }
+}
+
 class PaymentController {
     async getPlans(req, res) {
         try {
@@ -60,7 +82,7 @@ class PaymentController {
                 id: plano.id,
                 nome: plano.nome,
                 preco: plano.valor,
-                duracao: this.formatDuration(plano.session_timeout),
+                duracao: formatDuration(plano.session_timeout),
                 descricao: plano.descricao,
                 rate_limit: plano.rate_limit
             }));
@@ -428,27 +450,6 @@ class PaymentController {
         }
     }
 
-    // Helper function to format duration
-    formatDuration(sessionTimeout) {
-        if (!sessionTimeout) return 'Ilimitado';
-        
-        const seconds = parseInt(sessionTimeout);
-        if (isNaN(seconds)) return sessionTimeout;
-        
-        const days = Math.floor(seconds / (24 * 3600));
-        const hours = Math.floor((seconds % (24 * 3600)) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        
-        if (days > 0) {
-            return `${days} dia${days > 1 ? 's' : ''}`;
-        } else if (hours > 0) {
-            return `${hours} hora${hours > 1 ? 's' : ''}`;
-        } else if (minutes > 0) {
-            return `${minutes} minuto${minutes > 1 ? 's' : ''}`;
-        } else {
-            return `${seconds} segundo${seconds > 1 ? 's' : ''}`;
-        }
-    }
 }
 
 module.exports = new PaymentController();
