@@ -164,6 +164,27 @@ class PaymentPollingController {
             });
         }
     }
+
+    async cleanupOldPayments(req, res) {
+        try {
+            console.log('🧹 [POLLING-CONTROLLER] Iniciando limpeza manual de pagamentos antigos...');
+            
+            await paymentPollingService.cleanupOldTestPayments();
+            
+            res.json({
+                success: true,
+                message: 'Limpeza de pagamentos antigos concluída',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('❌ [POLLING-CONTROLLER] Erro na limpeza:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
 }
 
 module.exports = new PaymentPollingController();

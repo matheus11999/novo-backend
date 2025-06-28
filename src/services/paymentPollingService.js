@@ -21,6 +21,11 @@ class PaymentPollingService {
         this.isRunning = true;
         console.log(`🚀 [PAYMENT-POLLING] Iniciando polling a cada ${this.pollingInterval / 1000}s`);
         
+        // Executar limpeza inicial de pagamentos antigos
+        setTimeout(() => {
+            this.cleanupOldTestPayments();
+        }, 10000); // Após 10 segundos
+        
         // Executar imediatamente
         this.checkPendingPayments();
         
@@ -53,6 +58,7 @@ class PaymentPollingService {
             
             // Buscar vendas com status completed mas sem usuário criado
             // OU vendas pendentes que podem ter sido pagas
+            // Excluir vendas marcadas como not_found no MercadoPago
             const { data: pendingVendas, error } = await supabase
                 .from('vendas')
                 .select(`
@@ -61,6 +67,7 @@ class PaymentPollingService {
                     mikrotiks (*)
                 `)
                 .or('status.eq.pending,and(status.eq.completed,mikrotik_user_created.eq.false)')
+                .not('mercadopago_status', 'eq', 'not_found')
                 .gte('created_at', new Date(Date.now() - this.maxPaymentAge).toISOString())
                 .order('created_at', { ascending: false });
 
@@ -106,7 +113,26 @@ class PaymentPollingService {
             console.log(`🔍 [PAYMENT-POLLING] Processando venda: ${paymentId}`);
 
             // Consultar status no MercadoPago
-            const mpPayment = await payment.get({ id: paymentId });
+            let mpPayment;
+            try {
+                mpPayment = await payment.get({ id: paymentId });
+            } catch (mpError) {
+                // Erro 404 = pagamento não encontrado (comum para pagamentos antigos/teste)
+                if (mpError.status === 404 || mpError.message?.includes('resource not found')) {
+                    console.log(`ℹ️ [PAYMENT-POLLING] Pagamento não encontrado no MP (404): ${paymentId} - Provavelmente teste antigo`);
+                    
+                    // Marcar como não encontrado para não tentar novamente
+                    await this.updateVendaStatus(venda.id, {
+                        mercadopago_status: 'not_found',
+                        updated_at: new Date().toISOString()
+                    });
+                    return;
+                }
+                
+                // Outros erros, tentar novamente depois
+                console.error(`❌ [PAYMENT-POLLING] Erro MP para ${paymentId}:`, mpError.message);
+                return;
+            }
             
             if (!mpPayment) {
                 console.log(`❌ [PAYMENT-POLLING] Pagamento não encontrado no MP: ${paymentId}`);
@@ -309,6 +335,50 @@ class PaymentPollingService {
 
     sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Limpar pagamentos antigos de teste que não existem mais no MP
+    async cleanupOldTestPayments() {
+        try {
+            console.log('🧹 [PAYMENT-POLLING] Limpando pagamentos de teste antigos...');
+            
+            const { data: oldVendas, error } = await supabase
+                .from('vendas')
+                .select('id, payment_id, created_at')
+                .eq('status', 'pending')
+                .is('mercadopago_status', null)
+                .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()) // Mais de 2 horas
+                .limit(50);
+            
+            if (error || !oldVendas || oldVendas.length === 0) {
+                console.log('ℹ️ [PAYMENT-POLLING] Nenhum pagamento antigo para limpar');
+                return;
+            }
+            
+            console.log(`🧹 [PAYMENT-POLLING] Verificando ${oldVendas.length} pagamentos antigos...`);
+            
+            for (const venda of oldVendas) {
+                try {
+                    await payment.get({ id: venda.payment_id });
+                    // Se chegou aqui, pagamento existe no MP
+                } catch (mpError) {
+                    if (mpError.status === 404 || mpError.message?.includes('resource not found')) {
+                        // Marcar como not_found
+                        await this.updateVendaStatus(venda.id, {
+                            mercadopago_status: 'not_found',
+                            updated_at: new Date().toISOString()
+                        });
+                        console.log(`🗑️ [PAYMENT-POLLING] Marcado como not_found: ${venda.payment_id}`);
+                    }
+                }
+                
+                await this.sleep(500); // Evitar rate limit
+            }
+            
+            console.log('✅ [PAYMENT-POLLING] Limpeza de pagamentos antigos concluída');
+        } catch (error) {
+            console.error('❌ [PAYMENT-POLLING] Erro na limpeza:', error);
+        }
     }
 
     // Método para processar venda específica manualmente

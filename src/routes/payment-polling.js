@@ -23,4 +23,7 @@ router.post('/process/:paymentId', auth, paymentPollingController.processSpecifi
 // Listar pagamentos pendentes
 router.get('/pending', auth, paymentPollingController.getPendingPayments);
 
+// Limpar pagamentos antigos de teste
+router.post('/cleanup', auth, paymentPollingController.cleanupOldPayments);
+
 module.exports = router;
