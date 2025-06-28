@@ -1,6 +1,5 @@
 const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
-const { createMikrotikUser } = require('../utils/mikrotikUtils');
 const axios = require('axios');
 
 class WebhookController {
@@ -136,22 +135,35 @@ class WebhookController {
 
     async createTransactionHistory(venda) {
         try {
+            console.log('💳 Creating transaction history for sale:', venda.payment_id);
+            
+            // Buscar o admin user_id (primeiro usuário admin do sistema)
+            const { data: adminUser, error: adminError } = await supabase
+                .from('auth.users')
+                .select('id')
+                .limit(1)
+                .single();
+
+            const adminUserId = adminUser?.id || '00000000-0000-0000-0000-000000000000';
+
             const historyEntries = [
                 {
                     venda_id: venda.id,
                     mikrotik_id: venda.mikrotik_id,
-                    user_id: venda.mikrotiks.user_id,
+                    user_id: adminUserId, // Admin
                     tipo: 'admin',
                     valor: venda.valor_admin,
-                    descricao: `Comissão admin - Venda ${venda.payment_id}`
+                    descricao: `Comissão admin - Venda ${venda.payment_id}`,
+                    status: 'completed'
                 },
                 {
                     venda_id: venda.id,
                     mikrotik_id: venda.mikrotik_id,
-                    user_id: venda.mikrotiks.user_id,
+                    user_id: venda.mikrotiks?.user_id || adminUserId, // Dono do MikroTik
                     tipo: 'usuario',
                     valor: venda.valor_usuario,
-                    descricao: `Pagamento usuario - Venda ${venda.payment_id}`
+                    descricao: `Pagamento usuário - Venda ${venda.payment_id}`,
+                    status: 'completed'
                 }
             ];
 
@@ -160,13 +172,47 @@ class WebhookController {
                 .insert(historyEntries);
 
             if (error) {
+                console.error('❌ Error inserting transaction history:', error);
                 throw error;
             }
 
-            console.log('Transaction history created for sale:', venda.payment_id);
+            // Criar transações para atualizar saldos
+            await this.updateUserBalances(venda, adminUserId);
+
+            console.log('✅ Transaction history created for sale:', venda.payment_id);
         } catch (error) {
-            console.error('Error creating transaction history:', error);
-            throw error;
+            console.error('❌ Error creating transaction history:', error);
+            // Não falhar o pagamento por causa disso
+            console.warn('⚠️ Continuing without transaction history...');
+        }
+    }
+
+    async updateUserBalances(venda, adminUserId) {
+        try {
+            const transacoes = [
+                {
+                    user_id: adminUserId,
+                    valor: venda.valor_admin,
+                    referencia_id: venda.id
+                },
+                {
+                    user_id: venda.mikrotiks?.user_id || adminUserId,
+                    valor: venda.valor_usuario,
+                    referencia_id: venda.id
+                }
+            ];
+
+            const { error } = await supabase
+                .from('transacoes')
+                .insert(transacoes);
+
+            if (error) {
+                console.error('❌ Error creating balance transactions:', error);
+            } else {
+                console.log('✅ User balances updated');
+            }
+        } catch (error) {
+            console.error('❌ Error updating user balances:', error);
         }
     }
 
@@ -174,53 +220,62 @@ class WebhookController {
         try {
             console.log(`🗑️ Attempting to delete existing user with MAC: ${macAddress}`);
             
-            const params = new URLSearchParams({
+            const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://localhost:3001';
+            const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
+
+            if (!mikrotikApiToken) {
+                console.warn('⚠️ MIKROTIK_API_TOKEN not configured');
+                return;
+            }
+
+            const credentials = {
                 ip: mikrotik.ip,
-                username: mikrotik.usuario,
-                password: mikrotik.senha,
-                port: mikrotik.porta || 8728
+                usuario: mikrotik.usuario,
+                senha: mikrotik.senha,
+                porta: mikrotik.porta || 8728
+            };
+
+            // Buscar usuários com o MAC
+            const listResponse = await axios.post(`${mikrotikApiUrl}/users/list`, {
+                credentials: credentials
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${mikrotikApiToken}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
             });
 
-            // First, get all users to find the one with this MAC
-            const getUsersResponse = await axios.get(
-                `${process.env.MIKROTIK_API_URL}/hotspot/users?${params}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-                    },
-                    timeout: 10000
-                }
-            );
-
-            if (getUsersResponse.data && getUsersResponse.data.data) {
-                const users = getUsersResponse.data.data;
-                const existingUser = users.find(user => 
-                    user['mac-address'] && user['mac-address'].toLowerCase() === macAddress.toLowerCase()
+            if (listResponse.data?.success && listResponse.data?.data) {
+                const users = listResponse.data.data;
+                const cleanMac = macAddress.replace(/[:-]/g, '').toLowerCase();
+                
+                const userToDelete = users.find(user => 
+                    (user['mac-address'] && user['mac-address'].replace(/[:-]/g, '').toLowerCase() === cleanMac) ||
+                    (user.name && user.name.toLowerCase() === cleanMac)
                 );
 
-                if (existingUser) {
-                    console.log(`🔍 Found existing user with MAC ${macAddress}: ${existingUser.name}`);
+                if (userToDelete) {
+                    console.log(`🎯 Found user to delete: ${userToDelete.name}`);
                     
-                    // Delete the existing user
-                    params.append('id', existingUser['.id']);
-                    await axios.delete(
-                        `${process.env.MIKROTIK_API_URL}/hotspot/users?${params}`,
-                        {
-                            headers: {
-                                'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-                            },
-                            timeout: 10000
-                        }
-                    );
+                    await axios.post(`${mikrotikApiUrl}/users/delete`, {
+                        credentials: credentials,
+                        userId: userToDelete['.id']
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${mikrotikApiToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    });
                     
-                    console.log(`✅ Deleted existing user: ${existingUser.name}`);
+                    console.log(`✅ Deleted existing user: ${userToDelete.name}`);
                 } else {
                     console.log(`ℹ️ No existing user found with MAC: ${macAddress}`);
                 }
             }
         } catch (error) {
             console.warn(`⚠️ Warning: Could not delete existing user with MAC ${macAddress}:`, error.message);
-            // Don't throw error, just warn - we'll try to create the user anyway
         }
     }
 
@@ -228,12 +283,19 @@ class WebhookController {
         try {
             console.log(`👤 Creating MikroTik user: ${userData.username}`);
             
-            const params = new URLSearchParams({
+            const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://localhost:3001';
+            const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
+
+            if (!mikrotikApiToken) {
+                throw new Error('MIKROTIK_API_TOKEN not configured');
+            }
+
+            const credentials = {
                 ip: mikrotik.ip,
-                username: mikrotik.usuario,
-                password: mikrotik.senha,
-                port: mikrotik.porta || 8728
-            });
+                usuario: mikrotik.usuario,
+                senha: mikrotik.senha,
+                porta: mikrotik.porta || 8728
+            };
 
             const userPayload = {
                 name: userData.username,
@@ -243,21 +305,22 @@ class WebhookController {
                 'mac-address': userData['mac-address']
             };
 
-            console.log(`📡 Sending user creation request to MikroTik API...`);
+            console.log(`📡 Sending user creation request to MikroTik API:`, userPayload);
             
-            const response = await axios.post(
-                `${process.env.MIKROTIK_API_URL}/hotspot/users?${params}`,
-                userPayload,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN}`
-                    },
-                    timeout: 15000
-                }
-            );
+            const response = await axios.post(`${mikrotikApiUrl}/users/create`, {
+                credentials: credentials,
+                user: userPayload
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${mikrotikApiToken}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 15000
+            });
 
-            if (response.data && response.data.success) {
+            console.log(`📥 MikroTik API response:`, response.data);
+
+            if (response.data?.success) {
                 return {
                     success: true,
                     user_id: response.data.data?.['.id'] || null,
@@ -266,14 +329,17 @@ class WebhookController {
             } else {
                 return {
                     success: false,
-                    error: response.data?.error || 'Unknown error creating user'
+                    error: response.data?.error || response.data?.message || 'Unknown error creating user'
                 };
             }
         } catch (error) {
             console.error('❌ MikroTik API Error:', error.message);
+            if (error.response) {
+                console.error('❌ Error response:', error.response.data);
+            }
             return {
                 success: false,
-                error: error.response?.data?.error || error.message
+                error: error.response?.data?.error || error.response?.data?.message || error.message
             };
         }
     }
