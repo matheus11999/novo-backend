@@ -10,6 +10,11 @@ const createPaymentLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    trustProxy: true, // Configurar explicitamente para produção
+    keyGenerator: (req) => {
+        // Usar X-Forwarded-For se disponível, senão IP remoto
+        return req.ip || req.connection.remoteAddress;
+    }
 });
 
 const webhookLimiter = rateLimit({
@@ -21,6 +26,10 @@ const webhookLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    trustProxy: true,
+    keyGenerator: (req) => {
+        return req.ip || req.connection.remoteAddress;
+    }
 });
 
 const generalLimiter = rateLimit({
@@ -33,6 +42,10 @@ const generalLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
+    trustProxy: true,
+    keyGenerator: (req) => {
+        return req.ip || req.connection.remoteAddress;
+    }
 });
 
 module.exports = {
