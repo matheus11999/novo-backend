@@ -38,13 +38,18 @@ class MikroTikUserService {
                 plano: vendaData.planos?.nome
             });
             
-            // 3. Obter credenciais do MikroTik
+            // 3. Obter credenciais do MikroTik (usar campos corretos)
             const credentials = {
                 ip: vendaData.mikrotiks.ip,
-                username: vendaData.mikrotiks.usuario,
-                password: vendaData.mikrotiks.senha,
-                port: vendaData.mikrotiks.porta || 8728
+                username: vendaData.mikrotiks.username || vendaData.mikrotiks.usuario,
+                password: vendaData.mikrotiks.password || vendaData.mikrotiks.senha,
+                port: vendaData.mikrotiks.port || vendaData.mikrotiks.porta || 8728
             };
+            
+            // Validar se temos todos os dados necessários
+            if (!credentials.ip || !credentials.username || !credentials.password) {
+                throw new Error(`Dados MikroTik incompletos: IP=${credentials.ip}, User=${credentials.username}, Pass=${credentials.password ? '[REDACTED]' : 'null'}`);
+            }
             
             // 4. Combinar dados do usuário com credenciais
             const requestData = {
