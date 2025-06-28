@@ -1,8 +1,13 @@
 const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
 const axios = require('axios');
+const MikroTikUserService = require('../services/mikrotikUserService');
 
 class WebhookController {
+    constructor() {
+        this.mikrotikUserService = new MikroTikUserService();
+    }
+
     async handleMercadoPagoWebhook(req, res) {
         try {
             console.log('MercadoPago Webhook received:', req.body);
@@ -60,35 +65,26 @@ class WebhookController {
                 updateData.paid_at = new Date().toISOString();
 
                 try {
-                    // Create user in MikroTik with MAC as username and password
-                    const macAddress = venda.mac_address;
-                    const cleanMac = macAddress.replace(/[:-]/g, '').toLowerCase();
+                    // Create user in MikroTik using new service with retry
+                    console.log(`🔧 [WEBHOOK] Criando usuário MikroTik para MAC: ${venda.mac_address}`);
                     
-                    const mikrotikUser = {
-                        username: cleanMac,
-                        password: cleanMac,
-                        profile: venda.planos.nome,
-                        comment: `Vendido via PIX - ${new Date().toISOString()}`,
-                        'mac-address': macAddress
-                    };
-
-                    // Use new route to manage user (delete + create)
-                    const userCreated = await this.manageMikrotikUser(venda.mikrotiks, mikrotikUser, venda.id);
+                    const userResult = await this.mikrotikUserService.createUserWithRetry(venda);
                     
-                    if (userCreated.success) {
-                        updateData.usuario_criado = cleanMac;
-                        updateData.senha_usuario = cleanMac;
-                        updateData.mikrotik_user_id = userCreated.user_id;
+                    if (userResult.success) {
+                        updateData.usuario_criado = userResult.username;
+                        updateData.senha_usuario = userResult.username;
+                        updateData.mikrotik_user_id = userResult.mikrotikUserId;
                         
-                        console.log(`✅ MikroTik user created successfully: ${cleanMac}`);
+                        console.log(`✅ [WEBHOOK] Usuário MikroTik criado: ${userResult.username} (tentativa ${userResult.attempt})`);
                     } else {
-                        console.error('❌ Failed to create MikroTik user:', userCreated.error);
-                        updateData.error_message = userCreated.error;
+                        console.error(`❌ [WEBHOOK] Falha na criação do usuário MikroTik:`, userResult.error);
+                        updateData.error_message = userResult.error;
+                        // Não falhar o pagamento, pois o sistema de retry cuidará disso
                     }
                 } catch (userError) {
-                    console.error('❌ Error creating MikroTik user:', userError.message);
+                    console.error('❌ [WEBHOOK] Erro crítico na criação do usuário:', userError.message);
                     updateData.error_message = userError.message;
-                    // Don't fail the payment, just log the error
+                    // Não falhar o pagamento, sistema de retry tentará novamente
                 }
 
                 // Update the sale
