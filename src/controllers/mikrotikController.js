@@ -126,6 +126,9 @@ const getStats = async (req, res) => {
       routerboard: routerboardData.data
     };
 
+    console.log('Combined system data:', JSON.stringify(combinedSystemData, null, 2))
+    console.log('Routerboard data:', JSON.stringify(routerboardData.data, null, 2))
+
     res.json({
       success: true,
       data: {
