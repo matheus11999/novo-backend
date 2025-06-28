@@ -320,7 +320,7 @@ class PaymentController {
 
             const paymentData = {
                 transaction_amount: valorTotal,
-                description: `${plano.nome} - ${this.formatDuration(plano.session_timeout)}`,
+                description: `${plano.nome} - ${formatDuration(plano.session_timeout)}`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
                 notification_url: webhookUrl,
@@ -375,7 +375,7 @@ class PaymentController {
                     expires_at: expiresAt,
                     status: 'pending',
                     plan_name: plano.nome,
-                    plan_duration: this.formatDuration(plano.session_timeout)
+                    plan_duration: formatDuration(plano.session_timeout)
                 }
             });
         } catch (error) {

@@ -707,17 +707,22 @@
             state.linkOrig = urlParams.get('link-orig') || '$(link-orig)';
             state.linkLogin = urlParams.get('link-login') || '$(link-login)';
             
-            // Clean MikroTik template variables
-            if (state.mac && state.mac.includes('$(')) state.mac = null;
-            if (state.ip && state.ip.includes('$(')) state.ip = null;
-            if (state.interface && state.interface.includes('$(')) state.interface = null;
-            if (state.linkOrig && state.linkOrig.includes('$(')) state.linkOrig = null;
-            if (state.linkLogin && state.linkLogin.includes('$(')) state.linkLogin = null;
+            // Clean MikroTik template variables and set test MAC if needed
+            if (state.mac && state.mac.includes('$(')) {
+                state.mac = '00:11:22:33:44:55'; // MAC de teste para desenvolvimento
+                console.log('🧪 Using test MAC address for development');
+            }
+            if (state.ip && state.ip.includes('$(')) state.ip = '192.168.1.100';
+            if (state.interface && state.interface.includes('$(')) state.interface = 'wlan1';
+            if (state.linkOrig && state.linkOrig.includes('$(')) state.linkOrig = 'http://google.com';
+            if (state.linkLogin && state.linkLogin.includes('$(')) state.linkLogin = '#';
             
-            console.log('URL params captured:', {
+            console.log('🔧 URL params captured:', {
                 mac: state.mac,
                 ip: state.ip,
-                interface: state.interface
+                interface: state.interface,
+                linkOrig: state.linkOrig,
+                linkLogin: state.linkLogin
             });
         }
 
@@ -814,7 +819,15 @@
 
         // Load plans from API
         async function loadPlans() {
+            console.log('🔍 loadPlans() called');
+            console.log('📊 State check:', {
+                apiUrl: state.apiUrl,
+                mikrotikId: state.mikrotikId,
+                mac: state.mac
+            });
+
             if (!state.apiUrl || !state.mikrotikId) {
+                console.error('❌ Missing configuration:', { apiUrl: state.apiUrl, mikrotikId: state.mikrotikId });
                 showMessage('Configuração da API não encontrada', 'error');
                 document.getElementById('plansContainer').innerHTML = 
                     '<div style="text-align: center; padding: 40px; color: var(--gray);">' +
@@ -827,31 +840,42 @@
             document.getElementById('loadingPlans').style.display = 'block';
             document.getElementById('plansContainer').innerHTML = '';
 
+            const requestData = { mikrotik_id: state.mikrotikId };
+            console.log('📤 Request URL:', state.apiUrl + '/api/payment/plans-by-mikrotik');
+            console.log('📤 Request data:', requestData);
+
             try {
                 const response = await fetch(state.apiUrl + '/api/payment/plans-by-mikrotik', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mikrotik_id: state.mikrotikId
-                    })
+                    body: JSON.stringify(requestData)
                 });
                 
+                console.log('📥 Response status:', response.status);
+                console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+                
                 if (!response.ok) {
-                    throw new Error(`Erro na API: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ API Error response:', errorText);
+                    throw new Error(`Erro na API: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
+                console.log('📥 Response data:', data);
                 
                 if (data && data.planos && data.planos.length > 0) {
+                    console.log('✅ Plans loaded successfully:', data.planos.length, 'plans');
                     // Ordenar planos do mais barato para o mais caro
                     const sortedPlans = data.planos.sort((a, b) => Number(a.preco) - Number(b.preco));
                     state.plans = sortedPlans;
                     displayPlans(sortedPlans);
                 } else {
+                    console.error('❌ No plans found in response:', data);
                     throw new Error('Nenhum plano disponível');
                 }
             } catch (error) {
-                console.error('Error loading plans:', error);
+                console.error('❌ Error loading plans:', error);
+                console.error('❌ Error stack:', error.stack);
                 showMessage('Erro ao carregar planos: ' + error.message, 'error');
                 document.getElementById('plansContainer').innerHTML = 
                     '<div style="text-align: center; padding: 40px; color: var(--gray);">' +
@@ -912,41 +936,68 @@
 
         // Generate PIX payment
         async function generatePix() {
+            console.log('💰 generatePix() called');
+            console.log('📊 Payment state check:', {
+                selectedPlan: state.selectedPlan,
+                mac: state.mac,
+                mikrotikId: state.mikrotikId,
+                apiUrl: state.apiUrl
+            });
+
             if (!state.selectedPlan) {
+                console.error('❌ No plan selected');
                 showMessage('Selecione um plano primeiro', 'error');
                 return;
             }
             
             if (!state.mac) {
+                console.error('❌ No MAC address found');
                 showMessage('MAC address não encontrado', 'error');
                 return;
             }
             
             showLoadingScreen('Gerando PIX');
+
+            const requestData = {
+                mikrotik_id: state.mikrotikId,
+                plano_id: state.selectedPlan.id,
+                mac_address: state.mac
+            };
+            console.log('📤 PIX Request URL:', state.apiUrl + '/api/payment/create-captive');
+            console.log('📤 PIX Request data:', requestData);
             
             try {
                 const response = await fetch(state.apiUrl + '/api/payment/create-captive', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mikrotik_id: state.mikrotikId,
-                        plano_id: state.selectedPlan.id,
-                        mac_address: state.mac
-                    })
+                    body: JSON.stringify(requestData)
                 });
                 
+                console.log('📥 PIX Response status:', response.status);
+                console.log('📥 PIX Response headers:', Object.fromEntries(response.headers.entries()));
+                
                 if (!response.ok) {
-                    const errorData = await response.json();
+                    const errorText = await response.text();
+                    console.error('❌ PIX API Error response:', errorText);
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch (e) {
+                        errorData = { message: errorText };
+                    }
                     throw new Error(errorData.message || `Erro ao criar pagamento: ${response.status}`);
                 }
                 
                 const paymentData = await response.json();
+                console.log('📥 PIX Response data:', paymentData);
                 
                 if (paymentData && paymentData.success && paymentData.data) {
+                    console.log('✅ PIX payment created successfully:', paymentData.data.payment_id);
                     showPixScreen();
                     
                     // Store payment data
                     state.paymentId = paymentData.data.payment_id;
+                    console.log('💾 Payment ID stored:', state.paymentId);
                     
                     // Display PIX data
                     displayPixData({
@@ -961,13 +1012,13 @@
                     
                     // Start payment check
                     startPaymentCheck();
-                    
-                    console.log('✅ Pagamento PIX criado:', paymentData.data.payment_id);
                 } else {
+                    console.error('❌ Invalid PIX response structure:', paymentData);
                     throw new Error('Erro na resposta da API ao criar pagamento');
                 }
             } catch (error) {
-                console.error('Erro ao gerar PIX:', error);
+                console.error('❌ Error generating PIX:', error);
+                console.error('❌ Error stack:', error.stack);
                 showMessage('Erro ao gerar PIX: ' + error.message, 'error');
                 showPlansScreen();
             }
