@@ -1258,15 +1258,35 @@ PersistentKeepalive = 25`;
 };
 
 const checkConnection = async (req, res) => {
+  const startTime = Date.now();
+  
   try {
     const { mikrotikId } = req.params;
+    
+    // Validate input
+    if (!mikrotikId) {
+      return res.status(400).json({
+        success: false,
+        error: 'MikroTik ID é obrigatório',
+        needsConfiguration: true
+      });
+    }
+
+    // Validate user
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Usuário não autenticado',
+        needsAuthentication: true
+      });
+    }
     
     // Try to get credentials first
     let credentials;
     try {
       credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
     } catch (credError) {
-      console.error('Credentials error:', credError.message);
+      console.error(`[CHECK-CONNECTION] Credentials error for user ${req.user.id}, mikrotik ${mikrotikId}:`, credError.message);
       return res.status(400).json({
         success: false,
         error: credError.message,
@@ -1274,23 +1294,59 @@ const checkConnection = async (req, res) => {
       });
     }
 
-    // Just do a simple system identity check to test connectivity
-    const response = await makeApiRequest('/system/identity', credentials);
+    console.log(`[CHECK-CONNECTION] Testing connection to ${credentials.ip} for user ${req.user.id}`);
+
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000);
+    });
+
+    // Make API request with timeout
+    const apiPromise = makeApiRequest('/system/identity', credentials);
+    
+    const response = await Promise.race([apiPromise, timeoutPromise]);
+    const responseTime = Date.now() - startTime;
+
+    console.log(`[CHECK-CONNECTION] Success for ${credentials.ip} in ${responseTime}ms`);
 
     res.json({
       success: true,
       data: {
         isOnline: true,
         identity: response.data?.name || 'MikroTik',
-        mikrotik: credentials.mikrotik
+        mikrotik: credentials.mikrotik,
+        responseTime
       }
     });
   } catch (error) {
-    console.error('Check connection error:', error);
-    res.status(500).json({
+    const responseTime = Date.now() - startTime;
+    console.error(`[CHECK-CONNECTION] Error after ${responseTime}ms:`, error.message);
+    
+    let errorMessage = 'Erro de conexão';
+    let statusCode = 500;
+    
+    // Categorize errors
+    if (error.message.includes('timeout')) {
+      errorMessage = 'Timeout de conexão (>10s)';
+      statusCode = 408;
+    } else if (error.message.includes('ECONNREFUSED')) {
+      errorMessage = 'Conexão recusada';
+      statusCode = 503;
+    } else if (error.message.includes('EHOSTUNREACH')) {
+      errorMessage = 'Host não encontrado';
+      statusCode = 503;
+    } else if (error.message.includes('authentication')) {
+      errorMessage = 'Falha na autenticação';
+      statusCode = 401;
+    } else {
+      errorMessage = error.message;
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: error.message,
-      isOnline: false
+      error: errorMessage,
+      isOnline: false,
+      responseTime
     });
   }
 };
