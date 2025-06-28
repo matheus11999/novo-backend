@@ -55,8 +55,10 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
       headers: {}
     };
 
-    // Adicionar token da API MikroTik
-    config.headers['Authorization'] = `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`;
+    // Adicionar token da API MikroTik se configurado
+    if (process.env.MIKROTIK_API_TOKEN) {
+      config.headers['Authorization'] = `Bearer ${process.env.MIKROTIK_API_TOKEN}`;
+    }
 
     if (data && (method === 'POST' || method === 'PUT')) {
       config.data = data;
@@ -846,7 +848,7 @@ const applyTemplate = async (req, res) => {
           port: credentials.port
         },
         headers: {
-          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
         }
       })
     } catch (fetchError) {
@@ -877,7 +879,7 @@ const applyTemplate = async (req, res) => {
               port: credentials.port
             },
             headers: {
-              'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+              'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
             }
           })
           serverProfiles = listResponse.data.data || []
@@ -904,7 +906,7 @@ const applyTemplate = async (req, res) => {
                 id: targetServerProfile['.id']
               },
               headers: {
-                'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+                'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
               }
             })
             console.log('Hotspot profile updated successfully:', updateServerProfileResponse.status)
@@ -931,7 +933,7 @@ const applyTemplate = async (req, res) => {
                   id: firstProfile['.id']
                 },
                 headers: {
-                  'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+                  'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
                 }
               })
               console.log('Hotspot profile updated successfully:', updateServerProfileResponse.status)
@@ -956,7 +958,7 @@ const applyTemplate = async (req, res) => {
                   port: credentials.port
                 },
                 headers: {
-                  'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || 'a7f8e9d2c1b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0'}`
+                  'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
                 }
               })
               console.log('Default hotspot profile created successfully for templates')
