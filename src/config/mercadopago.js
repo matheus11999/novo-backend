@@ -9,8 +9,8 @@ if (!accessToken) {
 const client = new MercadoPagoConfig({
     accessToken: accessToken,
     options: {
-        timeout: 5000,
-        idempotencyKey: 'abc'
+        timeout: 5000
+        // Removido idempotencyKey fixo - será gerado automaticamente ou por request
     }
 });
 

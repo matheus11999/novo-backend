@@ -369,7 +369,7 @@ class PaymentController {
                     last_name: 'Hotspot',
                     identification: {
                         type: 'CPF',
-                        number: '00000000000' // CPF genérico para hotspot
+                        number: '11144477735' // CPF válido para hotspot
                     },
                     address: {
                         zip_code: '00000000',
