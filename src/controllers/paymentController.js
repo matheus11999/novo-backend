@@ -129,10 +129,9 @@ class PaymentController {
 
             const paymentId = uuidv4();
             
-            // Generate webhook URL dynamically based on request
-            const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-            const host = req.get('host');
-            const webhookUrl = `${protocol}://${host}/api/webhook/mercadopago`;
+            // Generate webhook URL using BASE_URL for production compatibility
+            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+            const webhookUrl = `${baseUrl}/api/webhook/mercadopago`;
 
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem);
             const valorTotal = parseFloat(plano.preco);
@@ -308,10 +307,9 @@ class PaymentController {
 
             const paymentId = uuidv4();
             
-            // Generate webhook URL dynamically
-            const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-            const host = req.get('host');
-            const webhookUrl = `${protocol}://${host}/api/webhook/mercadopago`;
+            // Generate webhook URL using BASE_URL for production compatibility
+            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+            const webhookUrl = `${baseUrl}/api/webhook/mercadopago`;
 
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem_admin) || 10;
             const valorTotal = parseFloat(plano.valor);
