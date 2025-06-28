@@ -217,7 +217,7 @@ router.post('/create-mikrotik-user', async (req, res) => {
         // Step 2: Create new user
         console.log('👤 [TEST] Step 2: Creating new user');
         const mikrotikUser = {
-            username: cleanMac,
+            name: cleanMac,  // Corrigido: 'name' em vez de 'username'
             password: cleanMac,
             profile: plano_nome,
             comment: `Teste via API - ${new Date().toISOString()}`,
@@ -341,9 +341,9 @@ async function deleteMikrotikUserByMac(credentials, macAddress) {
                     },
                     params: {
                         ip: credentials.ip,
-                        username: credentials.usuario,
-                        password: credentials.senha,
-                        port: credentials.porta
+                        username: credentials.usuario,  // Usar 'usuario' do DB
+                        password: credentials.senha,     // Usar 'senha' do DB
+                        port: credentials.porta         // Usar 'porta' do DB
                     },
                     timeout: 10000
                 });
@@ -352,6 +352,9 @@ async function deleteMikrotikUserByMac(credentials, macAddress) {
                 break;
             } catch (err) {
                 console.log(`❌ [MIKROTIK] Endpoint ${endpoint} failed: ${err.message}`);
+                if (err.response) {
+                    console.log(`❌ [MIKROTIK] Error details:`, err.response.data);
+                }
             }
         }
 
@@ -438,12 +441,13 @@ async function createMikrotikUser(credentials, userData) {
                 console.log(`🔍 [MIKROTIK] Trying create endpoint: ${endpoint}`);
                 
                 const payload = {
-                    ...userData,
-                    // Add connection params
+                    // Connection params (required by API)
                     ip: credentials.ip,
                     username: credentials.usuario,
                     password: credentials.senha,
-                    port: credentials.porta
+                    port: credentials.porta,
+                    // User data
+                    ...userData
                 };
 
                 createResponse = await axios.post(`${mikrotikApiUrl}${endpoint}`, payload, {
