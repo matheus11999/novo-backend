@@ -92,16 +92,18 @@ const getStats = async (req, res) => {
     }
 
     // Get system resource info with detailed logging and error handling
-    const [hotspotStats, systemInfo, systemResource] = await Promise.allSettled([
+    const [hotspotStats, systemInfo, systemResource, routerboardInfo] = await Promise.allSettled([
       makeApiRequest('/hotspot/stats', credentials),
       makeApiRequest('/system/info', credentials),
-      makeApiRequest('/system/resource', credentials)
+      makeApiRequest('/system/resource', credentials),
+      makeApiRequest('/system/routerboard', credentials)
     ]);
 
     // Extract successful results or provide defaults
     const hotspotData = hotspotStats.status === 'fulfilled' ? hotspotStats.value : { data: {} };
     const systemData = systemInfo.status === 'fulfilled' ? systemInfo.value : { data: {} };
     const resourceData = systemResource.status === 'fulfilled' ? systemResource.value : { data: {} };
+    const routerboardData = routerboardInfo.status === 'fulfilled' ? routerboardInfo.value : { data: {} };
 
     // Log any failures for debugging
     if (hotspotStats.status === 'rejected') {
@@ -113,11 +115,15 @@ const getStats = async (req, res) => {
     if (systemResource.status === 'rejected') {
       console.warn('System resource failed:', systemResource.reason?.message);
     }
+    if (routerboardInfo.status === 'rejected') {
+      console.warn('Routerboard info failed:', routerboardInfo.reason?.message);
+    }
 
     // Combine system info and resource data for comprehensive stats
     const combinedSystemData = {
       ...systemData.data,
-      resource: resourceData.data
+      resource: resourceData.data,
+      routerboard: routerboardData.data
     };
 
     res.json({
@@ -130,7 +136,8 @@ const getStats = async (req, res) => {
       warnings: {
         hotspotFailed: hotspotStats.status === 'rejected',
         systemInfoFailed: systemInfo.status === 'rejected',
-        resourceFailed: systemResource.status === 'rejected'
+        resourceFailed: systemResource.status === 'rejected',
+        routerboardFailed: routerboardInfo.status === 'rejected'
       }
     });
   } catch (error) {
