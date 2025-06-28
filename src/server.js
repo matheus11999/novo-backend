@@ -19,33 +19,14 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-// CORS configuration - Allow all development ports
+// CORS configuration - Allow all origins in development, specific in production
+const corsOrigins = process.env.NODE_ENV === 'production' ? [
+    'https://mikropix.online', 
+    'https://api.mikropix.online'
+] : true; // Allow all origins in development
+
 app.use(cors({
-    origin: [
-        // Create React App default
-        'http://localhost:3000', 
-        'http://127.0.0.1:3000',
-        // Backend port  
-        'http://localhost:3001',
-        'http://127.0.0.1:3001',
-        // Vite dev server
-        'http://localhost:5173', 
-        'http://127.0.0.1:5173',
-        // Vite preview
-        'http://localhost:4173', 
-        'http://127.0.0.1:4173',
-        // Next.js default
-        'http://localhost:3001',
-        'http://127.0.0.1:3001',
-        // Alternative dev ports
-        'http://localhost:8080',
-        'http://127.0.0.1:8080',
-        'http://localhost:8000',
-        'http://127.0.0.1:8000',
-        // Production domains
-        'https://mikropix.online', 
-        'https://api.mikropix.online'
-    ],
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Token', 'Accept'],
