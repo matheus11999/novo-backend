@@ -1351,6 +1351,94 @@ const checkConnection = async (req, res) => {
   }
 };
 
+const getBasicSystemInfo = async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { mikrotikId } = req.params;
+    
+    // Try to get credentials first
+    let credentials;
+    try {
+      credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+    } catch (credError) {
+      console.error(`[BASIC-SYSTEM-INFO] Credentials error for user ${req.user.id}, mikrotik ${mikrotikId}:`, credError.message);
+      return res.status(400).json({
+        success: false,
+        error: credError.message,
+        needsConfiguration: true
+      });
+    }
+
+    console.log(`[BASIC-SYSTEM-INFO] Getting basic info from ${credentials.ip} for user ${req.user.id}`);
+
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000);
+    });
+
+    // Get only essential system information
+    const [identityPromise, resourcePromise, routerboardPromise] = [
+      makeApiRequest('/system/identity', credentials),
+      makeApiRequest('/system/resource', credentials),
+      makeApiRequest('/system/routerboard', credentials).catch(() => ({ data: {} }))
+    ];
+    
+    const [identity, resource, routerboard] = await Promise.race([
+      Promise.all([identityPromise, resourcePromise, routerboardPromise]),
+      timeoutPromise
+    ]);
+    
+    const responseTime = Date.now() - startTime;
+
+    console.log(`[BASIC-SYSTEM-INFO] Success for ${credentials.ip} in ${responseTime}ms`);
+
+    const systemData = {
+      identity: identity.data,
+      resource: resource.data,
+      routerboard: routerboard.data
+    };
+
+    res.json({
+      success: true,
+      data: {
+        system: systemData,
+        mikrotik: credentials.mikrotik
+      }
+    });
+  } catch (error) {
+    const responseTime = Date.now() - startTime;
+    console.error(`[BASIC-SYSTEM-INFO] Error after ${responseTime}ms:`, error.message);
+    
+    let errorMessage = 'Erro de conexão';
+    let statusCode = 500;
+    
+    // Categorize errors
+    if (error.message.includes('timeout')) {
+      errorMessage = 'Timeout de conexão (>10s)';
+      statusCode = 408;
+    } else if (error.message.includes('ECONNREFUSED')) {
+      errorMessage = 'Conexão recusada';
+      statusCode = 503;
+    } else if (error.message.includes('EHOSTUNREACH')) {
+      errorMessage = 'Host não encontrado';
+      statusCode = 503;
+    } else if (error.message.includes('authentication')) {
+      errorMessage = 'Falha na autenticação';
+      statusCode = 401;
+    } else {
+      errorMessage = error.message;
+    }
+    
+    res.status(statusCode).json({
+      success: false,
+      error: errorMessage,
+      isOnline: false,
+      responseTime
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1383,5 +1471,6 @@ module.exports = {
   updateWireRestPeer,
   deleteWireRestPeer,
   generateWireGuardConfig,
-  checkConnection
+  checkConnection,
+  getBasicSystemInfo
 };

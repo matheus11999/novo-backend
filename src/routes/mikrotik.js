@@ -75,6 +75,7 @@ router.get('/template/:filename', (req, res) => {
 router.use(authenticateUser);
 
 router.get('/check-connection/:mikrotikId', mikrotikController.checkConnection);
+router.get('/basic-info/:mikrotikId', mikrotikController.getBasicSystemInfo);
 router.get('/stats/:mikrotikId', mikrotikController.getStats);
 router.get('/hotspot/users/:mikrotikId', mikrotikController.getHotspotUsers);
 router.get('/hotspot/active-users/:mikrotikId', mikrotikController.getActiveUsers);
