@@ -112,10 +112,15 @@ class PaymentPollingService {
         try {
             console.log(`🔍 [PAYMENT-POLLING] Processando venda: ${paymentId}`);
 
-            // Consultar status no MercadoPago
+            // Consultar status no MercadoPago usando o ID correto
+            if (!venda.mercadopago_payment_id) {
+                console.log(`⚠️ [PAYMENT-POLLING] Venda ${paymentId} sem MercadoPago Payment ID`);
+                return;
+            }
+
             let mpPayment;
             try {
-                mpPayment = await payment.get({ id: paymentId });
+                mpPayment = await payment.get({ id: venda.mercadopago_payment_id });
             } catch (mpError) {
                 // Erro 404 = pagamento não encontrado (comum para pagamentos antigos/teste)
                 if (mpError.status === 404 || mpError.message?.includes('resource not found')) {
@@ -139,7 +144,7 @@ class PaymentPollingService {
                 return;
             }
 
-            console.log(`📊 [PAYMENT-POLLING] Status MP: ${mpPayment.status} | Status DB: ${venda.status}`);
+            console.log(`📊 [PAYMENT-POLLING] Status MP: ${mpPayment.status} (${mpPayment.status_detail}) | Status DB: ${venda.status}`);
 
             // Verificar se status mudou
             const needsUpdate = mpPayment.status !== venda.mercadopago_status;
@@ -147,9 +152,16 @@ class PaymentPollingService {
             const wasNotCompleted = venda.status !== 'completed';
             const userNotCreated = !venda.mikrotik_user_created;
 
+            // Processar diferentes status
             if (isApproved && (wasNotCompleted || userNotCreated)) {
                 console.log(`💰 [PAYMENT-POLLING] Pagamento aprovado: ${paymentId}`);
                 await this.handleApprovedPayment(venda, mpPayment);
+            } else if (mpPayment.status === 'rejected') {
+                console.log(`❌ [PAYMENT-POLLING] Pagamento rejeitado: ${paymentId}`);
+                await this.handleRejectedPayment(venda, mpPayment);
+            } else if (mpPayment.status === 'cancelled') {
+                console.log(`⏹️ [PAYMENT-POLLING] Pagamento cancelado: ${paymentId}`);
+                await this.handleCancelledPayment(venda, mpPayment);
             } else if (needsUpdate) {
                 console.log(`📝 [PAYMENT-POLLING] Atualizando status: ${venda.mercadopago_status} → ${mpPayment.status}`);
                 await this.updatePaymentStatus(venda, mpPayment);
@@ -235,6 +247,51 @@ class PaymentPollingService {
             }
         } catch (error) {
             console.error('❌ [PAYMENT-POLLING] Erro ao atualizar status:', error);
+        }
+    }
+
+    async handleRejectedPayment(venda, mpPayment) {
+        try {
+            const { error } = await supabase
+                .from('vendas')
+                .update({
+                    status: 'failed',
+                    mercadopago_status: mpPayment.status,
+                    failed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    error_message: `Pagamento rejeitado: ${mpPayment.status_detail}`
+                })
+                .eq('id', venda.id);
+
+            if (error) {
+                console.error('❌ [PAYMENT-POLLING] Erro ao marcar como rejeitado:', error);
+            } else {
+                console.log(`✅ [PAYMENT-POLLING] Pagamento marcado como rejeitado: ${venda.payment_id}`);
+            }
+        } catch (error) {
+            console.error('❌ [PAYMENT-POLLING] Erro ao processar rejeição:', error);
+        }
+    }
+
+    async handleCancelledPayment(venda, mpPayment) {
+        try {
+            const { error } = await supabase
+                .from('vendas')
+                .update({
+                    status: 'cancelled',
+                    mercadopago_status: mpPayment.status,
+                    cancelled_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', venda.id);
+
+            if (error) {
+                console.error('❌ [PAYMENT-POLLING] Erro ao marcar como cancelado:', error);
+            } else {
+                console.log(`✅ [PAYMENT-POLLING] Pagamento marcado como cancelado: ${venda.payment_id}`);
+            }
+        } catch (error) {
+            console.error('❌ [PAYMENT-POLLING] Erro ao processar cancelamento:', error);
         }
     }
 

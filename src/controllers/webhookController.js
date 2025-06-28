@@ -60,10 +60,33 @@ class WebhookController {
                 updated_at: new Date().toISOString()
             };
 
-            // Handle approved payment
+            // Handle different payment statuses
+            console.log(`📊 [WEBHOOK] Status: ${mpPayment.status} | Detail: ${mpPayment.status_detail}`);
+            
             if (mpPayment.status === 'approved' && venda.status !== 'completed') {
                 updateData.status = 'completed';
                 updateData.paid_at = new Date().toISOString();
+                console.log('✅ [WEBHOOK] Pagamento aprovado - processando...');
+            } else if (mpPayment.status === 'rejected') {
+                updateData.status = 'failed';
+                updateData.failed_at = new Date().toISOString();
+                console.log('❌ [WEBHOOK] Pagamento rejeitado');
+            } else if (mpPayment.status === 'cancelled') {
+                updateData.status = 'cancelled';
+                updateData.cancelled_at = new Date().toISOString();
+                console.log('⏹️ [WEBHOOK] Pagamento cancelado');
+            } else if (mpPayment.status === 'pending') {
+                // Manter como pending, apenas atualizar status detail
+                console.log('⏳ [WEBHOOK] Pagamento ainda pendente');
+            } else if (mpPayment.status === 'in_process') {
+                updateData.status = 'processing';
+                console.log('🔄 [WEBHOOK] Pagamento em processamento');
+            } else {
+                console.log(`ℹ️ [WEBHOOK] Status não mapeado: ${mpPayment.status}`);
+            }
+
+            // Apenas criar usuário se aprovado
+            if (mpPayment.status === 'approved' && venda.status !== 'completed') {
 
                 // Verificar se o polling service não está processando este pagamento
                 const isBeingProcessed = paymentPollingService.processingPayments?.has(venda.payment_id);
