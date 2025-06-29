@@ -39,6 +39,18 @@ class MikroTikUserService {
             });
             
             // 3. Obter credenciais do MikroTik (usar campos corretos)
+            console.log(`🔍 [MIKROTIK-USER-SERVICE] Dados mikrotiks disponíveis:`, {
+                id: vendaData.mikrotiks?.id,
+                ip: vendaData.mikrotiks?.ip,
+                hasUsername: !!vendaData.mikrotiks?.username,
+                hasUsuario: !!vendaData.mikrotiks?.usuario,
+                hasPassword: !!vendaData.mikrotiks?.password,
+                hasSenha: !!vendaData.mikrotiks?.senha,
+                port: vendaData.mikrotiks?.port,
+                porta: vendaData.mikrotiks?.porta,
+                allFields: Object.keys(vendaData.mikrotiks || {})
+            });
+            
             const credentials = {
                 ip: vendaData.mikrotiks.ip,
                 username: vendaData.mikrotiks.username || vendaData.mikrotiks.usuario,
@@ -46,21 +58,52 @@ class MikroTikUserService {
                 port: vendaData.mikrotiks.port || vendaData.mikrotiks.porta || 8728
             };
             
+            console.log(`🔑 [MIKROTIK-USER-SERVICE] Credenciais extraídas:`, {
+                ip: credentials.ip,
+                username: credentials.username,
+                hasPassword: !!credentials.password,
+                port: credentials.port
+            });
+            
             // Validar se temos todos os dados necessários
             if (!credentials.ip || !credentials.username || !credentials.password) {
-                throw new Error(`Dados MikroTik incompletos: IP=${credentials.ip}, User=${credentials.username}, Pass=${credentials.password ? '[REDACTED]' : 'null'}`);
+                const missingFields = [];
+                if (!credentials.ip) missingFields.push('IP');
+                if (!credentials.username) missingFields.push('Username');
+                if (!credentials.password) missingFields.push('Password');
+                
+                const errorMsg = `❌ Dados MikroTik incompletos - Campos ausentes: ${missingFields.join(', ')}. Dados disponíveis: IP=${credentials.ip}, User=${credentials.username}, Port=${credentials.port}`;
+                console.error(`[MIKROTIK-USER-SERVICE] ${errorMsg}`);
+                throw new Error(errorMsg);
             }
             
-            // 4. Combinar dados do usuário com credenciais
-            const requestData = {
-                ...userData,
-                ...credentials
-            };
+            // 4. Preparar request com credenciais corretas
+            // A API MikroTik espera credenciais como query params e user data no body
+            const queryParams = new URLSearchParams({
+                ip: credentials.ip,
+                username: credentials.username,
+                password: credentials.password,
+                port: credentials.port.toString()
+            });
+            
+            const apiUrl = `${this.mikrotikApiUrl}/hotspot/users/create-directly?${queryParams}`;
             
             console.log(`🔗 [MIKROTIK-USER-SERVICE] Conectando em: ${credentials.ip}:${credentials.port}`);
+            console.log(`📤 [MIKROTIK-USER-SERVICE] User data payload:`, {
+                ...userData,
+                password: userData.password ? '[REDACTED]' : null // Ocultar senhas nos logs
+            });
+            console.log(`🔑 [MIKROTIK-USER-SERVICE] Credenciais enviadas como query params:`, {
+                ip: credentials.ip,
+                username: credentials.username,
+                hasPassword: !!credentials.password,
+                port: credentials.port
+            });
+            console.log(`📡 [MIKROTIK-USER-SERVICE] API URL completa: ${apiUrl.replace(credentials.password, '[REDACTED]')}`);
+            console.log(`🔐 [MIKROTIK-USER-SERVICE] API Token configurado: ${!!this.mikrotikApiToken}`);
             
             // 5. Fazer requisição para API MikroTik (criação direta)
-            const response = await axios.post(`${this.mikrotikApiUrl}/hotspot/users/create-directly`, requestData, {
+            const response = await axios.post(apiUrl, userData, {
                 headers: {
                     'Authorization': `Bearer ${this.mikrotikApiToken}`,
                     'Content-Type': 'application/json'
@@ -70,8 +113,20 @@ class MikroTikUserService {
             
             const duration = Date.now() - startTime;
             
+            console.log(`📥 [MIKROTIK-USER-SERVICE] Response recebida em ${duration}ms:`, {
+                success: response.data?.success,
+                hasData: !!response.data?.data,
+                statusCode: response.status,
+                errorMessage: response.data?.error || response.data?.message
+            });
+            
             if (response.data?.success) {
-                console.log(`✅ [MIKROTIK-USER-SERVICE] Usuário criado com sucesso em ${duration}ms:`, cleanMac);
+                console.log(`✅ [MIKROTIK-USER-SERVICE] Usuário criado com sucesso:`, {
+                    username: cleanMac,
+                    duration: `${duration}ms`,
+                    mikrotikUserId: response.data.data?.createResult?.[0]?.ret || 'N/A',
+                    attempt: attempt
+                });
                 
                 // 5. Atualizar log como sucesso
                 await this.updateUserLog(logId, {
@@ -100,14 +155,27 @@ class MikroTikUserService {
                     attempt: attempt
                 };
             } else {
-                throw new Error(response.data?.error || 'Falha na criação do usuário');
+                const errorMessage = response.data?.error || response.data?.message || 'Falha na criação do usuário';
+                console.error(`❌ [MIKROTIK-USER-SERVICE] API retornou sucesso=false:`, {
+                    error: errorMessage,
+                    responseData: response.data,
+                    duration: `${duration}ms`
+                });
+                throw new Error(errorMessage);
             }
             
         } catch (error) {
             const duration = Date.now() - startTime;
-            const errorMessage = error.response?.data?.error || error.message;
+            const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
             
-            console.error(`❌ [MIKROTIK-USER-SERVICE] Erro na tentativa ${attempt}:`, errorMessage);
+            console.error(`❌ [MIKROTIK-USER-SERVICE] Erro na tentativa ${attempt}:`, {
+                error: errorMessage,
+                duration: `${duration}ms`,
+                statusCode: error.response?.status,
+                isTimeout: error.code === 'ECONNABORTED',
+                isNetworkError: error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND',
+                fullError: error.response?.data || error.message
+            });
             
             // Atualizar log com erro
             if (logId) {
