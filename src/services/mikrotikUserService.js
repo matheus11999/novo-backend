@@ -102,8 +102,14 @@ class MikroTikUserService {
             console.log(`📡 [MIKROTIK-USER-SERVICE] API URL completa: ${apiUrl.replace(credentials.password, '[REDACTED]')}`);
             console.log(`🔐 [MIKROTIK-USER-SERVICE] API Token configurado: ${!!this.mikrotikApiToken}`);
             
-            // 5. Fazer requisição para API MikroTik (criação direta)
-            const response = await axios.post(apiUrl, userData, {
+            // 5. Fazer requisição para API MikroTik (gerenciar usuário: deletar + criar)
+            // Usar o endpoint que deleta usuário existente e cria novo
+            const managementApiUrl = `${this.mikrotikApiUrl}/hotspot/users/manage-with-mac?${queryParams}`;
+            
+            console.log(`🔄 [MIKROTIK-USER-SERVICE] Usando endpoint de gerenciamento (deletar + criar)`);
+            console.log(`📡 [MIKROTIK-USER-SERVICE] Management API URL: ${managementApiUrl.replace(credentials.password, '[REDACTED]')}`);
+            
+            const response = await axios.post(managementApiUrl, userData, {
                 headers: {
                     'Authorization': `Bearer ${this.mikrotikApiToken}`,
                     'Content-Type': 'application/json'
@@ -128,10 +134,23 @@ class MikroTikUserService {
                     attempt: attempt
                 });
                 
+                // Extrair ID do usuário criado da resposta do endpoint manage-with-mac
+                const mikrotikUserId = response.data.data?.create_result?.response?.data?.['.id'] || 
+                                     response.data.data?.createResult?.[0]?.ret || 
+                                     response.data.data?.user_id || 
+                                     null;
+                
+                console.log(`📋 [MIKROTIK-USER-SERVICE] Detalhes da resposta:`, {
+                    hasData: !!response.data.data,
+                    hasCreateResult: !!response.data.data?.create_result,
+                    extractedUserId: mikrotikUserId,
+                    fullResponseData: response.data.data
+                });
+                
                 // 5. Atualizar log como sucesso
                 await this.updateUserLog(logId, {
                     status: 'success',
-                    mikrotik_user_id: response.data.data?.createResult?.[0]?.ret || null,
+                    mikrotik_user_id: mikrotikUserId,
                     response_data: response.data,
                     duration_ms: duration
                 });
@@ -150,7 +169,7 @@ class MikroTikUserService {
                 return {
                     success: true,
                     username: cleanMac,
-                    mikrotikUserId: response.data.data?.createResult?.[0]?.ret,
+                    mikrotikUserId: mikrotikUserId,
                     duration: duration,
                     attempt: attempt
                 };
