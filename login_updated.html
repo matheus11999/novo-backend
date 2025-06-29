@@ -312,20 +312,76 @@
             font-size: 0.9rem;
             word-break: break-all;
             margin: 1rem 0;
-            position: relative;
+            text-align: center;
         }
 
-        .copy-btn {
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: var(--primary);
-            color: var(--white);
+        /* Botão de Copiar PIX - Estilo Grande e Moderno */
+        #copyBtn {
+            background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+            color: white;
             border: none;
-            border-radius: 4px;
-            padding: 0.25rem 0.5rem;
-            font-size: 0.8rem;
+            padding: 1.2rem 2rem;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 18px;
             cursor: pointer;
+            margin-top: 1.5rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        #copyBtn:hover {
+            background: linear-gradient(135deg, #16A34A 0%, #15803D 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        #copyBtn.copied {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            animation: pulseSuccess 0.6s ease-in-out;
+        }
+
+        /* Efeito Ripple */
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            transition: width 0.6s, height 0.6s;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        .ripple:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        #copyBtn span {
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes pulseSuccess {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         .timer {
@@ -545,7 +601,10 @@
             
             <div class="pix-code" id="pixCodeContainer">
                 <div id="pixCode"></div>
-                <button class="copy-btn" onclick="copyPixCode()">📋 Copiar</button>
+                <button type="button" class="btn btn-success ripple" id="copyBtn" onclick="copyPixCode()">
+                    <span>📋</span>
+                    <span>Copiar Chave PIX</span>
+                </button>
             </div>
             
             <div class="pix-info">
@@ -657,7 +716,8 @@
             paymentId: null,
             checkInterval: null,
             timerInterval: null,
-            pixCopied: false
+            pixCopied: false,
+            trialActivated: false
         };
 
         // Initialize
@@ -700,14 +760,20 @@
         function getUrlParams() {
             const urlParams = new URLSearchParams(window.location.search);
             
-            // Get MikroTik variables
+            // Get MikroTik variables (both from URL params and template variables)
             state.mac = urlParams.get('mac') || '$(mac)';
             state.ip = urlParams.get('ip') || '$(ip)';
             state.interface = urlParams.get('interface') || '$(interface-name)';
             state.linkOrig = urlParams.get('link-orig') || '$(link-orig)';
-            state.linkLogin = urlParams.get('link-login') || '$(link-login)';
+            state.linkLogin = urlParams.get('link-login') || '$(link-login-only)';
             
-            // Clean MikroTik template variables and set test MAC if needed
+            // También capturar link-login-only específicamente para o trial
+            const linkLoginOnly = '$(link-login-only)';
+            if (linkLoginOnly && !linkLoginOnly.includes('$(')) {
+                state.linkLogin = linkLoginOnly;
+            }
+            
+            // Clean MikroTik template variables and set test values if needed
             if (state.mac && state.mac.includes('$(')) {
                 state.mac = '00:11:22:33:44:55'; // MAC de teste para desenvolvimento
                 console.log('🧪 Using test MAC address for development');
@@ -715,7 +781,11 @@
             if (state.ip && state.ip.includes('$(')) state.ip = '192.168.1.100';
             if (state.interface && state.interface.includes('$(')) state.interface = 'wlan1';
             if (state.linkOrig && state.linkOrig.includes('$(')) state.linkOrig = 'http://google.com';
-            if (state.linkLogin && state.linkLogin.includes('$(')) state.linkLogin = '#';
+            if (state.linkLogin && state.linkLogin.includes('$(')) {
+                // Para desenvolvimento/teste, usar uma URL de login simulada
+                state.linkLogin = window.location.origin + window.location.pathname;
+                console.log('🧪 Using test login URL for development');
+            }
             
             console.log('🔧 URL params captured:', {
                 mac: state.mac,
@@ -1050,15 +1120,300 @@
             startPaymentTimer();
         }
 
-        function copyPixCode() {
-            const pixCode = document.getElementById('pixCode').textContent;
-            if (pixCode) {
-                navigator.clipboard.writeText(pixCode).then(() => {
-                    showMessage('📋 Código PIX copiado!', 'success');
+        async function copyPixCode() {
+            const code = document.getElementById('pixCode').textContent;
+            const btn = document.getElementById('copyBtn');
+            
+            try {
+                await navigator.clipboard.writeText(code);
+                
+                btn.classList.add('copied');
+                btn.innerHTML = 
+                    '<span>✅</span>' +
+                    '<span>Copiado!</span>';
+                
+                showMessage('PIX copiado com sucesso! 🎉', 'success');
+                
+                // Mark as copied
+                state.pixCopied = true;
+                
+                // Ativa trial em 5 segundos silenciosamente (como no login.html)
+                console.log('PIX copiado - ativando trial em 5 segundos...');
+                
+                setTimeout(() => {
+                    console.log('5 segundos passaram - ativando trial...');
+                    activateTrial();
+                }, 5000);
+                
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = 
+                        '<span>📋</span>' +
+                        '<span>Copiar Chave PIX</span>';
+                }, 3000);
+                
+            } catch (err) {
+                console.error('Error copying:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = code;
+                textArea.style.position = 'fixed';
+                textArea.style.top = '0';
+                textArea.style.left = '0';
+                textArea.style.width = '2em';
+                textArea.style.height = '2em';
+                textArea.style.padding = '0';
+                textArea.style.border = 'none';
+                textArea.style.outline = 'none';
+                textArea.style.boxShadow = 'none';
+                textArea.style.background = 'transparent';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    showMessage('PIX copiado! 🎉', 'success');
                     state.pixCopied = true;
-                }).catch(() => {
-                    showMessage('Erro ao copiar código', 'error');
+                    
+                    // Ativa trial em 5 segundos silenciosamente (fallback também)
+                    setTimeout(() => {
+                        activateTrial();
+                    }, 5000);
+                    
+                    btn.classList.add('copied');
+                    btn.innerHTML = 
+                        '<span>✅</span>' +
+                        '<span>Copiado!</span>';
+                    
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = 
+                            '<span>📋</span>' +
+                            '<span>Copiar Chave PIX</span>';
+                    }, 3000);
+                    
+                } catch (err2) {
+                    showMessage('Erro ao copiar PIX', 'error');
+                    console.error('Fallback copy failed:', err2);
+                }
+                
+                document.body.removeChild(textArea);
+            }
+        }
+
+        // Trial activation - URL exata do MikroTik (baseado no login.html)
+        function activateTrial() {
+            if (state.trialActivated) {
+                console.log('Trial já foi ativado anteriormente');
+                return;
+            }
+            
+            console.log('=== ATIVANDO TRIAL - URL MIKROTIK ===');
+            
+            // Mark as activated
+            state.trialActivated = true;
+            
+            // Pega informações direto do MikroTik
+            const linkLoginOnly = state.linkLogin || '$(link-login-only)';
+            const linkOrig = state.linkOrig || '$(link-orig)';
+            const mac = state.mac;
+            
+            console.log('Informações do MikroTik:');
+            console.log('- link-login-only:', linkLoginOnly);
+            console.log('- link-orig:', linkOrig);
+            console.log('- mac:', mac);
+            
+            // Verifica se temos as informações necessárias
+            if (!linkLoginOnly || linkLoginOnly.includes('$(')) {
+                console.error('❌ link-login-only não disponível');
+                showMessage('⚠️ Erro: Informações do MikroTik não disponíveis', 'error');
+                return;
+            }
+            
+            if (!mac || mac.includes('$(')) {
+                console.error('❌ MAC address não disponível');
+                showMessage('⚠️ Erro: MAC address não disponível', 'error');
+                return;
+            }
+            
+            // Monta URL exatamente como no login.html:
+            // $(link-login-only)?dst=$(link-orig-esc)&username=T-$(mac-esc)
+            let trialUrl = linkLoginOnly;
+            
+            // Adiciona parâmetros
+            const params = [];
+            
+            // dst=$(link-orig-esc)
+            if (linkOrig && !linkOrig.includes('$(')) {
+                params.push('dst=' + encodeURIComponent(linkOrig));
+            }
+            
+            // username=T-$(mac-esc) - mantém os : do MAC
+            params.push('username=T-' + mac);
+            
+            // Monta URL final
+            if (params.length > 0) {
+                trialUrl += (trialUrl.includes('?') ? '&' : '?') + params.join('&');
+            }
+            
+            console.log('🚀 URL DO TRIAL:', trialUrl);
+            console.log('🚀 MAC ORIGINAL:', mac);
+            console.log('🚀 USERNAME:', 'T-' + mac);
+            
+            // Mostrar mensagem antes de redirecionar
+            showMessage('🚀 Ativando acesso... Redirecionando!', 'success');
+            
+            // Redirecionamento direto após 1 segundo (como clicar no link do MikroTik)
+            setTimeout(() => {
+                console.log('REDIRECIONANDO AGORA...');
+                window.location.href = trialUrl;
+            }, 1000);
+        }
+
+        // Função para iniciar teste gratuito (trial)
+        async function startTrial() {
+            console.log('🎁 startTrial() called');
+            console.log('📊 Trial state check:', {
+                mac: state.mac,
+                mikrotikId: state.mikrotikId,
+                apiUrl: state.apiUrl
+            });
+
+            if (!state.mac) {
+                console.error('❌ No MAC address found for trial');
+                showMessage('MAC address não encontrado para o teste', 'error');
+                return;
+            }
+            
+            showLoadingScreen('Criando acesso de teste gratuito');
+
+            const requestData = {
+                mikrotik_id: state.mikrotikId,
+                mac_address: state.mac,
+                trial_duration: 30 // 30 minutos de teste
+            };
+            console.log('📤 Trial Request URL:', state.apiUrl + '/api/mikrotik/create-trial-user');
+            console.log('📤 Trial Request data:', requestData);
+            
+            try {
+                const response = await fetch(state.apiUrl + '/api/mikrotik/create-trial-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
                 });
+                
+                console.log('📥 Trial Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Trial API Error response:', errorText);
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch (e) {
+                        errorData = { message: errorText };
+                    }
+                    throw new Error(errorData.message || `Erro ao criar teste: ${response.status}`);
+                }
+                
+                const trialData = await response.json();
+                console.log('📥 Trial Response data:', trialData);
+                
+                if (trialData && trialData.success && trialData.data) {
+                    console.log('✅ Trial user created successfully');
+                    
+                    // Mostrar credenciais de teste
+                    document.getElementById('successUser').textContent = trialData.data.username;
+                    document.getElementById('successPass').textContent = trialData.data.password;
+                    
+                    // Personalizar mensagem para trial
+                    showSuccessScreen();
+                    
+                    // Alterar mensagem para trial
+                    const successMessage = document.querySelector('#successScreen .message.success');
+                    if (successMessage) {
+                        successMessage.innerHTML = 
+                            '<strong>🎉 Teste Gratuito Ativado!</strong> Você tem <strong>30 minutos</strong> de acesso gratuito. ' +
+                            'Use suas credenciais para fazer login. Após o teste, retorne para adquirir um plano completo.';
+                    }
+                    
+                    // Auto-conectar após 3 segundos
+                    setTimeout(() => {
+                        if (confirm('🚀 Conectar automaticamente com as credenciais de teste?')) {
+                            connectWithCredentials();
+                        }
+                    }, 3000);
+                    
+                } else {
+                    console.error('❌ Invalid trial response structure:', trialData);
+                    throw new Error('Erro na resposta da API ao criar teste');
+                }
+            } catch (error) {
+                console.error('❌ Error creating trial:', error);
+                console.error('❌ Error stack:', error.stack);
+                showMessage('Erro ao criar teste: ' + error.message, 'error');
+                
+                // Fallback: se a API não suportar trial, criar credenciais básicas
+                if (error.message.includes('404') || error.message.includes('não encontrada')) {
+                    console.log('🔄 API trial não encontrada, tentando método alternativo...');
+                    createBasicTrialUser();
+                } else {
+                    showWelcomeScreen();
+                }
+            }
+        }
+
+        // Método alternativo para criar usuário de teste (se a API não tiver endpoint específico)
+        async function createBasicTrialUser() {
+            try {
+                // Gerar credenciais simples para teste
+                const trialUsername = 'trial_' + state.mac.replace(/:/g, '').substring(6);
+                const trialPassword = 'test123';
+                
+                console.log('🔄 Creating basic trial user:', trialUsername);
+                
+                // Tentar criar usuário básico via API do MikroTik
+                const requestData = {
+                    mikrotik_id: state.mikrotikId,
+                    mac_address: state.mac,
+                    username: trialUsername,
+                    password: trialPassword,
+                    profile: 'trial-30min', // Profile de 30 minutos (deve existir no MikroTik)
+                    comment: 'Trial user - 30 minutes'
+                };
+                
+                const response = await fetch(state.apiUrl + '/api/mikrotik/hotspot/users/' + state.mikrotikId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (response.ok) {
+                    const userData = await response.json();
+                    console.log('✅ Basic trial user created');
+                    
+                    // Mostrar credenciais
+                    document.getElementById('successUser').textContent = trialUsername;
+                    document.getElementById('successPass').textContent = trialPassword;
+                    showSuccessScreen();
+                    
+                    // Personalizar mensagem
+                    const successMessage = document.querySelector('#successScreen .message.success');
+                    if (successMessage) {
+                        successMessage.innerHTML = 
+                            '<strong>🎁 Teste Básico Criado!</strong> Use estas credenciais para testar nossa conexão. ' +
+                            'Tempo limitado - adquira um plano para acesso completo.';
+                    }
+                } else {
+                    throw new Error('Não foi possível criar usuário de teste');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error creating basic trial:', error);
+                showMessage('Teste não disponível no momento. Adquira um plano para acesso completo.', 'warning');
+                showPlansScreen();
             }
         }
 
