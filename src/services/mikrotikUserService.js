@@ -21,20 +21,25 @@ class MikroTikUserService {
             
             // 2. Preparar dados do usuário
             const macAddress = vendaData.mac_address;
-            const cleanMac = macAddress.replace(/[:-]/g, '').toLowerCase();
+            
+            // Normalizar MAC para formato padrão 00:00:00:00:00:00
+            const normalizedMac = macAddress.replace(/[:-]/g, '').toLowerCase();
+            const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
             const userData = {
-                name: cleanMac,
-                password: cleanMac,
+                name: formattedMac, // Username com formato 00:00:00:00:00:00
+                password: formattedMac, // Password com formato 00:00:00:00:00:00
                 profile: vendaData.planos?.nome || 'default', // Usar nome do plano correto
                 comment: `PIX ${vendaData.payment_id} - ${new Date().toISOString()}`,
-                'mac-address': macAddress
+                'mac-address': formattedMac // MAC com formato 00:00:00:00:00:00
             };
             
             console.log(`👤 [MIKROTIK-USER-SERVICE] Dados do usuário:`, {
                 username: userData.name,
                 profile: userData.profile,
                 mac: userData['mac-address'],
+                macOriginal: macAddress,
+                macFormatted: formattedMac,
                 plano: vendaData.planos?.nome
             });
             
@@ -128,7 +133,9 @@ class MikroTikUserService {
             
             if (response.data?.success) {
                 console.log(`✅ [MIKROTIK-USER-SERVICE] Usuário criado com sucesso:`, {
-                    username: cleanMac,
+                    username: formattedMac,
+                    password: formattedMac,
+                    mac: formattedMac,
                     duration: `${duration}ms`,
                     mikrotikUserId: response.data.data?.createResult?.[0]?.ret || 'N/A',
                     attempt: attempt
@@ -158,7 +165,7 @@ class MikroTikUserService {
                 // 6. Atualizar venda como sucesso
                 await this.updateVendaStatus(vendaData.id, {
                     mikrotik_user_created: true,
-                    mikrotik_user_id: cleanMac,
+                    mikrotik_user_id: formattedMac,
                     mikrotik_creation_status: 'success',
                     mikrotik_created_at: new Date().toISOString(),
                     mikrotik_creation_attempts: attempt,
@@ -168,7 +175,7 @@ class MikroTikUserService {
                 
                 return {
                     success: true,
-                    username: cleanMac,
+                    username: formattedMac,
                     mikrotikUserId: mikrotikUserId,
                     duration: duration,
                     attempt: attempt
@@ -243,17 +250,23 @@ class MikroTikUserService {
 
     async createUserLog(vendaData, attemptNumber, status) {
         try {
+            // Normalizar MAC para o log
+            const normalizedMac = vendaData.mac_address.replace(/[:-]/g, '').toLowerCase();
+            const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
+            
             const logData = {
                 venda_id: vendaData.id,
                 mikrotik_id: vendaData.mikrotik_id,
                 mac_address: vendaData.mac_address,
-                username: vendaData.mac_address.replace(/[:-]/g, '').toLowerCase(),
+                username: formattedMac, // Username formatado
                 attempt_number: attemptNumber,
                 status: status,
                 request_data: {
-                    username: vendaData.mac_address.replace(/[:-]/g, '').toLowerCase(),
+                    username: formattedMac, // Username formatado
+                    password: formattedMac, // Password formatado  
                     profile: vendaData.planos?.nome || 'default',
-                    mac_address: vendaData.mac_address,
+                    mac_address: formattedMac, // MAC formatado
+                    mac_original: vendaData.mac_address,
                     plano_original: vendaData.planos?.nome
                 }
             };
