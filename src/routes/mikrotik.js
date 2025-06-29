@@ -86,6 +86,7 @@ router.post('/hotspot/profiles/:mikrotikId', mikrotikController.createHotspotPro
 router.put('/hotspot/profiles/:mikrotikId/:profileId', mikrotikController.updateHotspotProfile);
 router.delete('/hotspot/profiles/:mikrotikId/:profileId', mikrotikController.deleteHotspotProfile);
 router.post('/hotspot/users/:mikrotikId', mikrotikController.createHotspotUser);
+router.post('/hotspot/users/bulk/:mikrotikId', mikrotikController.createBulkHotspotUsers);
 router.put('/hotspot/users/:mikrotikId/:userId', mikrotikController.updateHotspotUser);
 router.delete('/hotspot/users/:mikrotikId/:userId', mikrotikController.deleteHotspotUser);
 router.post('/hotspot/disconnect/:mikrotikId/:userId', mikrotikController.disconnectUser);

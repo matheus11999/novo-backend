@@ -1608,6 +1608,107 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
+// Generate bulk hotspot users
+const createBulkHotspotUsers = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const { users, options = {} } = req.body;
+
+    // Validations
+    if (!users || !Array.isArray(users) || users.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lista de usuários é obrigatória e deve ser um array não vazio'
+      });
+    }
+
+    // Validate quantity limits
+    const maxUsers = options.maxUsers || 500;
+    if (users.length > maxUsers) {
+      return res.status(400).json({
+        success: false,
+        error: `Máximo de ${maxUsers} usuários por vez. Recebido: ${users.length}`
+      });
+    }
+
+    // Validate each user data
+    const invalidUsers = [];
+    users.forEach((user, index) => {
+      if (!user.name || !user.password) {
+        invalidUsers.push(`Usuário ${index + 1}: nome e senha são obrigatórios`);
+      }
+      if (!user.profile) {
+        invalidUsers.push(`Usuário ${index + 1}: perfil é obrigatório`);
+      }
+    });
+
+    if (invalidUsers.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Dados inválidos encontrados',
+        details: invalidUsers.slice(0, 10) // Limita a 10 erros para não sobrecarregar
+      });
+    }
+
+    // Get MikroTik credentials
+    const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+
+    console.log(`[BULK-USERS] Iniciando criação de ${users.length} usuários para MikroTik ${mikrotikId} via endpoint bulk`);
+
+    try {
+      // Usar o novo endpoint bulk do VPS2
+      const response = await makeApiRequest('/hotspot/users/bulk', credentials, 'POST', {
+        users: users,
+        options: {
+          batchSize: options.batchSize || 10,
+          delayBetweenBatches: options.delayBetweenBatches || 300,
+          maxRetries: options.maxRetries || 2,
+          maxUsers: options.maxUsers || 500
+        }
+      });
+
+      console.log(`[BULK-USERS] Resposta do VPS2:`, response);
+
+      // Determinar status da resposta baseado na resposta do VPS2
+      const isPartialSuccess = response.data?.summary?.created > 0 && response.data?.summary?.failed > 0;
+      const isCompleteFailure = response.data?.summary?.created === 0 && response.data?.summary?.failed > 0;
+      
+      const statusCode = isCompleteFailure ? 500 : (isPartialSuccess ? 207 : 200);
+
+      res.status(statusCode).json({
+        success: response.success,
+        message: response.message || (
+          response.data?.summary?.created === response.data?.summary?.total 
+            ? `Todos os ${response.data.summary.total} usuários foram criados com sucesso!`
+            : response.data?.summary?.created > 0
+              ? `${response.data.summary.created} de ${response.data.summary.total} usuários criados com sucesso. ${response.data.summary.failed} falharam.`
+              : `Falha ao criar todos os ${response.data?.summary?.total || users.length} usuários.`
+        ),
+        data: response.data
+      });
+
+    } catch (apiError) {
+      console.error('[BULK-USERS] Erro na API do VPS2:', apiError.message);
+      
+      // Se o endpoint bulk falhar, mostrar erro claro
+      res.status(500).json({
+        success: false,
+        error: 'Erro na criação em massa via API do MikroTik',
+        details: apiError.message,
+        fallbackMessage: 'O endpoint de criação em massa não está disponível. Tente criar usuários individualmente.'
+      });
+    }
+
+  } catch (error) {
+    console.error('[BULK-USERS] Erro crítico na criação em lote:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor durante a criação em lote',
+      details: error.message
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1619,6 +1720,7 @@ module.exports = {
   createHotspotUser,
   updateHotspotUser,
   deleteHotspotUser,
+  createBulkHotspotUsers,
   disconnectUser,
   getSystemInfo,
   getDetailedSystemInfo,

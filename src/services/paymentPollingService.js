@@ -299,14 +299,25 @@ class PaymentPollingService {
         try {
             console.log('💳 [PAYMENT-POLLING] Criando histórico de transações...');
             
-            // Buscar admin user (primeiro usuário ou admin padrão)
-            const { data: adminUser } = await supabase
-                .from('auth.users')
+            // Buscar admin user corretamente da tabela users
+            const { data: adminUser, error: adminError } = await supabase
+                .from('users')
                 .select('id')
+                .eq('role', 'admin')
                 .limit(1)
                 .single();
 
-            const adminUserId = adminUser?.id || '00000000-0000-0000-0000-000000000000';
+            if (adminError) {
+                console.error('❌ [PAYMENT-POLLING] Error finding admin user:', adminError);
+                return;
+            }
+
+            const adminUserId = adminUser?.id;
+            
+            if (!adminUserId) {
+                console.error('❌ [PAYMENT-POLLING] Admin user not found');
+                return;
+            }
 
             const historyEntries = [
                 {
@@ -349,28 +360,100 @@ class PaymentPollingService {
 
     async updateUserBalances(venda, adminUserId) {
         try {
+            console.log('💰 [PAYMENT-POLLING] Atualizando saldos dos usuários...');
+
+            // 1. Buscar saldo atual do admin
+            const { data: adminData, error: adminError } = await supabase
+                .from('users')
+                .select('saldo')
+                .eq('id', adminUserId)
+                .single();
+
+            if (adminError) {
+                console.error('❌ [PAYMENT-POLLING] Error fetching admin balance:', adminError);
+                return;
+            }
+
+            const adminSaldoAnterior = parseFloat(adminData.saldo) || 0;
+            const adminSaldoNovo = adminSaldoAnterior + parseFloat(venda.valor_admin);
+
+            // 2. Buscar saldo atual do usuário do MikroTik
+            const mikrotikUserId = venda.mikrotiks?.user_id || adminUserId;
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('saldo')
+                .eq('id', mikrotikUserId)
+                .single();
+
+            if (userError) {
+                console.error('❌ [PAYMENT-POLLING] Error fetching user balance:', userError);
+                return;
+            }
+
+            const userSaldoAnterior = parseFloat(userData.saldo) || 0;
+            const userSaldoNovo = userSaldoAnterior + parseFloat(venda.valor_usuario);
+
+            // 3. Criar as transações
             const transacoes = [
                 {
                     user_id: adminUserId,
-                    valor: venda.valor_admin,
-                    referencia_id: venda.id
+                    tipo: 'credito',
+                    motivo: `Comissão admin - Venda ${venda.payment_id}`,
+                    valor: parseFloat(venda.valor_admin),
+                    referencia_id: venda.id,
+                    referencia_tipo: 'venda',
+                    saldo_anterior: adminSaldoAnterior,
+                    saldo_atual: adminSaldoNovo
                 },
                 {
-                    user_id: venda.mikrotiks?.user_id || adminUserId,
-                    valor: venda.valor_usuario,
-                    referencia_id: venda.id
+                    user_id: mikrotikUserId,
+                    tipo: 'credito',
+                    motivo: `Receita de venda - Venda ${venda.payment_id}`,
+                    valor: parseFloat(venda.valor_usuario),
+                    referencia_id: venda.id,
+                    referencia_tipo: 'venda',
+                    saldo_anterior: userSaldoAnterior,
+                    saldo_atual: userSaldoNovo
                 }
             ];
 
-            const { error } = await supabase
+            const { error: transacaoError } = await supabase
                 .from('transacoes')
                 .insert(transacoes);
 
-            if (error) {
-                console.error('❌ [PAYMENT-POLLING] Erro nas transações:', error);
-            } else {
-                console.log('✅ [PAYMENT-POLLING] Saldos atualizados');
+            if (transacaoError) {
+                console.error('❌ [PAYMENT-POLLING] Erro nas transações:', transacaoError);
+                return;
             }
+
+            // 4. Atualizar saldos dos usuários
+            const { error: adminUpdateError } = await supabase
+                .from('users')
+                .update({ saldo: adminSaldoNovo })
+                .eq('id', adminUserId);
+
+            if (adminUpdateError) {
+                console.error('❌ [PAYMENT-POLLING] Error updating admin balance:', adminUpdateError);
+                return;
+            }
+
+            // Se o usuário do MikroTik for diferente do admin
+            if (mikrotikUserId !== adminUserId) {
+                const { error: userUpdateError } = await supabase
+                    .from('users')
+                    .update({ saldo: userSaldoNovo })
+                    .eq('id', mikrotikUserId);
+
+                if (userUpdateError) {
+                    console.error('❌ [PAYMENT-POLLING] Error updating user balance:', userUpdateError);
+                    return;
+                }
+            }
+
+            console.log(`✅ [PAYMENT-POLLING] Saldos atualizados com sucesso:`);
+            console.log(`  📊 Admin: R$ ${adminSaldoAnterior.toFixed(2)} → R$ ${adminSaldoNovo.toFixed(2)} (+R$ ${venda.valor_admin})`);
+            console.log(`  📊 User: R$ ${userSaldoAnterior.toFixed(2)} → R$ ${userSaldoNovo.toFixed(2)} (+R$ ${venda.valor_usuario})`);
+
         } catch (error) {
             console.error('❌ [PAYMENT-POLLING] Erro nos saldos:', error);
         }

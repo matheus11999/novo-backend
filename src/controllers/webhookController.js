@@ -171,14 +171,25 @@ class WebhookController {
         try {
             console.log('💳 Creating transaction history for sale:', venda.payment_id);
             
-            // Buscar o admin user_id (primeiro usuário admin do sistema)
+            // Buscar o admin user_id corretamente da tabela users
             const { data: adminUser, error: adminError } = await supabase
-                .from('auth.users')
+                .from('users')
                 .select('id')
+                .eq('role', 'admin')
                 .limit(1)
                 .single();
 
-            const adminUserId = adminUser?.id || '00000000-0000-0000-0000-000000000000';
+            if (adminError) {
+                console.error('❌ Error finding admin user:', adminError);
+                return;
+            }
+
+            const adminUserId = adminUser?.id;
+            
+            if (!adminUserId) {
+                console.error('❌ Admin user not found');
+                return;
+            }
 
             const historyEntries = [
                 {
@@ -223,28 +234,100 @@ class WebhookController {
 
     async updateUserBalances(venda, adminUserId) {
         try {
+            console.log('💰 Updating user balances for sale:', venda.payment_id);
+
+            // 1. Buscar saldo atual do admin
+            const { data: adminData, error: adminError } = await supabase
+                .from('users')
+                .select('saldo')
+                .eq('id', adminUserId)
+                .single();
+
+            if (adminError) {
+                console.error('❌ Error fetching admin balance:', adminError);
+                return;
+            }
+
+            const adminSaldoAnterior = parseFloat(adminData.saldo) || 0;
+            const adminSaldoNovo = adminSaldoAnterior + parseFloat(venda.valor_admin);
+
+            // 2. Buscar saldo atual do usuário do MikroTik
+            const mikrotikUserId = venda.mikrotiks?.user_id || adminUserId;
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('saldo')
+                .eq('id', mikrotikUserId)
+                .single();
+
+            if (userError) {
+                console.error('❌ Error fetching user balance:', userError);
+                return;
+            }
+
+            const userSaldoAnterior = parseFloat(userData.saldo) || 0;
+            const userSaldoNovo = userSaldoAnterior + parseFloat(venda.valor_usuario);
+
+            // 3. Criar as transações
             const transacoes = [
                 {
                     user_id: adminUserId,
-                    valor: venda.valor_admin,
-                    referencia_id: venda.id
+                    tipo: 'credito',
+                    motivo: `Comissão admin - Venda ${venda.payment_id}`,
+                    valor: parseFloat(venda.valor_admin),
+                    referencia_id: venda.id,
+                    referencia_tipo: 'venda',
+                    saldo_anterior: adminSaldoAnterior,
+                    saldo_atual: adminSaldoNovo
                 },
                 {
-                    user_id: venda.mikrotiks?.user_id || adminUserId,
-                    valor: venda.valor_usuario,
-                    referencia_id: venda.id
+                    user_id: mikrotikUserId,
+                    tipo: 'credito',
+                    motivo: `Receita de venda - Venda ${venda.payment_id}`,
+                    valor: parseFloat(venda.valor_usuario),
+                    referencia_id: venda.id,
+                    referencia_tipo: 'venda',
+                    saldo_anterior: userSaldoAnterior,
+                    saldo_atual: userSaldoNovo
                 }
             ];
 
-            const { error } = await supabase
+            const { error: transacaoError } = await supabase
                 .from('transacoes')
                 .insert(transacoes);
 
-            if (error) {
-                console.error('❌ Error creating balance transactions:', error);
-            } else {
-                console.log('✅ User balances updated');
+            if (transacaoError) {
+                console.error('❌ Error creating balance transactions:', transacaoError);
+                return;
             }
+
+            // 4. Atualizar saldos dos usuários
+            const { error: adminUpdateError } = await supabase
+                .from('users')
+                .update({ saldo: adminSaldoNovo })
+                .eq('id', adminUserId);
+
+            if (adminUpdateError) {
+                console.error('❌ Error updating admin balance:', adminUpdateError);
+                return;
+            }
+
+            // Se o usuário do MikroTik for diferente do admin
+            if (mikrotikUserId !== adminUserId) {
+                const { error: userUpdateError } = await supabase
+                    .from('users')
+                    .update({ saldo: userSaldoNovo })
+                    .eq('id', mikrotikUserId);
+
+                if (userUpdateError) {
+                    console.error('❌ Error updating user balance:', userUpdateError);
+                    return;
+                }
+            }
+
+            console.log(`✅ Balances updated successfully:`);
+            console.log(`  📊 Admin: R$ ${adminSaldoAnterior.toFixed(2)} → R$ ${adminSaldoNovo.toFixed(2)} (+R$ ${venda.valor_admin})`);
+            console.log(`  📊 User: R$ ${userSaldoAnterior.toFixed(2)} → R$ ${userSaldoNovo.toFixed(2)} (+R$ ${venda.valor_usuario})`);
+
         } catch (error) {
             console.error('❌ Error updating user balances:', error);
         }
