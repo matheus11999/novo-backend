@@ -830,31 +830,70 @@ const applyTemplate = async (req, res) => {
     let downloadUrl = null
     
     if (isMultipleFiles) {
-      console.log(`[APPLY-TEMPLATE] Enviando ${templateFiles.length} arquivo(s) via API VPS2`)
+      console.log(`[APPLY-TEMPLATE] Enviando ${templateFiles.length} arquivo(s) individualmente via fetch`)
       
-      // Usar o endpoint /files/upload do VPS2 para enviar todos os arquivos
       const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000'
+      const baseUrl = process.env.BASE_URL || 'https://api.mikropix.online'
       
-      uploadResponse = await axios.post(`${MIKROTIK_API_URL}/files/upload`, {
-        files: templateFiles.map(file => ({
-          path: file.path,
-          content: file.content
-        }))
-      }, {
-        params: {
-          ip: credentials.ip,
-          username: credentials.username,
-          password: credentials.password,
-          port: credentials.port || '8728'
-        },
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
-        },
-        timeout: 60000 // 60 segundos para upload de múltiplos arquivos
-      })
-
-      console.log(`[APPLY-TEMPLATE] Upload de arquivos concluído:`, uploadResponse.data)
+      // Armazenar temporariamente os arquivos para download
+      global.templateCache = global.templateCache || new Map()
+      
+      const fetchResults = []
+      
+      // Processar cada arquivo individualmente
+      for (const file of templateFiles) {
+        const uniqueFileName = `${file.name.replace('.', '_')}_${mikrotikId}_${Date.now()}`
+        const downloadUrl = `${baseUrl}/api/mikrotik/template/${uniqueFileName}`
+        
+        // Armazenar arquivo no cache temporário
+        global.templateCache.set(uniqueFileName, file.content)
+        
+        console.log(`[APPLY-TEMPLATE] Fazendo fetch de ${file.name} para ${file.path}`)
+        
+        try {
+          // Executar comando fetch via RouterOS API para cada arquivo
+          const fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
+            url: downloadUrl,
+            'dst-path': file.path.replace('/flash/', '') // Remover /flash/ do início
+          }, {
+            params: {
+              ip: credentials.ip,
+              username: credentials.username,
+              password: credentials.password,
+              port: credentials.port || '8728'
+            },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
+            },
+            timeout: 30000
+          })
+          
+          fetchResults.push({
+            file: file.name,
+            success: true,
+            data: fetchResponse.data
+          })
+          
+          console.log(`[APPLY-TEMPLATE] Fetch de ${file.name} concluído com sucesso`)
+          
+        } catch (fetchError) {
+          console.warn(`[APPLY-TEMPLATE] Erro no fetch de ${file.name}:`, fetchError.message)
+          fetchResults.push({
+            file: file.name,
+            success: false,
+            error: fetchError.message,
+            downloadUrl: downloadUrl
+          })
+        }
+        
+        // Limpar o cache após um tempo
+        setTimeout(() => {
+          global.templateCache.delete(uniqueFileName)
+        }, 300000) // 5 minutos
+      }
+      
+      uploadResponse = { data: { success: true, files: fetchResults } }
       
       // Buscar o arquivo login.html para usar no server profile
       const loginFile = templateFiles.find(f => f.name === 'login.html')
@@ -884,15 +923,16 @@ const applyTemplate = async (req, res) => {
         console.log('Executing fetch command directly...')
         fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
           url: downloadUrl,
-          'dst-path': 'flash/mikropix/login.html'
+          'dst-path': 'mikropix/login.html'
         }, {
           params: {
             ip: credentials.ip,
             username: credentials.username,
             password: credentials.password,
-            port: credentials.port
+            port: credentials.port || '8728'
           },
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
           }
         })
