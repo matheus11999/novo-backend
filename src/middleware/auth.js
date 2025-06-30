@@ -30,9 +30,24 @@ const authenticateUser = async (req, res, next) => {
             });
         }
 
-        console.log('[AUTH] User authenticated successfully:', user.id);
+        // Buscar dados adicionais do usuário na tabela users
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
 
-        req.user = user;
+        if (userError || !userData) {
+            console.error('[AUTH] User data not found in users table:', userError?.message);
+            return res.status(401).json({
+                error: 'User not found',
+                message: 'User data not found in database'
+            });
+        }
+
+        console.log('[AUTH] User authenticated successfully:', user.id, 'Role:', userData.role);
+
+        req.user = { ...user, ...userData };
         next();
     } catch (error) {
         console.error('Authentication error:', error);

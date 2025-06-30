@@ -13,6 +13,8 @@ const testRoutes = require('./routes/test');
 const mikrotikUserRoutes = require('./routes/mikrotik-user');
 const mikrotikRetryRoutes = require('./routes/mikrotik-retry');
 const paymentPollingRoutes = require('./routes/payment-polling');
+const saquesRoutes = require('./routes/saques');
+const usersRoutes = require('./routes/users');
 const paymentPollingService = require('./services/paymentPollingService');
 
 const app = express();
@@ -69,6 +71,8 @@ app.use('/api/test', testRoutes);
 app.use('/api/mikrotik-user', mikrotikUserRoutes);
 app.use('/api/mikrotik-retry', mikrotikRetryRoutes);
 app.use('/api/payment-polling', paymentPollingRoutes);
+app.use('/api/saques', saquesRoutes);
+app.use('/api/users', usersRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
