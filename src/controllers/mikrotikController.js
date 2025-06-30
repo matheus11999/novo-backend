@@ -854,7 +854,7 @@ const applyTemplate = async (req, res) => {
           // Executar comando fetch via RouterOS API para cada arquivo
           const fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
             url: downloadUrl,
-            'dst-path': file.path.replace('/flash/', '') // Remover /flash/ do início
+            'dst-path': file.path // Manter o path completo flash/mikropix/arquivo
           }, {
             params: {
               ip: credentials.ip,
