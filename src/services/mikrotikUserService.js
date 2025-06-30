@@ -22,16 +22,16 @@ class MikroTikUserService {
             // 2. Preparar dados do usuário
             const macAddress = vendaData.mac_address;
             
-            // Normalizar MAC para formato padrão 00:00:00:00:00:00
-            const normalizedMac = macAddress.replace(/[:-]/g, '').toLowerCase();
+            // Normalizar MAC para formato padrão E2:26:89:13:AD:71 (maiúsculo)
+            const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
             const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
             const userData = {
-                name: formattedMac, // Username com formato 00:00:00:00:00:00
-                password: formattedMac, // Password com formato 00:00:00:00:00:00
+                name: formattedMac, // Username com formato E2:26:89:13:AD:71
+                password: formattedMac, // Password com formato E2:26:89:13:AD:71
                 profile: vendaData.planos?.nome || 'default', // Usar nome do plano correto
                 comment: `PIX ${vendaData.payment_id} - ${new Date().toISOString()}`,
-                'mac-address': formattedMac // MAC com formato 00:00:00:00:00:00
+                'mac-address': formattedMac // MAC com formato E2:26:89:13:AD:71
             };
             
             console.log(`👤 [MIKROTIK-USER-SERVICE] Dados do usuário:`, {
@@ -250,8 +250,8 @@ class MikroTikUserService {
 
     async createUserLog(vendaData, attemptNumber, status) {
         try {
-            // Normalizar MAC para o log
-            const normalizedMac = vendaData.mac_address.replace(/[:-]/g, '').toLowerCase();
+            // Normalizar MAC para o log (formato maiúsculo)
+            const normalizedMac = vendaData.mac_address.replace(/[:-]/g, '').toUpperCase();
             const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
             const logData = {
@@ -262,10 +262,10 @@ class MikroTikUserService {
                 attempt_number: attemptNumber,
                 status: status,
                 request_data: {
-                    username: formattedMac, // Username formatado
-                    password: formattedMac, // Password formatado  
+                    username: formattedMac, // Username formatado E2:26:89:13:AD:71
+                    password: formattedMac, // Password formatado E2:26:89:13:AD:71
                     profile: vendaData.planos?.nome || 'default',
-                    mac_address: formattedMac, // MAC formatado
+                    mac_address: formattedMac, // MAC formatado E2:26:89:13:AD:71
                     mac_original: vendaData.mac_address,
                     plano_original: vendaData.planos?.nome
                 }
