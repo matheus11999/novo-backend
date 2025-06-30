@@ -175,7 +175,7 @@ class SaquesController {
       }
 
       // Buscar dados do usuário para incluir na resposta
-      const { data: userData } = await supabase
+      const { data: userDataForResponse } = await supabase
         .from('users')
         .select('id, nome, email')
         .eq('id', user.id)
@@ -185,7 +185,7 @@ class SaquesController {
         message: 'Solicitação de saque criada com sucesso',
         saque: {
           ...data,
-          user: userData
+          user: userDataForResponse
         }
       });
 

@@ -29,23 +29,53 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 
-// CORS configuration - Allow all origins in development, specific in production
-const corsOrigins = process.env.NODE_ENV === 'production' ? [
+// CORS configuration - Allow localhost always + production domains
+const corsOrigins = [
     'https://mikropix.online', 
     'https://api.mikropix.online',
     'http://localhost:5173',
     'http://localhost:3000',
-    'http://127.0.0.1:5173'
-] : true; // Allow all origins in development
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5174'
+];
 
-app.use(cors({
-    origin: corsOrigins,
+// In development, allow any origin
+const corsConfig = {
+    origin: process.env.NODE_ENV === 'development' ? true : corsOrigins,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Token', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Token', 'Accept', 'Origin', 'X-Requested-With'],
     preflightContinue: false,
-    optionsSuccessStatus: 200
-}));
+    optionsSuccessStatus: 204
+};
+
+console.log('🔧 CORS Configuration:', {
+    environment: process.env.NODE_ENV || 'development',
+    origin: corsConfig.origin,
+    methods: corsConfig.methods
+});
+
+app.use(cors(corsConfig));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsConfig));
+
+// Additional CORS headers for problematic requests
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Token, Accept, Origin, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    if (req.method === 'OPTIONS') {
+        console.log('🔄 Preflight request handled for:', req.path);
+        return res.status(204).end();
+    }
+    
+    next();
+});
 
 // Logging middleware
 app.use(morgan('combined'));
