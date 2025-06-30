@@ -111,6 +111,10 @@ router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikC
 // Rotas para templates
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
+// Rotas para templates personalizados de senhas
+router.get('/password-template/:mikrotikId', authenticateUser, mikrotikController.getCustomPasswordTemplate);
+router.post('/password-template/:mikrotikId', authenticateUser, mikrotikController.saveCustomPasswordTemplate);
+
 // Rotas para WireRest proxy (corrigir CORS)
 router.get('/wirerest/interface', mikrotikController.getWireRestInterface);
 router.get('/wirerest/peers', mikrotikController.getWireRestPeers);

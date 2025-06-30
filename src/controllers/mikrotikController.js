@@ -1709,6 +1709,89 @@ const createBulkHotspotUsers = async (req, res) => {
   }
 };
 
+// Custom Password Template Functions
+const saveCustomPasswordTemplate = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const { template } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    if (!template || typeof template !== 'string') {
+      return res.status(400).json({ error: 'Template é obrigatório e deve ser uma string' });
+    }
+
+    // Verificar se o usuário tem acesso ao MikroTik
+    const { data: mikrotik, error: mikrotikError } = await supabase
+      .from('mikrotiks')
+      .select('id')
+      .eq('id', mikrotikId)
+      .eq('user_id', userId)
+      .single();
+
+    if (mikrotikError || !mikrotik) {
+      return res.status(404).json({ error: 'MikroTik não encontrado ou não autorizado' });
+    }
+
+    // Atualizar o template personalizado
+    const { error: updateError } = await supabase
+      .from('mikrotiks')
+      .update({ custom_password_template: template })
+      .eq('id', mikrotikId)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Erro ao salvar template personalizado:', updateError);
+      return res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Template personalizado salvo com sucesso',
+      template 
+    });
+
+  } catch (error) {
+    console.error('Erro ao salvar template personalizado:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+const getCustomPasswordTemplate = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuário não autenticado' });
+    }
+
+    // Buscar o template personalizado
+    const { data: mikrotik, error: mikrotikError } = await supabase
+      .from('mikrotiks')
+      .select('custom_password_template')
+      .eq('id', mikrotikId)
+      .eq('user_id', userId)
+      .single();
+
+    if (mikrotikError || !mikrotik) {
+      return res.status(404).json({ error: 'MikroTik não encontrado ou não autorizado' });
+    }
+
+    res.json({ 
+      success: true,
+      template: mikrotik.custom_password_template || null
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar template personalizado:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -1745,5 +1828,7 @@ module.exports = {
   checkConnection,
   getBasicSystemInfo,
   getEssentialSystemInfo,
-  getCpuMemoryStats
+  getCpuMemoryStats,
+  saveCustomPasswordTemplate,
+  getCustomPasswordTemplate
 };
