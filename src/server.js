@@ -32,7 +32,10 @@ app.use(helmet({
 // CORS configuration - Allow all origins in development, specific in production
 const corsOrigins = process.env.NODE_ENV === 'production' ? [
     'https://mikropix.online', 
-    'https://api.mikropix.online'
+    'https://api.mikropix.online',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173'
 ] : true; // Allow all origins in development
 
 app.use(cors({
