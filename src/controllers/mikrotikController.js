@@ -812,7 +812,8 @@ const applyTemplate = async (req, res) => {
       mikrotikId, 
       serverProfileId, 
       templateId, 
-      templateContent, 
+      templateContent, // Para compatibilidade com versão anterior
+      templateFiles,   // Nova propriedade para múltiplos arquivos
       variables, 
       mikrotikParams 
     } = req.body
@@ -820,46 +821,95 @@ const applyTemplate = async (req, res) => {
     // Get MikroTik credentials
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id)
 
-    // Generate unique filename for this template
-    const templateFileName = `template_${mikrotikId}_${Date.now()}.html`
-    
-    // Store the processed template content temporarily (in memory for now)
-    global.templateCache = global.templateCache || new Map()
-    global.templateCache.set(templateFileName, templateContent)
-    
-    // Create the download URL that MikroTik will fetch from
-    const baseUrl = process.env.BASE_URL || 'https://api.mikropix.online'
-    const downloadUrl = `${baseUrl}/api/mikrotik/template/${templateFileName}`
-    
-    console.log('Template will be available at:', downloadUrl)
+    console.log(`[APPLY-TEMPLATE] Aplicando template para MikroTik ${mikrotikId}`)
 
-    // Execute fetch command directly via RouterOS API
-    let fetchResponse;
-    try {
-      console.log('Executing fetch command directly...')
-      fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
-        url: downloadUrl,
-        'dst-path': 'flash/mikropix/login.html'
+    // Determinar se estamos usando o novo formato (templateFiles) ou o antigo (templateContent)
+    const isMultipleFiles = templateFiles && Array.isArray(templateFiles)
+    let uploadResponse = null
+    let fetchResponse = null
+    let downloadUrl = null
+    
+    if (isMultipleFiles) {
+      console.log(`[APPLY-TEMPLATE] Enviando ${templateFiles.length} arquivo(s) via API VPS2`)
+      
+      // Usar o endpoint /files/upload do VPS2 para enviar todos os arquivos
+      const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3002'
+      
+      uploadResponse = await axios.post(`${MIKROTIK_API_URL}/files/upload`, {
+        files: templateFiles.map(file => ({
+          path: file.path,
+          content: file.content
+        }))
       }, {
         params: {
           ip: credentials.ip,
           username: credentials.username,
           password: credentials.password,
-          port: credentials.port
+          port: credentials.port || '8728'
         },
         headers: {
-          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
-        }
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000 // 60 segundos para upload de múltiplos arquivos
       })
-    } catch (fetchError) {
-      console.warn('Warning: Direct fetch failed, template is available for manual download:', fetchError.message)
-      fetchResponse = { 
-        data: { 
-          success: false, 
-          error: 'Direct fetch failed, but template is hosted and can be downloaded manually',
-          downloadUrl: downloadUrl
-        } 
+
+      console.log(`[APPLY-TEMPLATE] Upload de arquivos concluído:`, uploadResponse.data)
+      
+      // Buscar o arquivo login.html para usar no server profile
+      const loginFile = templateFiles.find(f => f.name === 'login.html')
+      if (!loginFile) {
+        throw new Error('Arquivo login.html não encontrado nos arquivos do template')
       }
+
+    } else {
+      // Modo de compatibilidade: usar o método antigo com templateContent
+      console.log('[APPLY-TEMPLATE] Usando modo de compatibilidade com templateContent')
+      
+      // Generate unique filename for this template
+      const templateFileName = `template_${mikrotikId}_${Date.now()}.html`
+      
+      // Store the processed template content temporarily (in memory for now)
+      global.templateCache = global.templateCache || new Map()
+      global.templateCache.set(templateFileName, templateContent)
+      
+      // Create the download URL that MikroTik will fetch from
+      const baseUrl = process.env.BASE_URL || 'https://api.mikropix.online'
+      downloadUrl = `${baseUrl}/api/mikrotik/template/${templateFileName}`
+      
+            console.log('Template will be available at:', downloadUrl)
+
+      // Execute fetch command directly via RouterOS API
+      try {
+        console.log('Executing fetch command directly...')
+        fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
+          url: downloadUrl,
+          'dst-path': 'flash/mikropix/login.html'
+        }, {
+          params: {
+            ip: credentials.ip,
+            username: credentials.username,
+            password: credentials.password,
+            port: credentials.port
+          },
+          headers: {
+            'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
+          }
+        })
+      } catch (fetchError) {
+        console.warn('Warning: Direct fetch failed, template is available for manual download:', fetchError.message)
+        fetchResponse = { 
+          data: { 
+            success: false, 
+            error: 'Direct fetch failed, but template is hosted and can be downloaded manually',
+            downloadUrl: downloadUrl
+          } 
+        }
+      }
+      
+      // Clean up the cached template after some time
+      setTimeout(() => {
+        global.templateCache.delete(templateFileName)
+      }, 300000) // Clean up after 5 minutes
     }
 
     // Update server profile to use the new template directory
@@ -982,20 +1032,36 @@ const applyTemplate = async (req, res) => {
       global.templateCache.delete(templateFileName)
     }, 300000) // Clean up after 5 minutes
 
-    res.json({
-      success: true,
-      data: {
-        downloadUrl,
-        templateId,
-        mikrotikId,
-        serverProfileId,
-        fetch: fetchResponse.data,
-        templateHosted: true
-      },
-      message: fetchResponse.data.success !== false 
-        ? 'Template aplicado com sucesso usando fetch' 
-        : `Template hospedado com sucesso. Download manual disponível em: ${downloadUrl}`
-    })
+    // Resposta baseada no modo usado
+    if (isMultipleFiles) {
+      res.json({
+        success: true,
+        data: {
+          templateId,
+          mikrotikId,
+          serverProfileId,
+          filesUploaded: templateFiles.length,
+          fileNames: templateFiles.map(f => f.name),
+          uploadResult: uploadResponse.data
+        },
+        message: `Template aplicado com sucesso! ${templateFiles.length} arquivo(s) enviado(s): ${templateFiles.map(f => f.name).join(', ')}`
+      })
+    } else {
+      res.json({
+        success: true,
+        data: {
+          downloadUrl,
+          templateId,
+          mikrotikId,
+          serverProfileId,
+          fetch: fetchResponse.data,
+          templateHosted: true
+        },
+        message: fetchResponse.data.success !== false 
+          ? 'Template aplicado com sucesso usando fetch' 
+          : `Template hospedado com sucesso. Download manual disponível em: ${downloadUrl}`
+      })
+    }
 
   } catch (error) {
     console.error('Error applying template:', error)
@@ -1005,7 +1071,6 @@ const applyTemplate = async (req, res) => {
     })
   }
 }
-
 
 // ==================== WIREREST PROXY FUNCTIONS ====================
 
