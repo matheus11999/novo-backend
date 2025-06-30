@@ -833,7 +833,7 @@ const applyTemplate = async (req, res) => {
       console.log(`[APPLY-TEMPLATE] Enviando ${templateFiles.length} arquivo(s) via API VPS2`)
       
       // Usar o endpoint /files/upload do VPS2 para enviar todos os arquivos
-      const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3002'
+      const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000'
       
       uploadResponse = await axios.post(`${MIKROTIK_API_URL}/files/upload`, {
         files: templateFiles.map(file => ({
@@ -848,7 +848,8 @@ const applyTemplate = async (req, res) => {
           port: credentials.port || '8728'
         },
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.MIKROTIK_API_TOKEN || ''}`
         },
         timeout: 60000 // 60 segundos para upload de múltiplos arquivos
       })
