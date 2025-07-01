@@ -331,12 +331,8 @@ const updateHotspotProfile = async (req, res) => {
     const { mikrotikId, profileId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
-    // Update profile in MikroTik - add profileId to request body
-    const profileData = {
-      ...req.body,
-      id: profileId
-    };
-    const response = await makeApiRequest('/hotspot/profiles', credentials, 'PUT', profileData);
+    // Update profile in MikroTik - add profileId to query string, not body
+    const response = await makeApiRequest(`/hotspot/profiles?id=${profileId}`, credentials, 'PUT', req.body);
 
     // If successful and we have a database plan, update it too
     if (response.success && req.body.updateInDatabase) {
