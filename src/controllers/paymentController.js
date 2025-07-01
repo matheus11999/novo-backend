@@ -695,10 +695,13 @@ class PaymentController {
                 isPixComment: isPixComment
             });
 
-            // Se usuário não tem comentário, apenas autenticar sem registrar no banco
-            if (!temComentario) {
-                console.log(`🆓 [CAPTIVE-CHECK] Usuário sem comentário - apenas autenticando (SEM BANCO)`);
-                console.log(`🆓 [CAPTIVE-CHECK] temComentario = ${temComentario}, cleanComment = "${cleanComment}"`);
+            // Se usuário não tem comentário OU tem comentário físico sem informações úteis, apenas autenticar
+            const shouldAuthenticateOnly = !temComentario || (temComentario && !isPixComment && planoValor === 0);
+            
+            if (shouldAuthenticateOnly) {
+                const authReason = !temComentario ? 'sem comentário' : 'comentário físico sem valor extraível';
+                console.log(`🆓 [CAPTIVE-CHECK] Usuário ${authReason} - apenas autenticando (SEM BANCO)`);
+                console.log(`🆓 [CAPTIVE-CHECK] temComentario = ${temComentario}, isPixComment = ${isPixComment}, planoValor = ${planoValor}`);
                 
                 // Gerar URL de autenticação do captive portal
                 const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
@@ -708,7 +711,7 @@ class PaymentController {
                 
                 return res.json({
                     success: true,
-                    message: 'User authenticated successfully - no comment found',
+                    message: `User authenticated successfully - ${authReason}`,
                     data: {
                         username: mikrotikUser.name,
                         profile: mikrotikUser.profile,
@@ -716,14 +719,17 @@ class PaymentController {
                         plan_value: 0,
                         auth_url: authUrl,
                         mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
-                        auth_type: 'No Comment Authentication',
-                        has_comment: false,
+                        auth_type: !temComentario ? 'No Comment Authentication' : 'Physical Voucher No Value',
+                        has_comment: temComentario,
+                        comment_type: !temComentario ? 'none' : 'physical_no_value',
                         commission_applicable: false,
                         sale_recorded: false,
                         voucher_recorded: false
                     }
                 });
             }
+
+            // Se chegou aqui, é usuário com comentário válido que deve ser registrado no banco
 
             // Para usuários COM comentário PIX, registrar no banco com comissão
             if (isPixComment) {
