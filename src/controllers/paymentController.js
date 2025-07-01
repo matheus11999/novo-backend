@@ -673,14 +673,15 @@ class PaymentController {
                 nome: planoNome,
                 valor: planoValor,
                 profile: mikrotikUser.profile,
-                comment: mikrotikUser.comment
+                comment: mikrotikUser.comment || 'sem comentário',
+                temComentario: temComentario
             });
 
-            // Calcular valores de comissão
+            // Calcular valores de comissão (mesmo para valores 0)
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem_admin) || 10;
-            const valorTotal = planoValor;
-            const valorAdmin = (valorTotal * porcentagemAdmin) / 100;
-            const valorUsuario = valorTotal - valorAdmin;
+            const valorTotal = Math.max(0, planoValor); // Garante que seja pelo menos 0
+            const valorAdmin = valorTotal > 0 ? (valorTotal * porcentagemAdmin) / 100 : 0;
+            const valorUsuario = valorTotal > 0 ? valorTotal - valorAdmin : 0;
 
             // Registrar venda no banco de dados
             const paymentId = uuidv4();
@@ -734,24 +735,34 @@ class PaymentController {
                 usuario: mikrotikUser.name
             });
 
-            // Registrar no histórico de vendas para o dono do MikroTik
-            if (mikrotik.user_id && valorUsuario > 0) {
+            // Registrar no histórico de vendas para o dono do MikroTik (mesmo se valor for 0, para tracking)
+            if (mikrotik.user_id) {
+                const tipoVenda = temComentario ? 'voucher-pix' : 'voucher-fisico';
+                const descricaoVenda = temComentario 
+                    ? `Venda captive portal PIX - ${planoNome}`
+                    : `Voucher físico utilizado - ${planoNome}`;
+
                 await supabase
                     .from('historico_vendas')
                     .insert({
                         venda_id: venda.id,
                         mikrotik_id: mikrotik_id,
                         user_id: mikrotik.user_id,
-                        tipo: 'usuario',
+                        tipo: valorUsuario > 0 ? 'usuario' : 'tracking',
                         valor: valorUsuario,
-                        descricao: `Venda captive portal - ${planoNome}`,
+                        descricao: descricaoVenda,
                         status: 'completed',
                         plano_nome: planoNome,
                         plano_valor: valorTotal,
                         mac_address: normalizedMac
                     });
 
-                console.log(`📊 [CAPTIVE-CHECK] Histórico de venda criado para usuário: ${mikrotik.user_id}`);
+                console.log(`📊 [CAPTIVE-CHECK] Histórico criado:`, {
+                    user_id: mikrotik.user_id,
+                    tipo: tipoVenda,
+                    valor: valorUsuario,
+                    tem_comissao: valorUsuario > 0
+                });
             }
 
             // Registrar voucher na nova tabela específica
@@ -767,7 +778,9 @@ class PaymentController {
                 ip_address: ip_address,
                 user_agent: user_agent,
                 profile: mikrotikUser.profile,
-                mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name
+                mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
+                tipo_voucher: temComentario ? 'pix' : 'fisico',
+                tem_comissao: valorUsuario > 0
             };
 
             const { data: voucher, error: voucherError } = await supabase
@@ -793,9 +806,14 @@ class PaymentController {
 
             console.log(`🔐 [CAPTIVE-CHECK] URL de autenticação gerada: ${authUrl}`);
 
+            const authType = temComentario ? 'PIX Voucher' : 'Physical Voucher';
+            const successMessage = temComentario 
+                ? 'User authenticated successfully with PIX voucher'
+                : 'User authenticated successfully with physical voucher';
+
             return res.json({
                 success: true,
-                message: 'User authenticated successfully',
+                message: successMessage,
                 data: {
                     username: mikrotikUser.name,
                     profile: mikrotikUser.profile,
@@ -807,7 +825,10 @@ class PaymentController {
                     voucher_recorded: !voucherError,
                     mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
                     admin_commission: valorAdmin,
-                    user_commission: valorUsuario
+                    user_commission: valorUsuario,
+                    auth_type: authType,
+                    has_comment: temComentario,
+                    commission_applicable: valorUsuario > 0
                 }
             });
 
