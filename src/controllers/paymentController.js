@@ -677,9 +677,40 @@ class PaymentController {
                 temComentario: temComentario
             });
 
-            // Calcular valores de comissão (mesmo para valores 0)
+            // Se usuário não tem comentário, apenas autenticar sem registrar no banco
+            if (!temComentario) {
+                console.log(`🆓 [CAPTIVE-CHECK] Usuário sem comentário - apenas autenticando`);
+                
+                // Gerar URL de autenticação do captive portal
+                const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+                
+                console.log(`🔐 [CAPTIVE-CHECK] URL de autenticação gerada: ${authUrl}`);
+                
+                return res.json({
+                    success: true,
+                    message: 'User authenticated successfully with physical voucher',
+                    data: {
+                        username: mikrotikUser.name,
+                        profile: mikrotikUser.profile,
+                        plan_name: planoNome,
+                        plan_value: 0,
+                        auth_url: authUrl,
+                        mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
+                        auth_type: 'Physical Voucher',
+                        has_comment: false,
+                        commission_applicable: false,
+                        sale_recorded: false,
+                        voucher_recorded: false
+                    }
+                });
+            }
+
+            // Para usuários COM comentário (PIX vouchers), registrar no banco
+            console.log(`💰 [CAPTIVE-CHECK] Usuário PIX - registrando venda no banco`);
+            
+            // Calcular valores de comissão
             const porcentagemAdmin = parseFloat(mikrotik.porcentagem_admin) || 10;
-            const valorTotal = Math.max(0, planoValor); // Garante que seja pelo menos 0
+            const valorTotal = Math.max(0, planoValor);
             const valorAdmin = valorTotal > 0 ? (valorTotal * porcentagemAdmin) / 100 : 0;
             const valorUsuario = valorTotal > 0 ? valorTotal - valorAdmin : 0;
 
@@ -690,7 +721,7 @@ class PaymentController {
             const vendaData = {
                 mikrotik_id: mikrotik_id,
                 payment_id: paymentId,
-                status: 'completed', // Venda via captive portal é imediata
+                status: 'completed',
                 valor_total: valorTotal,
                 valor_admin: valorAdmin,
                 valor_usuario: valorUsuario,
@@ -701,7 +732,7 @@ class PaymentController {
                 senha_usuario: mikrotikUser.password,
                 mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
                 paid_at: new Date().toISOString(),
-                mercadopago_status: 'approved', // Simular como aprovado para captive portal
+                mercadopago_status: 'approved',
                 mercadopago_payment_id: `captive_${paymentId}`
             };
 
@@ -724,63 +755,53 @@ class PaymentController {
                 .single();
 
             if (vendaError) {
-                console.error(`❌ [CAPTIVE-CHECK] Erro ao registrar venda:`, vendaError);
+                console.error(`❌ [CAPTIVE-CHECK] Erro ao registrar venda PIX:`, vendaError);
                 throw vendaError;
             }
 
-            console.log(`💾 [CAPTIVE-CHECK] Venda registrada:`, {
+            console.log(`💾 [CAPTIVE-CHECK] Venda PIX registrada:`, {
                 id: venda.id,
                 payment_id: paymentId,
                 valor: valorTotal,
                 usuario: mikrotikUser.name
             });
 
-            // Registrar no histórico de vendas para o dono do MikroTik (mesmo se valor for 0, para tracking)
-            if (mikrotik.user_id) {
-                const tipoVenda = temComentario ? 'voucher-pix' : 'voucher-fisico';
-                const descricaoVenda = temComentario 
-                    ? `Venda captive portal PIX - ${planoNome}`
-                    : `Voucher físico utilizado - ${planoNome}`;
-
+            // Registrar no histórico de vendas para o dono do MikroTik
+            if (mikrotik.user_id && valorUsuario > 0) {
                 await supabase
                     .from('historico_vendas')
                     .insert({
                         venda_id: venda.id,
                         mikrotik_id: mikrotik_id,
                         user_id: mikrotik.user_id,
-                        tipo: valorUsuario > 0 ? 'usuario' : 'tracking',
+                        tipo: 'usuario',
                         valor: valorUsuario,
-                        descricao: descricaoVenda,
+                        descricao: `Venda captive portal PIX - ${planoNome}`,
                         status: 'completed',
                         plano_nome: planoNome,
                         plano_valor: valorTotal,
                         mac_address: normalizedMac
                     });
 
-                console.log(`📊 [CAPTIVE-CHECK] Histórico criado:`, {
-                    user_id: mikrotik.user_id,
-                    tipo: tipoVenda,
-                    valor: valorUsuario,
-                    tem_comissao: valorUsuario > 0
-                });
+                console.log(`📊 [CAPTIVE-CHECK] Histórico PIX criado para usuário: ${mikrotik.user_id}`);
             }
 
-            // Registrar voucher na nova tabela específica
+            // Registrar voucher PIX na tabela específica
             const voucherData = {
                 senha: username,
                 data_conexao: new Date().toISOString(),
                 valor_venda: valorTotal,
                 mikrotik_id: mikrotik_id,
                 nome_plano: planoNome,
-                comentario_original: mikrotikUser.comment || null,
+                comentario_original: mikrotikUser.comment,
                 username: mikrotikUser.name,
                 mac_address: normalizedMac,
                 ip_address: ip_address,
                 user_agent: user_agent,
                 profile: mikrotikUser.profile,
                 mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
-                tipo_voucher: temComentario ? 'pix' : 'fisico',
-                tem_comissao: valorUsuario > 0
+                tipo_voucher: 'pix',
+                tem_comissao: true
             };
 
             const { data: voucher, error: voucherError } = await supabase
@@ -790,9 +811,9 @@ class PaymentController {
                 .single();
 
             if (voucherError) {
-                console.error(`❌ [CAPTIVE-CHECK] Erro ao registrar voucher:`, voucherError);
+                console.error(`❌ [CAPTIVE-CHECK] Erro ao registrar voucher PIX:`, voucherError);
             } else {
-                console.log(`🎫 [CAPTIVE-CHECK] Voucher registrado:`, {
+                console.log(`🎫 [CAPTIVE-CHECK] Voucher PIX registrado:`, {
                     id: voucher.id,
                     senha: voucher.senha,
                     plano: voucher.nome_plano,
@@ -800,20 +821,14 @@ class PaymentController {
                 });
             }
 
-            // Gerar URL de autenticação do captive portal
-            // Formato típico: http://IP_MIKROTIK/login?username=USER&password=PASS&dst=ORIGINAL_URL
+            // Gerar URL de autenticação para usuário PIX
             const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
-            console.log(`🔐 [CAPTIVE-CHECK] URL de autenticação gerada: ${authUrl}`);
-
-            const authType = temComentario ? 'PIX Voucher' : 'Physical Voucher';
-            const successMessage = temComentario 
-                ? 'User authenticated successfully with PIX voucher'
-                : 'User authenticated successfully with physical voucher';
+            console.log(`🔐 [CAPTIVE-CHECK] URL de autenticação PIX gerada: ${authUrl}`);
 
             return res.json({
                 success: true,
-                message: successMessage,
+                message: 'User authenticated successfully with PIX voucher',
                 data: {
                     username: mikrotikUser.name,
                     profile: mikrotikUser.profile,
@@ -826,8 +841,8 @@ class PaymentController {
                     mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
                     admin_commission: valorAdmin,
                     user_commission: valorUsuario,
-                    auth_type: authType,
-                    has_comment: temComentario,
+                    auth_type: 'PIX Voucher',
+                    has_comment: true,
                     commission_applicable: valorUsuario > 0
                 }
             });
