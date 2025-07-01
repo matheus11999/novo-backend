@@ -15,6 +15,7 @@ const mikrotikRetryRoutes = require('./routes/mikrotik-retry');
 const paymentPollingRoutes = require('./routes/payment-polling');
 const saquesRoutes = require('./routes/saques');
 const usersRoutes = require('./routes/users');
+const subscriptionRoutes = require('./routes/subscription');
 const paymentPollingService = require('./services/paymentPollingService');
 
 const app = express();
@@ -106,6 +107,7 @@ app.use('/api/mikrotik-retry', mikrotikRetryRoutes);
 app.use('/api/payment-polling', paymentPollingRoutes);
 app.use('/api/saques', saquesRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
