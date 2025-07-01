@@ -630,23 +630,24 @@ class PaymentController {
                        (comment_lower.includes('plano:') && comment_lower.includes('valor'));
             }
 
-            // Tentar extrair informações do comentário
-            if (mikrotikUser.comment && mikrotikUser.comment.trim() !== '') {
+            // Tentar extrair informações do comentário - verificação mais rigorosa
+            const cleanComment = mikrotikUser.comment ? mikrotikUser.comment.trim() : '';
+            if (cleanComment && cleanComment !== '' && cleanComment !== 'null' && cleanComment !== 'undefined') {
                 temComentario = true;
-                isPixComment = isPixVoucher(mikrotikUser.comment);
+                isPixComment = isPixVoucher(cleanComment);
                 
-                console.log(`💬 [CAPTIVE-CHECK] Comentário original:`, mikrotikUser.comment);
+                console.log(`💬 [CAPTIVE-CHECK] Comentário original:`, cleanComment);
                 console.log(`🔍 [CAPTIVE-CHECK] Tipo de comentário: ${isPixComment ? 'PIX' : 'Voucher Físico'}`);
                 
                 // Extrair nome do plano (formato: "Plano: Nome do Plano")
-                const planoMatch = mikrotikUser.comment.match(/Plano:\s*([^-]+)/i);
+                const planoMatch = cleanComment.match(/Plano:\s*([^-]+)/i);
                 if (planoMatch) {
                     planoNome = planoMatch[1].trim();
                     console.log(`📋 [CAPTIVE-CHECK] Plano extraído do comentário:`, planoNome);
                 }
                 
                 // Extrair valor (formatos: "Valor: 29.90", "R$ 29,90", "valor: R$ 29.50")
-                const valorMatch = mikrotikUser.comment.match(/valor[:\s]*(?:R\$\s*)?(\d+[.,]?\d*)/i);
+                const valorMatch = cleanComment.match(/valor[:\s]*(?:R\$\s*)?(\d+[.,]?\d*)/i);
                 if (valorMatch) {
                     planoValor = parseFloat(valorMatch[1].replace(',', '.'));
                     console.log(`💰 [CAPTIVE-CHECK] Valor extraído do comentário:`, planoValor);
@@ -654,7 +655,9 @@ class PaymentController {
                     console.log(`⚠️ [CAPTIVE-CHECK] Valor não encontrado no comentário`);
                 }
             } else {
-                console.log(`ℹ️ [CAPTIVE-CHECK] Usuário sem comentário - apenas autenticação`);
+                console.log(`ℹ️ [CAPTIVE-CHECK] Usuário sem comentário válido - apenas autenticação`);
+                console.log(`🔍 [CAPTIVE-CHECK] Comentário bruto:`, mikrotikUser.comment);
+                console.log(`🔍 [CAPTIVE-CHECK] Comentário limpo:`, cleanComment);
             }
 
             // Buscar informações no banco de dados (sempre, para complementar ou usar como fallback)
@@ -694,16 +697,18 @@ class PaymentController {
 
             // Se usuário não tem comentário, apenas autenticar sem registrar no banco
             if (!temComentario) {
-                console.log(`🆓 [CAPTIVE-CHECK] Usuário sem comentário - apenas autenticando`);
+                console.log(`🆓 [CAPTIVE-CHECK] Usuário sem comentário - apenas autenticando (SEM BANCO)`);
+                console.log(`🆓 [CAPTIVE-CHECK] temComentario = ${temComentario}, cleanComment = "${cleanComment}"`);
                 
                 // Gerar URL de autenticação do captive portal
                 const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
                 
                 console.log(`🔐 [CAPTIVE-CHECK] URL de autenticação gerada: ${authUrl}`);
+                console.log(`🚪 [CAPTIVE-CHECK] RETORNANDO AQUI - não vai para o banco de dados`);
                 
                 return res.json({
                     success: true,
-                    message: 'User authenticated successfully with physical voucher',
+                    message: 'User authenticated successfully - no comment found',
                     data: {
                         username: mikrotikUser.name,
                         profile: mikrotikUser.profile,
@@ -711,7 +716,7 @@ class PaymentController {
                         plan_value: 0,
                         auth_url: authUrl,
                         mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
-                        auth_type: 'Physical Voucher',
+                        auth_type: 'No Comment Authentication',
                         has_comment: false,
                         commission_applicable: false,
                         sale_recorded: false,
