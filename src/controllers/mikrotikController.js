@@ -283,8 +283,27 @@ const createHotspotProfile = async (req, res) => {
     const { mikrotikId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
+    // Map field names from frontend format to MikroTik API format
+    const profileData = {
+      name: req.body.name,
+      rate_limit: req.body['rate-limit'] || req.body.rate_limit,
+      session_timeout: req.body['session-timeout'] || req.body.session_timeout,
+      idle_timeout: req.body['idle-timeout'] || req.body.idle_timeout,
+      comment: req.body.comment,
+      disabled: req.body.disabled
+    };
+
+    // Remove undefined fields
+    Object.keys(profileData).forEach(key => {
+      if (profileData[key] === undefined) {
+        delete profileData[key];
+      }
+    });
+
+    console.log('Profile data being sent to VPS2 (create):', profileData);
+
     // Create profile in MikroTik first
-    const response = await makeApiRequest('/hotspot/profiles', credentials, 'POST', req.body);
+    const response = await makeApiRequest('/hotspot/profiles', credentials, 'POST', profileData);
     
     // If successful and we have additional data for database, create database record
     if (response.success && req.body.createInDatabase) {
@@ -331,8 +350,27 @@ const updateHotspotProfile = async (req, res) => {
     const { mikrotikId, profileId } = req.params;
     const credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
 
+    // Map field names from frontend format to MikroTik API format
+    const profileData = {
+      name: req.body.name,
+      rate_limit: req.body['rate-limit'] || req.body.rate_limit,
+      session_timeout: req.body['session-timeout'] || req.body.session_timeout,
+      idle_timeout: req.body['idle-timeout'] || req.body.idle_timeout,
+      comment: req.body.comment,
+      disabled: req.body.disabled
+    };
+
+    // Remove undefined fields
+    Object.keys(profileData).forEach(key => {
+      if (profileData[key] === undefined) {
+        delete profileData[key];
+      }
+    });
+
+    console.log('Profile data being sent to VPS2:', profileData);
+
     // Update profile in MikroTik - add profileId to query string, not body
-    const response = await makeApiRequest(`/hotspot/profiles?id=${profileId}`, credentials, 'PUT', req.body);
+    const response = await makeApiRequest(`/hotspot/profiles?id=${profileId}`, credentials, 'PUT', profileData);
 
     // If successful and we have a database plan, update it too
     if (response.success && req.body.updateInDatabase) {
