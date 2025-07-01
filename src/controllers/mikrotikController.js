@@ -158,9 +158,12 @@ const getHotspotUsers = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
     
+    console.log(`[BACKEND-USERS] Requisição para buscar usuários do MikroTik ${mikrotikId}`);
+    
     let credentials;
     try {
       credentials = await getMikrotikCredentials(mikrotikId, req.user.id);
+      console.log(`[BACKEND-USERS] Credenciais obtidas para ${credentials.ip}:${credentials.port}`);
     } catch (credError) {
       console.error('Credentials error:', credError.message);
       return res.status(400).json({
@@ -171,6 +174,14 @@ const getHotspotUsers = async (req, res) => {
     }
 
     const response = await makeApiRequest('/hotspot/users', credentials);
+    
+    console.log(`[BACKEND-USERS] Resposta da API VPS2:`, {
+      success: response.success,
+      dataType: typeof response.data,
+      isArray: Array.isArray(response.data),
+      count: response.count,
+      dataLength: response.data?.length
+    });
 
     res.json({
       success: true,

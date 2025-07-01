@@ -617,9 +617,11 @@ class PaymentController {
             // Extrair informações do plano do comentário
             let planoNome = mikrotikUser.profile || 'default';
             let planoValor = 0;
+            let temComentario = false;
 
             // Tentar extrair informações do comentário (formato: "PIX payment_id - Plano: nome - Valor: 29.90 - data")
-            if (mikrotikUser.comment) {
+            if (mikrotikUser.comment && mikrotikUser.comment.trim() !== '') {
+                temComentario = true;
                 console.log(`💬 [CAPTIVE-CHECK] Comentário original:`, mikrotikUser.comment);
                 
                 // Extrair nome do plano (formato: "Plano: Nome do Plano")
@@ -638,21 +640,32 @@ class PaymentController {
                     console.log(`⚠️ [CAPTIVE-CHECK] Valor não encontrado no comentário`);
                 }
             } else {
-                console.log(`⚠️ [CAPTIVE-CHECK] Usuário sem comentário`);
+                console.log(`ℹ️ [CAPTIVE-CHECK] Usuário sem comentário - permitindo autenticação com valores padrão`);
             }
 
-            // Se não encontrou valor no comentário, buscar no banco de dados pelo profile
-            if (planoValor === 0) {
-                const { data: plano } = await supabase
-                    .from('planos')
-                    .select('valor, nome')
-                    .eq('mikrotik_id', mikrotik_id)
-                    .eq('nome', mikrotikUser.profile)
-                    .single();
+            // Buscar informações no banco de dados (sempre, para complementar ou usar como fallback)
+            const { data: plano } = await supabase
+                .from('planos')
+                .select('valor, nome, session_timeout, id')
+                .eq('mikrotik_id', mikrotik_id)
+                .or(`nome.eq.${mikrotikUser.profile},profile.eq.${mikrotikUser.profile}`)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
 
-                if (plano) {
+            if (plano) {
+                // Se não tem comentário ou valor do comentário é 0, usar dados do banco
+                if (!temComentario || planoValor === 0) {
                     planoValor = parseFloat(plano.valor) || 0;
-                    planoNome = plano.nome;
+                    planoNome = plano.nome || mikrotikUser.profile;
+                    console.log(`📊 [CAPTIVE-CHECK] Usando dados do banco - Plano: ${planoNome}, Valor: ${planoValor}`);
+                }
+            } else {
+                // Se não encontrou plano no banco e não tem comentário, usar valores mínimos
+                if (!temComentario && planoValor === 0) {
+                    planoValor = 0; // Valor padrão 0 para vouchers sem informação
+                    planoNome = mikrotikUser.profile || 'voucher-fisico';
+                    console.log(`🆓 [CAPTIVE-CHECK] Plano não encontrado no banco - usando valores padrão`);
                 }
             }
 
@@ -741,6 +754,39 @@ class PaymentController {
                 console.log(`📊 [CAPTIVE-CHECK] Histórico de venda criado para usuário: ${mikrotik.user_id}`);
             }
 
+            // Registrar voucher na nova tabela específica
+            const voucherData = {
+                senha: username,
+                data_conexao: new Date().toISOString(),
+                valor_venda: valorTotal,
+                mikrotik_id: mikrotik_id,
+                nome_plano: planoNome,
+                comentario_original: mikrotikUser.comment || null,
+                username: mikrotikUser.name,
+                mac_address: normalizedMac,
+                ip_address: ip_address,
+                user_agent: user_agent,
+                profile: mikrotikUser.profile,
+                mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name
+            };
+
+            const { data: voucher, error: voucherError } = await supabase
+                .from('voucher')
+                .insert(voucherData)
+                .select()
+                .single();
+
+            if (voucherError) {
+                console.error(`❌ [CAPTIVE-CHECK] Erro ao registrar voucher:`, voucherError);
+            } else {
+                console.log(`🎫 [CAPTIVE-CHECK] Voucher registrado:`, {
+                    id: voucher.id,
+                    senha: voucher.senha,
+                    plano: voucher.nome_plano,
+                    valor: voucher.valor_venda
+                });
+            }
+
             // Gerar URL de autenticação do captive portal
             // Formato típico: http://IP_MIKROTIK/login?username=USER&password=PASS&dst=ORIGINAL_URL
             const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
@@ -758,6 +804,7 @@ class PaymentController {
                     auth_url: authUrl,
                     payment_id: paymentId,
                     sale_recorded: true,
+                    voucher_recorded: !voucherError,
                     mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
                     admin_commission: valorAdmin,
                     user_commission: valorUsuario
