@@ -26,11 +26,17 @@ class MikroTikUserService {
             const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
             const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
+            // Criar comentário com formato padronizado para captive portal
+            const planName = vendaData.planos?.nome || 'Default';
+            const planValue = vendaData.valor_total || vendaData.planos?.valor || 0;
+            const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const comment = `PIX ${vendaData.payment_id} - Plano: ${planName} - Valor: ${parseFloat(planValue).toFixed(2)} - ${currentDate}`;
+            
             const userData = {
                 name: formattedMac, // Username com formato E2:26:89:13:AD:71
                 password: formattedMac, // Password com formato E2:26:89:13:AD:71
                 profile: vendaData.planos?.nome || 'default', // Usar nome do plano correto
-                comment: `PIX ${vendaData.payment_id} - ${new Date().toISOString()}`,
+                comment: comment, // Comentário formatado para captive portal
                 'mac-address': formattedMac // MAC com formato E2:26:89:13:AD:71
             };
             

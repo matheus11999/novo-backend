@@ -25,4 +25,7 @@ router.get('/status/:payment_id', authenticateUser, paymentController.getPayment
 // Get payment status for captive portal (public endpoint)
 router.post('/status-captive', paymentController.getCaptivePaymentStatus);
 
+// Check user in captive portal (public endpoint for captive portal integration)
+router.post('/captive/check-user', paymentController.checkCaptiveUser);
+
 module.exports = router;
