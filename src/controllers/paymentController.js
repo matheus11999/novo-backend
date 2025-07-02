@@ -654,19 +654,30 @@ class PaymentController {
                 if (!comment) return false;
                 const comment_lower = comment.toLowerCase();
                 return comment_lower.includes('pix') || 
-                       comment_lower.includes('payment_id') ||
-                       comment_lower.includes('valor:') ||
-                       (comment_lower.includes('plano:') && comment_lower.includes('valor'));
+                       comment_lower.includes('payment_id');
+            }
+
+            // Função para detectar voucher físico com padrão específico
+            function isPhysicalVoucher(comment) {
+                if (!comment) return false;
+                const comment_lower = comment.toLowerCase();
+                // Detectar padrão: "Plano: X - Valor: Y - Gerado DD/MM/YYYY..."
+                return comment_lower.includes('plano:') && 
+                       comment_lower.includes('valor:') && 
+                       comment_lower.includes('gerado') &&
+                       /\d{2}\/\d{2}\/\d{4}/.test(comment); // Data no formato DD/MM/YYYY
             }
 
             // Tentar extrair informações do comentário - verificação mais rigorosa
             const cleanComment = mikrotikUser.comment ? mikrotikUser.comment.trim() : '';
+            let isPhysicalComment = false;
             if (cleanComment && cleanComment !== '' && cleanComment !== 'null' && cleanComment !== 'undefined') {
                 temComentario = true;
                 isPixComment = isPixVoucher(cleanComment);
+                isPhysicalComment = isPhysicalVoucher(cleanComment);
                 
                 console.log(`💬 [CAPTIVE-CHECK] Comentário original:`, cleanComment);
-                console.log(`🔍 [CAPTIVE-CHECK] Tipo de comentário: ${isPixComment ? 'PIX' : 'Voucher Físico'}`);
+                console.log(`🔍 [CAPTIVE-CHECK] Tipo de comentário: ${isPixComment ? 'PIX' : isPhysicalComment ? 'Voucher Físico' : 'Comentário Genérico'}`);
                 
                 // Extrair nome do plano (formato: "Plano: Nome do Plano")
                 const planoMatch = cleanComment.match(/Plano:\s*([^-]+)/i);
@@ -724,13 +735,13 @@ class PaymentController {
                 isPixComment: isPixComment
             });
 
-            // Se usuário não tem comentário OU tem comentário físico sem informações úteis, apenas autenticar
-            const shouldAuthenticateOnly = !temComentario || (temComentario && !isPixComment && planoValor === 0);
+            // Se usuário não tem comentário OU tem comentário genérico sem informações úteis, apenas autenticar
+            const shouldAuthenticateOnly = !temComentario || (temComentario && !isPixComment && !isPhysicalComment && planoValor === 0);
             
             if (shouldAuthenticateOnly) {
-                const authReason = !temComentario ? 'sem comentário' : 'comentário físico sem valor extraível';
+                const authReason = !temComentario ? 'sem comentário' : 'comentário genérico sem valor extraível';
                 console.log(`🆓 [CAPTIVE-CHECK] Usuário ${authReason} - apenas autenticando (SEM BANCO)`);
-                console.log(`🆓 [CAPTIVE-CHECK] temComentario = ${temComentario}, isPixComment = ${isPixComment}, planoValor = ${planoValor}`);
+                console.log(`🆓 [CAPTIVE-CHECK] temComentario = ${temComentario}, isPixComment = ${isPixComment}, isPhysicalComment = ${isPhysicalComment}, planoValor = ${planoValor}`);
                 
                 // Gerar URL de autenticação do captive portal
                 const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
@@ -748,9 +759,9 @@ class PaymentController {
                         plan_value: 0,
                         auth_url: authUrl,
                         mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
-                        auth_type: !temComentario ? 'No Comment Authentication' : 'Physical Voucher No Value',
+                        auth_type: !temComentario ? 'No Comment Authentication' : 'Generic Comment No Value',
                         has_comment: temComentario,
-                        comment_type: !temComentario ? 'none' : 'physical_no_value',
+                        comment_type: !temComentario ? 'none' : 'generic_no_value',
                         commission_applicable: false,
                         sale_recorded: false,
                         voucher_recorded: false
@@ -759,6 +770,79 @@ class PaymentController {
             }
 
             // Se chegou aqui, é usuário com comentário válido que deve ser registrado no banco
+
+            // Para usuários COM comentário de voucher físico com padrão específico, registrar APENAS na tabela voucher
+            if (isPhysicalComment) {
+                console.log(`🎫 [CAPTIVE-CHECK] Voucher físico com padrão específico - registrando APENAS na tabela voucher`);
+            
+                // Preparar dados apenas para voucher (não vai para vendas_pix)
+                const valorTotal = Math.max(0, planoValor);
+                const paymentId = uuidv4();
+                const normalizedMac = mac_address ? mac_address.toUpperCase() : mikrotikUser.name;
+
+                // Registrar voucher físico APENAS na tabela voucher
+                const voucherData = {
+                    senha: username,
+                    data_conexao: new Date().toISOString(),
+                    valor_venda: valorTotal,
+                    mikrotik_id: mikrotik_id,
+                    nome_plano: planoNome,
+                    comentario_original: mikrotikUser.comment,
+                    username: mikrotikUser.name,
+                    mac_address: normalizedMac,
+                    ip_address: ip_address,
+                    user_agent: user_agent,
+                    profile: mikrotikUser.profile,
+                    mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
+                    tipo_voucher: 'fisico',
+                    tem_comissao: false
+                };
+
+                const { data: voucher, error: voucherError } = await supabase
+                    .from('voucher')
+                    .insert(voucherData)
+                    .select()
+                    .single();
+
+                if (voucherError) {
+                    console.error(`❌ [CAPTIVE-CHECK] Erro ao registrar voucher físico:`, voucherError);
+                    throw voucherError;
+                } else {
+                    console.log(`🎫 [CAPTIVE-CHECK] Voucher físico registrado:`, {
+                        id: voucher.id,
+                        senha: voucher.senha,
+                        plano: voucher.nome_plano,
+                        valor: voucher.valor_venda
+                    });
+                }
+
+                // Gerar URL de autenticação para voucher físico
+                const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+
+                console.log(`🔐 [CAPTIVE-CHECK] URL de autenticação física gerada: ${authUrl}`);
+                console.log(`✅ [CAPTIVE-CHECK] Voucher físico salvo APENAS na tabela voucher (não vai para vendas_pix)`);
+
+                return res.json({
+                    success: true,
+                    message: 'User authenticated successfully with physical voucher',
+                    data: {
+                        username: mikrotikUser.name,
+                        profile: mikrotikUser.profile,
+                        plan_name: planoNome,
+                        plan_value: valorTotal,
+                        auth_url: authUrl,
+                        payment_id: paymentId,
+                        sale_recorded: false, // NÃO foi salvo em vendas_pix
+                        voucher_recorded: !voucherError,
+                        mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
+                        admin_commission: 0,
+                        user_commission: 0,
+                        auth_type: 'Physical Voucher',
+                        has_comment: true,
+                        commission_applicable: false
+                    }
+                });
+            }
 
             // Para usuários COM comentário PIX, registrar no banco apenas para relatório (SEM comissão)
             if (isPixComment) {
