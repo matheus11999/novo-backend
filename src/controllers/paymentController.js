@@ -804,14 +804,16 @@ class PaymentController {
                 // Registrar voucher físico APENAS na tabela voucher
                 const voucherData = {
                     senha: username,
-                    data_conexao: new Date().toISOString(),
                     valor_venda: valorTotal,
                     mikrotik_id: mikrotik_id,
                     nome_plano: planoNome,
-                    username: mikrotikUser.name,
                     mac_address: normalizedMac,
+                    ip_address: ip_address,
+                    user_agent: user_agent,
+                    profile: mikrotikUser.profile,
                     mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
-                    tipo_voucher: 'fisico'
+                    tipo_voucher: 'fisico',
+                    tem_comissao: false
                 };
 
                 const { data: voucher, error: voucherError } = await supabase
