@@ -123,10 +123,10 @@ class PaymentController {
             // Get plans for the specified MikroTik
             const { data: planos, error } = await supabase
                 .from('planos')
-                .select('id, name, preco, session_timeout, rate_limit')
+                .select('id, nome, valor, session_timeout, rate_limit')
                 .eq('mikrotik_id', mikrotik_id)
                 .eq('ativo', true)
-                .order('preco', { ascending: true });
+                .order('valor', { ascending: true });
 
             if (error) {
                 throw error;
@@ -135,8 +135,8 @@ class PaymentController {
             // Format plans for captive portal
             const formattedPlans = planos.map(plano => ({
                 id: plano.id,
-                nome: plano.name,
-                preco: plano.preco,
+                nome: plano.nome,
+                preco: plano.valor,
                 duracao: formatDuration(plano.session_timeout),
                 rate_limit: plano.rate_limit
             }));
