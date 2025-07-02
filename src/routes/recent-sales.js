@@ -17,11 +17,49 @@ router.use(optionalAuth);
 // Endpoint para vendas recentes
 router.post('/', async (req, res) => {
   try {
-    // Por enquanto, retorna uma resposta vazia para evitar erro 404
+    // Buscar vendas PIX recentes (últimas 10)
+    const { data: vendasPix, error: pixError } = await supabase
+      .from('vendas_pix')
+      .select('id, valor_usuario, valor_total, plano_nome, created_at, status, mikrotik_id')
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Buscar vouchers recentes (últimos 5)
+    const { data: vouchers, error: vouchersError } = await supabase
+      .from('voucher')
+      .select('id, valor_venda, nome_plano, created_at, mikrotik_id, tipo_voucher')
+      .eq('tipo_voucher', 'fisico')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (pixError && vouchersError) {
+      throw new Error('Erro ao buscar vendas recentes');
+    }
+
+    const recentSales = [
+      ...(vendasPix || []).map(v => ({
+        id: v.id,
+        valor: v.valor_usuario || 0, // Usar valor_usuario para PIX
+        plano: v.plano_nome || 'Venda PIX',
+        data: v.created_at,
+        tipo: 'pix',
+        mikrotik_id: v.mikrotik_id
+      })),
+      ...(vouchers || []).map(v => ({
+        id: v.id,
+        valor: v.valor_venda || 0,
+        plano: v.nome_plano || 'Voucher',
+        data: v.created_at,
+        tipo: 'voucher',
+        mikrotik_id: v.mikrotik_id
+      }))
+    ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).slice(0, 15);
+
     res.json({
       success: true,
-      data: [],
-      message: 'Endpoint de vendas recentes - em desenvolvimento'
+      data: recentSales,
+      message: 'Vendas recentes carregadas com sucesso'
     });
   } catch (error) {
     console.error('Error in recent-sales:', error);
@@ -34,11 +72,49 @@ router.post('/', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    // Buscar vendas recentes do Supabase (quando implementado)
+    // Buscar vendas PIX recentes (últimas 10)
+    const { data: vendasPix, error: pixError } = await supabase
+      .from('vendas_pix')
+      .select('id, valor_usuario, valor_total, plano_nome, created_at, status, mikrotik_id')
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Buscar vouchers recentes (últimos 5)
+    const { data: vouchers, error: vouchersError } = await supabase
+      .from('voucher')
+      .select('id, valor_venda, nome_plano, created_at, mikrotik_id, tipo_voucher')
+      .eq('tipo_voucher', 'fisico')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (pixError && vouchersError) {
+      throw new Error('Erro ao buscar vendas recentes');
+    }
+
+    const recentSales = [
+      ...(vendasPix || []).map(v => ({
+        id: v.id,
+        valor: v.valor_usuario || 0, // Usar valor_usuario para PIX
+        plano: v.plano_nome || 'Venda PIX',
+        data: v.created_at,
+        tipo: 'pix',
+        mikrotik_id: v.mikrotik_id
+      })),
+      ...(vouchers || []).map(v => ({
+        id: v.id,
+        valor: v.valor_venda || 0,
+        plano: v.nome_plano || 'Voucher',
+        data: v.created_at,
+        tipo: 'voucher',
+        mikrotik_id: v.mikrotik_id
+      }))
+    ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).slice(0, 15);
+
     res.json({
       success: true,
-      data: [],
-      message: 'Vendas recentes - em desenvolvimento'
+      data: recentSales,
+      message: 'Vendas recentes carregadas com sucesso'
     });
   } catch (error) {
     console.error('Error fetching recent-sales:', error);
