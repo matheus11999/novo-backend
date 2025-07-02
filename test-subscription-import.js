@@ -14,4 +14,4 @@ try {
 } catch (error) {
     console.error('❌ Import failed:', error.message);
     console.error('Stack:', error.stack);
-} 
+} Bcdedit.exe -set TESTSIGNING ON
