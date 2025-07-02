@@ -630,8 +630,29 @@ class PaymentController {
             console.log(`✅ [CAPTIVE-CHECK] Usuário encontrado:`, {
                 name: mikrotikUser.name,
                 profile: mikrotikUser.profile,
-                comment: mikrotikUser.comment
+                comment: mikrotikUser.comment,
+                uptime: mikrotikUser.uptime,
+                isActive: mikrotikUser.isActive
             });
+
+            // Verificar se o uptime está zerado (usuário nunca se conectou)
+            const uptimeZerado = mikrotikUser.uptime === "00:00:00" || !mikrotikUser.isActive;
+            
+            if (!uptimeZerado) {
+                console.log(`⏰ [CAPTIVE-CHECK] Usuário já utilizou o voucher - Uptime: ${mikrotikUser.uptime}`);
+                return res.status(409).json({
+                    success: false,
+                    error: 'Voucher already used',
+                    message: `This voucher has already been used. Current uptime: ${mikrotikUser.uptime}`,
+                    data: {
+                        uptime: mikrotikUser.uptime,
+                        isActive: mikrotikUser.isActive,
+                        username: mikrotikUser.name
+                    }
+                });
+            }
+            
+            console.log(`✅ [CAPTIVE-CHECK] Voucher ainda não foi usado - pode ser salvo no banco`);
 
             // Validar se a senha confere
             if (mikrotikUser.password !== password) {
@@ -787,15 +808,10 @@ class PaymentController {
                     valor_venda: valorTotal,
                     mikrotik_id: mikrotik_id,
                     nome_plano: planoNome,
-                    comentario_original: mikrotikUser.comment,
                     username: mikrotikUser.name,
                     mac_address: normalizedMac,
-                    ip_address: ip_address,
-                    user_agent: user_agent,
-                    profile: mikrotikUser.profile,
                     mikrotik_user_id: mikrotikUser['.id'] || mikrotikUser.name,
-                    tipo_voucher: 'fisico',
-                    tem_comissao: false
+                    tipo_voucher: 'fisico'
                 };
 
                 const { data: voucher, error: voucherError } = await supabase
