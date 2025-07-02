@@ -132,14 +132,22 @@ class PaymentController {
             // Always use production URL for webhooks
             const webhookUrl = 'https://api.mikropix.online/api/webhook/mercadopago';
 
-            const porcentagemAdmin = parseFloat(mikrotik.porcentagem);
+            // NOVA LÓGICA DE COMISSÕES CORRIGIDA:
+            // O usuário do MikroTik recebe a porcentagem, admin recebe o restante
+            const porcentagemUsuario = parseFloat(mikrotik.porcentagem) || 0;
             const valorTotal = parseFloat(plano.preco);
-            const valorAdmin = (valorTotal * porcentagemAdmin) / 100;
-            const valorUsuario = valorTotal - valorAdmin;
+            const valorUsuario = (valorTotal * porcentagemUsuario) / 100; // Usuário recebe a porcentagem
+            const valorAdmin = valorTotal - valorUsuario; // Admin recebe o restante
+
+            console.log(`💰 [PAYMENT] Cálculo de comissões:`);
+            console.log(`  📊 Valor Total: R$ ${valorTotal.toFixed(2)}`);
+            console.log(`  📊 Porcentagem Usuário: ${porcentagemUsuario}%`);
+            console.log(`  📊 Valor Usuário: R$ ${valorUsuario.toFixed(2)}`);
+            console.log(`  📊 Valor Admin: R$ ${valorAdmin.toFixed(2)}`);
 
             const paymentData = {
                 transaction_amount: valorTotal,
-                description: `Plano ${plano.name} - ${plano.session_timeout}`,
+                description: `Plano ${plano.nome} - ${plano.tempo_limite}`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
                 payer: {
@@ -162,8 +170,9 @@ class PaymentController {
             const expiresAt = new Date();
             expiresAt.setMinutes(expiresAt.getMinutes() + 30); // 30 minutes to pay
 
+            // USAR NOVA TABELA vendas_pix
             const { data: venda, error: vendaError } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .insert({
                     mikrotik_id: mikrotik.id,
                     plano_id: plano.id,
@@ -172,16 +181,22 @@ class PaymentController {
                     valor_total: valorTotal,
                     valor_admin: valorAdmin,
                     valor_usuario: valorUsuario,
+                    porcentagem_admin: 100 - porcentagemUsuario,
                     mercadopago_payment_id: mpPayment.id.toString(),
                     mercadopago_status: mpPayment.status,
                     qr_code: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
                     pix_code: mpPayment.point_of_interaction?.transaction_data?.qr_code || null,
+                    plano_nome: plano.nome,
+                    plano_valor: plano.preco,
+                    plano_session_timeout: plano.tempo_limite,
+                    plano_rate_limit: plano.velocidade,
                     expires_at: expiresAt.toISOString()
                 })
                 .select()
                 .single();
 
             if (vendaError) {
+                console.error('❌ Erro ao criar venda PIX:', vendaError);
                 throw vendaError;
             }
 
@@ -194,7 +209,13 @@ class PaymentController {
                     pix_code: mpPayment.point_of_interaction?.transaction_data?.qr_code,
                     amount: valorTotal,
                     expires_at: expiresAt,
-                    status: 'pending'
+                    status: 'pending',
+                    commission_info: {
+                        total: valorTotal,
+                        user_percentage: porcentagemUsuario,
+                        user_amount: valorUsuario,
+                        admin_amount: valorAdmin
+                    }
                 }
             });
         } catch (error) {
@@ -211,16 +232,10 @@ class PaymentController {
             const { payment_id } = req.params;
             const mikrotik = req.mikrotik;
 
+            // USAR NOVA TABELA vendas_pix
             const { data: venda, error } = await supabase
-                .from('vendas')
-                .select(`
-                    *,
-                    planos (
-                        name,
-                        session_timeout,
-                        preco
-                    )
-                `)
+                .from('vendas_pix')
+                .select('*')
                 .eq('payment_id', payment_id)
                 .eq('mikrotik_id', mikrotik.id)
                 .single();
@@ -239,12 +254,23 @@ class PaymentController {
                     status: venda.status,
                     mercadopago_status: venda.mercadopago_status,
                     amount: venda.valor_total,
-                    plan: venda.planos,
+                    plan: {
+                        nome: venda.plano_nome,
+                        valor: venda.plano_valor,
+                        session_timeout: venda.plano_session_timeout,
+                        rate_limit: venda.plano_rate_limit
+                    },
                     usuario_criado: venda.usuario_criado,
                     senha_usuario: venda.senha_usuario,
                     expires_at: venda.expires_at,
                     paid_at: venda.paid_at,
-                    created_at: venda.created_at
+                    created_at: venda.created_at,
+                    commission_info: {
+                        total: venda.valor_total,
+                        admin_amount: venda.valor_admin,
+                        user_amount: venda.valor_usuario,
+                        admin_percentage: venda.porcentagem_admin
+                    }
                 }
             });
         } catch (error) {
@@ -276,14 +302,10 @@ class PaymentController {
                 });
             }
 
-            // Check for existing pending payments for this MAC
+            // Check for existing pending payments for this MAC - USAR NOVA TABELA
             const { data: existingPayment, error: existingError } = await supabase
-                .from('vendas')
-                .select(`
-                    *,
-                    planos (nome, session_timeout, valor),
-                    mikrotiks (nome)
-                `)
+                .from('vendas_pix')
+                .select('*')
                 .eq('mikrotik_id', mikrotik_id)
                 .eq('mac_address', mac_address.toUpperCase())
                 .in('status', ['pending', 'processing'])
@@ -305,8 +327,8 @@ class PaymentController {
                         amount: payment.valor_total,
                         expires_at: payment.expires_at,
                         status: payment.status,
-                        plan_name: payment.planos?.nome,
-                        plan_duration: formatDuration(payment.planos?.session_timeout),
+                        plan_name: payment.plano_nome,
+                        plan_duration: formatDuration(payment.plano_session_timeout),
                         existing: true,
                         message: 'Pagamento existente encontrado'
                     }
@@ -318,7 +340,6 @@ class PaymentController {
                 .from('mikrotiks')
                 .select('*')
                 .eq('id', mikrotik_id)
-                .eq('ativo', true)
                 .single();
 
             if (mikrotikError || !mikrotik) {
@@ -334,7 +355,6 @@ class PaymentController {
                 .select('*')
                 .eq('id', plano_id)
                 .eq('mikrotik_id', mikrotik_id)
-                .eq('ativo', true)
                 .single();
 
             if (planoError || !plano) {
@@ -349,10 +369,11 @@ class PaymentController {
             // Always use production URL for webhooks
             const webhookUrl = 'https://api.mikropix.online/api/webhook/mercadopago';
 
-            const porcentagemAdmin = parseFloat(mikrotik.porcentagem_admin) || 10;
-            const valorTotal = parseFloat(plano.valor);
-            const valorAdmin = (valorTotal * porcentagemAdmin) / 100;
-            const valorUsuario = valorTotal - valorAdmin;
+            // NOVA LÓGICA DE COMISSÕES CORRIGIDA para Captive Portal
+            const porcentagemUsuario = parseFloat(mikrotik.porcentagem) || 0;
+            const valorTotal = parseFloat(plano.preco);
+            const valorUsuario = (valorTotal * porcentagemUsuario) / 100; // Usuário recebe a porcentagem
+            const valorAdmin = valorTotal - valorUsuario; // Admin recebe o restante
 
             // Gerar dados do pagador baseado no MAC address
             const cleanMac = mac_address.replace(/[:-]/g, '');
@@ -360,7 +381,7 @@ class PaymentController {
             
             const paymentData = {
                 transaction_amount: valorTotal,
-                description: `${plano.nome} - ${formatDuration(plano.session_timeout)} - Hotspot`,
+                description: `${plano.nome} - ${formatDuration(plano.tempo_limite)} - Hotspot`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
                 payer: {
@@ -399,10 +420,11 @@ class PaymentController {
             }
 
             const expiresAt = new Date();
-            expiresAt.setMinutes(expiresAt.getMinutes() + 30); // 30 minutes to pay
+            expiresAt.setMinutes(expiresAt.getMinutes() + 30);
 
+            // USAR NOVA TABELA vendas_pix
             const { data: venda, error: vendaError } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .insert({
                     mikrotik_id: mikrotik_id,
                     plano_id: plano.id,
@@ -411,17 +433,23 @@ class PaymentController {
                     valor_total: valorTotal,
                     valor_admin: valorAdmin,
                     valor_usuario: valorUsuario,
+                    porcentagem_admin: 100 - porcentagemUsuario,
                     mercadopago_payment_id: mpPayment.id.toString(),
                     mercadopago_status: mpPayment.status,
                     qr_code: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
                     pix_code: mpPayment.point_of_interaction?.transaction_data?.qr_code || null,
                     mac_address: mac_address.toUpperCase(),
+                    plano_nome: plano.nome,
+                    plano_valor: plano.preco,
+                    plano_session_timeout: plano.tempo_limite,
+                    plano_rate_limit: plano.velocidade,
                     expires_at: expiresAt.toISOString()
                 })
                 .select()
                 .single();
 
             if (vendaError) {
+                console.error('❌ Erro ao criar venda PIX captive:', vendaError);
                 throw vendaError;
             }
 
@@ -436,7 +464,13 @@ class PaymentController {
                     expires_at: expiresAt,
                     status: 'pending',
                     plan_name: plano.nome,
-                    plan_duration: formatDuration(plano.session_timeout)
+                    plan_duration: formatDuration(plano.tempo_limite),
+                    commission_info: {
+                        total: valorTotal,
+                        user_percentage: porcentagemUsuario,
+                        user_amount: valorUsuario,
+                        admin_amount: valorAdmin
+                    }
                 }
             });
         } catch (error) {
@@ -450,34 +484,17 @@ class PaymentController {
 
     async getCaptivePaymentStatus(req, res) {
         try {
-            const { payment_id, mac_address } = req.body;
+            const { payment_id } = req.params;
 
-            if (!payment_id) {
-                return res.status(400).json({
-                    error: 'Payment ID is required',
-                    message: 'Please provide a valid payment_id'
-                });
-            }
-
-            let query = supabase
-                .from('vendas')
+            // USAR NOVA TABELA vendas_pix
+            const { data: venda, error } = await supabase
+                .from('vendas_pix')
                 .select(`
                     *,
-                    planos (
-                        nome,
-                        session_timeout,
-                        valor,
-                        rate_limit
-                    )
+                    mikrotiks!inner(nome, user_id)
                 `)
-                .eq('payment_id', payment_id);
-
-            // If MAC address is provided, also filter by it
-            if (mac_address) {
-                query = query.eq('mac_address', mac_address.toUpperCase());
-            }
-
-            const { data: venda, error } = await query.single();
+                .eq('payment_id', payment_id)
+                .single();
 
             if (error || !venda) {
                 return res.status(404).json({
@@ -493,13 +510,24 @@ class PaymentController {
                     status: venda.status,
                     mercadopago_status: venda.mercadopago_status,
                     amount: venda.valor_total,
-                    plan: venda.planos,
+                    plan: {
+                        nome: venda.plano_nome,
+                        valor: venda.plano_valor,
+                        session_timeout: venda.plano_session_timeout,
+                        rate_limit: venda.plano_rate_limit
+                    },
                     usuario_criado: venda.usuario_criado,
                     senha_usuario: venda.senha_usuario,
-                    mac_address: venda.mac_address,
                     expires_at: venda.expires_at,
                     paid_at: venda.paid_at,
-                    created_at: venda.created_at
+                    created_at: venda.created_at,
+                    mikrotik: venda.mikrotiks,
+                    commission_info: {
+                        total: venda.valor_total,
+                        admin_amount: venda.valor_admin,
+                        user_amount: venda.valor_usuario,
+                        admin_percentage: venda.porcentagem_admin
+                    }
                 }
             });
         } catch (error) {

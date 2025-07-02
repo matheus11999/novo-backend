@@ -38,13 +38,12 @@ class WebhookController {
                 return res.status(200).json({ message: 'No external reference' });
             }
 
-            // Find the sale in our database
+            // USAR NOVA TABELA vendas_pix
             const { data: venda, error: vendaError } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .select(`
                     *,
-                    planos (*),
-                    mikrotiks (*)
+                    mikrotiks!inner(nome, user_id, porcentagem, ip, username, password, port)
                 `)
                 .eq('payment_id', externalReference)
                 .single();
@@ -67,6 +66,10 @@ class WebhookController {
                 updateData.status = 'completed';
                 updateData.paid_at = new Date().toISOString();
                 console.log('✅ [WEBHOOK] Pagamento aprovado - processando...');
+                
+                // Processar comissões e criar usuário MikroTik
+                await this.processApprovedPayment(venda);
+                
             } else if (mpPayment.status === 'rejected') {
                 updateData.status = 'failed';
                 updateData.failed_at = new Date().toISOString();
@@ -85,78 +88,18 @@ class WebhookController {
                 console.log(`ℹ️ [WEBHOOK] Status não mapeado: ${mpPayment.status}`);
             }
 
-            // Apenas criar usuário se aprovado
-            if (mpPayment.status === 'approved' && venda.status !== 'completed') {
+            // Update the sale record
+            const { error: updateError } = await supabase
+                .from('vendas_pix')
+                .update(updateData)
+                .eq('id', venda.id);
 
-                // Verificar se o polling service não está processando este pagamento
-                const isBeingProcessed = paymentPollingService.processingPayments?.has(venda.payment_id);
-                
-                if (isBeingProcessed) {
-                    console.log(`⏭️ [WEBHOOK] Pagamento ${venda.payment_id} sendo processado pelo polling, pulando...`);
-                } else {
-                    try {
-                        // Marcar como sendo processado para evitar conflito
-                        if (paymentPollingService.processingPayments) {
-                            paymentPollingService.processingPayments.add(venda.payment_id);
-                        }
-
-                        // Create user in MikroTik using new service with retry
-                        console.log(`🔧 [WEBHOOK] Criando usuário MikroTik para MAC: ${venda.mac_address}`);
-                        
-                        const userResult = await this.mikrotikUserService.createUserWithRetry(venda);
-                        
-                        if (userResult.success) {
-                            updateData.usuario_criado = userResult.username;
-                            updateData.senha_usuario = userResult.username;
-                            updateData.mikrotik_user_id = userResult.mikrotikUserId;
-                            
-                            console.log(`✅ [WEBHOOK] Usuário MikroTik criado: ${userResult.username} (tentativa ${userResult.attempt})`);
-                        } else {
-                            console.error(`❌ [WEBHOOK] Falha na criação do usuário MikroTik:`, userResult.error);
-                            updateData.error_message = userResult.error;
-                            // Não falhar o pagamento, pois o sistema de retry cuidará disso
-                        }
-                    } catch (userError) {
-                        console.error('❌ [WEBHOOK] Erro crítico na criação do usuário:', userError.message);
-                        updateData.error_message = userError.message;
-                        // Não falhar o pagamento, sistema de retry tentará novamente
-                    } finally {
-                        // Remover do conjunto de processamento
-                        if (paymentPollingService.processingPayments) {
-                            paymentPollingService.processingPayments.delete(venda.payment_id);
-                        }
-                    }
-                }
-
-                // Update the sale
-                const { error: updateError } = await supabase
-                    .from('vendas')
-                    .update(updateData)
-                    .eq('id', venda.id);
-
-                if (updateError) {
-                    throw updateError;
-                }
-
-                // Create transaction history
-                await this.createTransactionHistory(venda);
-
-                console.log(`💰 Payment approved for MAC: ${venda.mac_address}`);
-            } 
-            // Handle other status updates
-            else if (mpPayment.status !== venda.mercadopago_status) {
-                const { error: updateError } = await supabase
-                    .from('vendas')
-                    .update(updateData)
-                    .eq('id', venda.id);
-
-                if (updateError) {
-                    throw updateError;
-                }
-
-                console.log(`Payment status updated to: ${mpPayment.status}`);
+            if (updateError) {
+                console.error('❌ Erro ao atualizar venda PIX:', updateError);
+                throw updateError;
             }
 
+            console.log(`Payment status updated to: ${mpPayment.status}`);
             res.status(200).json({ message: 'Webhook processed successfully' });
         } catch (error) {
             console.error('Webhook processing error:', error);
@@ -167,11 +110,41 @@ class WebhookController {
         }
     }
 
-    async createTransactionHistory(venda) {
+    async processApprovedPayment(venda) {
         try {
-            console.log('💳 Creating transaction history for sale:', venda.payment_id);
+            console.log(`💰 [WEBHOOK] Processando pagamento aprovado: ${venda.payment_id}`);
             
-            // Buscar o admin user_id corretamente da tabela users
+            // 1. Criar comissões no histórico
+            await this.createCommissionHistory(venda);
+            
+            // 2. Atualizar saldos dos usuários
+            await this.updateUserBalances(venda);
+            
+            // 3. Tentar criar usuário no MikroTik (se ainda não foi criado)
+            if (!venda.mikrotik_user_created) {
+                await this.createMikrotikUser(venda);
+            }
+            
+            console.log(`✅ [WEBHOOK] Pagamento processado com sucesso: ${venda.payment_id}`);
+        } catch (error) {
+            console.error(`❌ [WEBHOOK] Erro ao processar pagamento: ${venda.payment_id}`, error);
+            
+            // Salvar erro na venda
+            await supabase
+                .from('vendas_pix')
+                .update({
+                    error_message: `Erro no processamento: ${error.message}`,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', venda.id);
+        }
+    }
+
+    async createCommissionHistory(venda) {
+        try {
+            console.log('💳 [WEBHOOK] Criando histórico de comissões para venda:', venda.payment_id);
+            
+            // Buscar o admin user_id
             const { data: adminUser, error: adminError } = await supabase
                 .from('users')
                 .select('id')
@@ -179,157 +152,238 @@ class WebhookController {
                 .limit(1)
                 .single();
 
-            if (adminError) {
-                console.error('❌ Error finding admin user:', adminError);
-                return;
+            if (adminError || !adminUser) {
+                console.error('❌ Admin user não encontrado:', adminError);
+                throw new Error('Admin user not found');
             }
 
-            const adminUserId = adminUser?.id;
-            
-            if (!adminUserId) {
-                console.error('❌ Admin user not found');
-                return;
-            }
+            const adminUserId = adminUser.id;
+            const mikrotikUserId = venda.mikrotiks.user_id;
 
-            const historyEntries = [
+            // Criar registros de comissão
+            const comissoes = [
                 {
-                    venda_id: venda.id,
+                    venda_pix_id: venda.id,
                     mikrotik_id: venda.mikrotik_id,
-                    user_id: adminUserId, // Admin
+                    user_id: adminUserId,
                     tipo: 'admin',
-                    valor: venda.valor_admin,
-                    descricao: `Comissão admin - Venda ${venda.payment_id}`,
+                    valor: parseFloat(venda.valor_admin),
+                    percentual: parseFloat(venda.porcentagem_admin),
+                    descricao: `Comissão admin - Venda PIX ${venda.payment_id}`,
                     status: 'completed'
                 },
                 {
-                    venda_id: venda.id,
+                    venda_pix_id: venda.id,
                     mikrotik_id: venda.mikrotik_id,
-                    user_id: venda.mikrotiks?.user_id || adminUserId, // Dono do MikroTik
+                    user_id: mikrotikUserId,
                     tipo: 'usuario',
-                    valor: venda.valor_usuario,
-                    descricao: `Pagamento usuário - Venda ${venda.payment_id}`,
+                    valor: parseFloat(venda.valor_usuario),
+                    percentual: 100 - parseFloat(venda.porcentagem_admin),
+                    descricao: `Receita de venda PIX - ${venda.payment_id}`,
                     status: 'completed'
                 }
             ];
 
-            const { error } = await supabase
-                .from('historico_vendas')
-                .insert(historyEntries);
+            const { error: comissaoError } = await supabase
+                .from('vendas_pix_comissoes')
+                .insert(comissoes);
 
-            if (error) {
-                console.error('❌ Error inserting transaction history:', error);
-                throw error;
+            if (comissaoError) {
+                console.error('❌ Erro ao criar histórico de comissões:', comissaoError);
+                throw comissaoError;
             }
 
-            // Criar transações para atualizar saldos
-            await this.updateUserBalances(venda, adminUserId);
-
-            console.log('✅ Transaction history created for sale:', venda.payment_id);
+            console.log('✅ Histórico de comissões criado com sucesso');
         } catch (error) {
-            console.error('❌ Error creating transaction history:', error);
-            // Não falhar o pagamento por causa disso
-            console.warn('⚠️ Continuing without transaction history...');
+            console.error('❌ Erro ao criar histórico de comissões:', error);
+            throw error;
         }
     }
 
-    async updateUserBalances(venda, adminUserId) {
+    async updateUserBalances(venda) {
         try {
-            console.log('💰 Updating user balances for sale:', venda.payment_id);
+            console.log('💰 [WEBHOOK] Atualizando saldos dos usuários para venda:', venda.payment_id);
 
-            // 1. Buscar saldo atual do admin
-            const { data: adminData, error: adminError } = await supabase
+            // Buscar admin user
+            const { data: adminUser, error: adminError } = await supabase
                 .from('users')
-                .select('saldo')
-                .eq('id', adminUserId)
+                .select('id, saldo')
+                .eq('role', 'admin')
+                .limit(1)
                 .single();
 
-            if (adminError) {
-                console.error('❌ Error fetching admin balance:', adminError);
-                return;
+            if (adminError || !adminUser) {
+                console.error('❌ Admin user não encontrado:', adminError);
+                throw new Error('Admin user not found');
             }
 
-            const adminSaldoAnterior = parseFloat(adminData.saldo) || 0;
+            const adminUserId = adminUser.id;
+            const adminSaldoAnterior = parseFloat(adminUser.saldo) || 0;
             const adminSaldoNovo = adminSaldoAnterior + parseFloat(venda.valor_admin);
 
-            // 2. Buscar saldo atual do usuário do MikroTik
-            const mikrotikUserId = venda.mikrotiks?.user_id || adminUserId;
-            const { data: userData, error: userError } = await supabase
+            // Buscar usuário do MikroTik
+            const mikrotikUserId = venda.mikrotiks.user_id;
+            const { data: mikrotikUser, error: mikrotikUserError } = await supabase
                 .from('users')
-                .select('saldo')
+                .select('id, saldo')
                 .eq('id', mikrotikUserId)
                 .single();
 
-            if (userError) {
-                console.error('❌ Error fetching user balance:', userError);
-                return;
+            if (mikrotikUserError || !mikrotikUser) {
+                console.error('❌ MikroTik user não encontrado:', mikrotikUserError);
+                throw new Error('MikroTik user not found');
             }
 
-            const userSaldoAnterior = parseFloat(userData.saldo) || 0;
+            const userSaldoAnterior = parseFloat(mikrotikUser.saldo) || 0;
             const userSaldoNovo = userSaldoAnterior + parseFloat(venda.valor_usuario);
 
-            // 3. Criar as transações
-            const transacoes = [
-                {
+            // Criar transações para histórico
+            const transacoes = [];
+
+            // Transação para admin
+            if (parseFloat(venda.valor_admin) > 0) {
+                transacoes.push({
                     user_id: adminUserId,
                     tipo: 'credito',
-                    motivo: `Comissão admin - Venda ${venda.payment_id}`,
+                    motivo: `Comissão admin - Venda PIX ${venda.payment_id}`,
                     valor: parseFloat(venda.valor_admin),
-                    referencia_id: venda.id,
-                    referencia_tipo: 'venda',
                     saldo_anterior: adminSaldoAnterior,
-                    saldo_atual: adminSaldoNovo
-                },
-                {
+                    saldo_atual: adminSaldoNovo,
+                    venda_id: venda.id
+                });
+            }
+
+            // Transação para usuário do MikroTik (se diferente do admin)
+            if (mikrotikUserId !== adminUserId && parseFloat(venda.valor_usuario) > 0) {
+                transacoes.push({
                     user_id: mikrotikUserId,
                     tipo: 'credito',
-                    motivo: `Receita de venda - Venda ${venda.payment_id}`,
+                    motivo: `Receita de venda PIX - ${venda.payment_id}`,
                     valor: parseFloat(venda.valor_usuario),
-                    referencia_id: venda.id,
-                    referencia_tipo: 'venda',
                     saldo_anterior: userSaldoAnterior,
-                    saldo_atual: userSaldoNovo
+                    saldo_atual: userSaldoNovo,
+                    venda_id: venda.id
+                });
+            }
+
+            // Inserir transações
+            if (transacoes.length > 0) {
+                const { error: transacaoError } = await supabase
+                    .from('transacoes')
+                    .insert(transacoes);
+
+                if (transacaoError) {
+                    console.error('❌ Erro ao criar transações:', transacaoError);
+                    throw transacaoError;
                 }
-            ];
-
-            const { error: transacaoError } = await supabase
-                .from('transacoes')
-                .insert(transacoes);
-
-            if (transacaoError) {
-                console.error('❌ Error creating balance transactions:', transacaoError);
-                return;
             }
 
-            // 4. Atualizar saldos dos usuários
-            const { error: adminUpdateError } = await supabase
-                .from('users')
-                .update({ saldo: adminSaldoNovo })
-                .eq('id', adminUserId);
+            // Atualizar saldo do admin
+            if (parseFloat(venda.valor_admin) > 0) {
+                const { error: adminUpdateError } = await supabase
+                    .from('users')
+                    .update({ saldo: adminSaldoNovo })
+                    .eq('id', adminUserId);
 
-            if (adminUpdateError) {
-                console.error('❌ Error updating admin balance:', adminUpdateError);
-                return;
+                if (adminUpdateError) {
+                    console.error('❌ Erro ao atualizar saldo do admin:', adminUpdateError);
+                    throw adminUpdateError;
+                }
             }
 
-            // Se o usuário do MikroTik for diferente do admin
-            if (mikrotikUserId !== adminUserId) {
+            // Atualizar saldo do usuário do MikroTik (se diferente do admin)
+            if (mikrotikUserId !== adminUserId && parseFloat(venda.valor_usuario) > 0) {
                 const { error: userUpdateError } = await supabase
                     .from('users')
                     .update({ saldo: userSaldoNovo })
                     .eq('id', mikrotikUserId);
 
                 if (userUpdateError) {
-                    console.error('❌ Error updating user balance:', userUpdateError);
-                    return;
+                    console.error('❌ Erro ao atualizar saldo do usuário:', userUpdateError);
+                    throw userUpdateError;
                 }
             }
 
-            console.log(`✅ Balances updated successfully:`);
+            console.log(`✅ Saldos atualizados com sucesso:`);
             console.log(`  📊 Admin: R$ ${adminSaldoAnterior.toFixed(2)} → R$ ${adminSaldoNovo.toFixed(2)} (+R$ ${venda.valor_admin})`);
-            console.log(`  📊 User: R$ ${userSaldoAnterior.toFixed(2)} → R$ ${userSaldoNovo.toFixed(2)} (+R$ ${venda.valor_usuario})`);
+            if (mikrotikUserId !== adminUserId) {
+                console.log(`  📊 User: R$ ${userSaldoAnterior.toFixed(2)} → R$ ${userSaldoNovo.toFixed(2)} (+R$ ${venda.valor_usuario})`);
+            }
 
         } catch (error) {
-            console.error('❌ Error updating user balances:', error);
+            console.error('❌ Erro ao atualizar saldos dos usuários:', error);
+            throw error;
+        }
+    }
+
+    async createMikrotikUser(venda) {
+        try {
+            console.log('👤 [WEBHOOK] Criando usuário no MikroTik para venda:', venda.payment_id);
+            
+            // Dados do usuário baseados no MAC address
+            const macAddress = venda.mac_address;
+            const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
+            const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
+            
+            // Comentário formatado para identificação
+            const comment = `PIX ${venda.payment_id} - Plano: ${venda.plano_nome} - Valor: ${parseFloat(venda.plano_valor).toFixed(2)} - ${new Date().toISOString().split('T')[0]}`;
+            
+            const userData = {
+                name: formattedMac,
+                password: formattedMac,
+                profile: venda.plano_nome || 'default',
+                comment: comment,
+                'mac-address': formattedMac
+            };
+
+            // Tentar criar via API do MikroTik
+            const mikrotikResult = await this.createMikrotikUserAPI(venda.mikrotiks, userData, {
+                nome: venda.plano_nome,
+                session_timeout: venda.plano_session_timeout,
+                rate_limit: venda.plano_rate_limit
+            });
+
+            if (mikrotikResult.success) {
+                // Atualizar venda com sucesso
+                await supabase
+                    .from('vendas_pix')
+                    .update({
+                        usuario_criado: userData.name,
+                        senha_usuario: userData.password,
+                        mikrotik_user_id: mikrotikResult.mikrotikUserId || userData.name,
+                        mikrotik_user_created: true,
+                        mikrotik_creation_status: 'success',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', venda.id);
+
+                console.log(`✅ Usuário MikroTik criado com sucesso: ${userData.name}`);
+            } else {
+                // Atualizar com erro
+                await supabase
+                    .from('vendas_pix')
+                    .update({
+                        mikrotik_creation_status: 'failed',
+                        error_message: mikrotikResult.error || 'Falha na criação do usuário MikroTik',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', venda.id);
+
+                console.error(`❌ Falha na criação do usuário MikroTik: ${mikrotikResult.error}`);
+            }
+
+        } catch (error) {
+            console.error('❌ Erro ao criar usuário MikroTik:', error);
+            
+            // Atualizar venda com erro
+            await supabase
+                .from('vendas_pix')
+                .update({
+                    mikrotik_creation_status: 'failed',
+                    error_message: `Erro na criação do usuário: ${error.message}`,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', venda.id);
         }
     }
 
