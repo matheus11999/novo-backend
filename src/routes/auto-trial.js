@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const { authenticateUser } = require('../middleware/auth')
+const authenticateUser = require('../middleware/auth')
 const autoActivateFreeTrialService = require('../services/autoActivateFreeTrialService')
 
 // Ativar plano gratuito para usuário atual
