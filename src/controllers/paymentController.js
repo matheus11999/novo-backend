@@ -132,18 +132,13 @@ class PaymentController {
             // Always use production URL for webhooks
             const webhookUrl = 'https://api.mikropix.online/api/webhook/mercadopago';
 
-            // NOVA LÓGICA DE COMISSÕES CORRIGIDA:
-            // O usuário do MikroTik recebe a porcentagem, admin recebe o restante
-            const porcentagemUsuario = parseFloat(mikrotik.porcentagem) || 0;
-            const valorTotal = parseFloat(plano.valor);
-            const valorUsuario = (valorTotal * porcentagemUsuario) / 100; // Usuário recebe a porcentagem
-            const valorAdmin = valorTotal - valorUsuario; // Admin recebe o restante
-
-            console.log(`💰 [PAYMENT] Cálculo de comissões:`);
-            console.log(`  📊 Valor Total: R$ ${valorTotal.toFixed(2)}`);
-            console.log(`  📊 Porcentagem Usuário: ${porcentagemUsuario}%`);
-            console.log(`  📊 Valor Usuário: R$ ${valorUsuario.toFixed(2)}`);
-            console.log(`  📊 Valor Admin: R$ ${valorAdmin.toFixed(2)}`);
+            // COMISSÃO CORRIGIDA: Admin sempre recebe 10%, usuário recebe 90%
+            const CommissionService = require('../services/commissionService');
+            const commission = CommissionService.calculateCommission(plano.valor);
+            
+            const valorTotal = commission.valorTotal;
+            const valorAdmin = commission.valorAdmin;
+            const valorUsuario = commission.valorUsuario;
 
             const paymentData = {
                 transaction_amount: valorTotal,
@@ -178,10 +173,11 @@ class PaymentController {
                     plano_id: plano.id,
                     payment_id: paymentId,
                     status: 'pending',
-                    valor_total: valorTotal,
-                    valor_admin: valorAdmin,
-                    valor_usuario: valorUsuario,
-                    porcentagem_admin: 100 - porcentagemUsuario,
+                    valor_total: commission.valorTotal,
+                    valor_admin: commission.valorAdmin,
+                    valor_usuario: commission.valorUsuario,
+                    porcentagem_admin: commission.porcentagemAdmin,
+                    porcentagem_usuario: commission.porcentagemUsuario,
                     mercadopago_payment_id: mpPayment.id.toString(),
                     mercadopago_status: mpPayment.status,
                     qr_code: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
@@ -211,10 +207,11 @@ class PaymentController {
                     expires_at: expiresAt,
                     status: 'pending',
                     commission_info: {
-                        total: valorTotal,
-                        user_percentage: porcentagemUsuario,
-                        user_amount: valorUsuario,
-                        admin_amount: valorAdmin
+                        total: commission.valorTotal,
+                        admin_percentage: commission.porcentagemAdmin,
+                        admin_amount: commission.valorAdmin,
+                        user_percentage: commission.porcentagemUsuario,
+                        user_amount: commission.valorUsuario
                     }
                 }
             });
@@ -369,11 +366,13 @@ class PaymentController {
             // Always use production URL for webhooks
             const webhookUrl = 'https://api.mikropix.online/api/webhook/mercadopago';
 
-            // NOVA LÓGICA DE COMISSÕES CORRIGIDA para Captive Portal
-            const porcentagemUsuario = parseFloat(mikrotik.porcentagem) || 0;
-            const valorTotal = parseFloat(plano.valor);
-            const valorUsuario = (valorTotal * porcentagemUsuario) / 100; // Usuário recebe a porcentagem
-            const valorAdmin = valorTotal - valorUsuario; // Admin recebe o restante
+            // COMISSÃO CORRIGIDA para Captive Portal: Admin sempre recebe 10%, usuário recebe 90%
+            const CommissionService = require('../services/commissionService');
+            const commission = CommissionService.calculateCommission(plano.valor);
+            
+            const valorTotal = commission.valorTotal;
+            const valorAdmin = commission.valorAdmin;
+            const valorUsuario = commission.valorUsuario;
 
             // Gerar dados do pagador baseado no MAC address
             const cleanMac = mac_address.replace(/[:-]/g, '');
@@ -430,10 +429,11 @@ class PaymentController {
                     plano_id: plano.id,
                     payment_id: paymentId,
                     status: 'pending',
-                    valor_total: valorTotal,
-                    valor_admin: valorAdmin,
-                    valor_usuario: valorUsuario,
-                    porcentagem_admin: 100 - porcentagemUsuario,
+                    valor_total: commission.valorTotal,
+                    valor_admin: commission.valorAdmin,
+                    valor_usuario: commission.valorUsuario,
+                    porcentagem_admin: commission.porcentagemAdmin,
+                    porcentagem_usuario: commission.porcentagemUsuario,
                     mercadopago_payment_id: mpPayment.id.toString(),
                     mercadopago_status: mpPayment.status,
                     qr_code: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
@@ -466,10 +466,11 @@ class PaymentController {
                     plan_name: plano.nome,
                     plan_duration: formatDuration(plano.session_timeout),
                     commission_info: {
-                        total: valorTotal,
-                        user_percentage: porcentagemUsuario,
-                        user_amount: valorUsuario,
-                        admin_amount: valorAdmin
+                        total: commission.valorTotal,
+                        admin_percentage: commission.porcentagemAdmin,
+                        admin_amount: commission.valorAdmin,
+                        user_percentage: commission.porcentagemUsuario,
+                        user_amount: commission.valorUsuario
                     }
                 }
             });
