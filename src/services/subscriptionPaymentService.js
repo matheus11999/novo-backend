@@ -170,7 +170,8 @@ class SubscriptionPaymentService {
             if (newStatus === 'approved') {
                 console.log(`✅ [SUBSCRIPTION POLLING] Payment ${paymentId} approved, activating subscription...`);
                 
-                await subscriptionController.activateSubscription(subscriptionPayment);
+                // Ativar assinatura através de método direto
+                await this.activateSubscription(subscriptionPayment);
                 
                 // Log da transação
                 await supabase
@@ -254,6 +255,76 @@ class SubscriptionPaymentService {
 
         } catch (error) {
             console.error(`❌ [SUBSCRIPTION POLLING] Error in manual verification:`, error);
+            throw error;
+        }
+    }
+
+    async activateSubscription(subscriptionPayment) {
+        try {
+            // Buscar o plano
+            const { data: plan } = await supabase
+                .from('subscription_plans')
+                .select('*')
+                .eq('id', subscriptionPayment.plan_id)
+                .single();
+
+            if (!plan) {
+                throw new Error('Plan not found');
+            }
+
+            // Verificar se já existe assinatura ativa
+            const { data: currentSubscription } = await supabase
+                .from('user_subscriptions')
+                .select('*')
+                .eq('user_id', subscriptionPayment.user_id)
+                .eq('status', 'active')
+                .order('expires_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            let startsAt = new Date();
+            let expiresAt = new Date();
+
+            if (currentSubscription && new Date(currentSubscription.expires_at) > startsAt) {
+                // Se tem assinatura ativa, estender a partir da data de expiração atual
+                startsAt = new Date(currentSubscription.expires_at);
+                expiresAt = new Date(startsAt);
+                expiresAt.setDate(expiresAt.getDate() + plan.duration_days);
+
+                // Cancelar assinatura atual
+                await supabase
+                    .from('user_subscriptions')
+                    .update({ status: 'cancelled' })
+                    .eq('id', currentSubscription.id);
+            } else {
+                // Nova assinatura a partir de agora
+                expiresAt.setDate(expiresAt.getDate() + plan.duration_days);
+            }
+
+            // Criar nova assinatura
+            const { error: subscriptionError } = await supabase
+                .from('user_subscriptions')
+                .insert({
+                    user_id: subscriptionPayment.user_id,
+                    plan_id: plan.id,
+                    starts_at: startsAt.toISOString(),
+                    expires_at: expiresAt.toISOString(),
+                    status: 'active'
+                });
+
+            if (subscriptionError) {
+                throw subscriptionError;
+            }
+
+            // Atualizar o pagamento com a subscription_id
+            await supabase
+                .from('subscription_payments')
+                .update({ subscription_id: subscriptionPayment.id })
+                .eq('id', subscriptionPayment.id);
+
+            console.log(`[SUBSCRIPTION POLLING] Activated subscription for user ${subscriptionPayment.user_id} until ${expiresAt}`);
+        } catch (error) {
+            console.error('Error activating subscription in polling service:', error);
             throw error;
         }
     }

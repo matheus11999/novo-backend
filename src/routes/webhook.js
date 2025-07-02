@@ -11,6 +11,6 @@ router.use(webhookLimiter);
 router.post('/mercadopago', webhookController.handleMercadoPagoWebhook);
 
 // MercadoPago webhook endpoint for subscriptions
-router.post('/subscription', subscriptionController.processWebhook);
+router.post('/subscription', (req, res) => subscriptionController.processWebhook(req, res));
 
 module.exports = router;
