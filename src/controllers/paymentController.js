@@ -6,6 +6,62 @@ const { payment } = require('../config/mercadopago');
 function formatDuration(sessionTimeout) {
     if (!sessionTimeout) return 'Ilimitado';
     
+    // Handle MikroTik format (1h, 3h, 24h, 7d, etc.)
+    const timeString = sessionTimeout.toString().toLowerCase().trim();
+    
+    // If it's already a formatted string, return as is
+    if (timeString.includes('hora') || timeString.includes('dia') || timeString.includes('minuto')) {
+        return sessionTimeout;
+    }
+    
+    // Parse MikroTik time format
+    const timeMatch = timeString.match(/^(\d+)([smhdw]?)$/);
+    
+    if (timeMatch) {
+        const value = parseInt(timeMatch[1]);
+        const unit = timeMatch[2] || 's'; // default to seconds if no unit
+        
+        switch (unit) {
+            case 's': // seconds
+                if (value >= 86400) { // >= 1 day
+                    const days = Math.floor(value / 86400);
+                    return `${days} dia${days > 1 ? 's' : ''}`;
+                } else if (value >= 3600) { // >= 1 hour
+                    const hours = Math.floor(value / 3600);
+                    return `${hours} hora${hours > 1 ? 's' : ''}`;
+                } else if (value >= 60) { // >= 1 minute
+                    const minutes = Math.floor(value / 60);
+                    return `${minutes} minuto${minutes > 1 ? 's' : ''}`;
+                } else {
+                    return `${value} segundo${value !== 1 ? 's' : ''}`;
+                }
+            case 'm': // minutes
+                if (value >= 1440) { // >= 1 day
+                    const days = Math.floor(value / 1440);
+                    return `${days} dia${days > 1 ? 's' : ''}`;
+                } else if (value >= 60) { // >= 1 hour
+                    const hours = Math.floor(value / 60);
+                    return `${hours} hora${hours > 1 ? 's' : ''}`;
+                } else {
+                    return `${value} minuto${value > 1 ? 's' : ''}`;
+                }
+            case 'h': // hours
+                if (value >= 24) { // >= 1 day
+                    const days = Math.floor(value / 24);
+                    return `${days} dia${days > 1 ? 's' : ''}`;
+                } else {
+                    return `${value} hora${value > 1 ? 's' : ''}`;
+                }
+            case 'd': // days
+            case 'w': // weeks (treat as days * 7)
+                const totalDays = unit === 'w' ? value * 7 : value;
+                return `${totalDays} dia${totalDays > 1 ? 's' : ''}`;
+            default:
+                return sessionTimeout;
+        }
+    }
+    
+    // Fallback: try to parse as pure seconds
     const seconds = parseInt(sessionTimeout);
     if (isNaN(seconds)) return sessionTimeout;
     
@@ -20,7 +76,7 @@ function formatDuration(sessionTimeout) {
     } else if (minutes > 0) {
         return `${minutes} minuto${minutes > 1 ? 's' : ''}`;
     } else {
-        return `${seconds} segundo${seconds > 1 ? 's' : ''}`;
+        return `${seconds} segundo${seconds !== 1 ? 's' : ''}`;
     }
 }
 
@@ -34,7 +90,7 @@ class PaymentController {
                 .select('*')
                 .eq('mikrotik_id', mikrotikId)
                 .eq('ativo', true)
-                .order('valor', { ascending: true });
+                .order('preco', { ascending: true });
 
             if (error) {
                 throw error;
@@ -67,11 +123,10 @@ class PaymentController {
             // Get plans for the specified MikroTik
             const { data: planos, error } = await supabase
                 .from('planos')
-                .select('id, nome, valor, session_timeout, rate_limit, descricao')
+                .select('id, name, preco, session_timeout, rate_limit')
                 .eq('mikrotik_id', mikrotik_id)
                 .eq('ativo', true)
-                .eq('visivel', true)
-                .order('valor', { ascending: true });
+                .order('preco', { ascending: true });
 
             if (error) {
                 throw error;
@@ -80,10 +135,9 @@ class PaymentController {
             // Format plans for captive portal
             const formattedPlans = planos.map(plano => ({
                 id: plano.id,
-                nome: plano.nome,
-                preco: plano.valor,
+                nome: plano.name,
+                preco: plano.preco,
                 duracao: formatDuration(plano.session_timeout),
-                descricao: plano.descricao,
                 rate_limit: plano.rate_limit
             }));
 

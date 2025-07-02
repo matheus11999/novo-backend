@@ -320,6 +320,12 @@ const createHotspotProfile = async (req, res) => {
     if (response.success && req.body.createInDatabase) {
       const profileId = response.data?.['.id'];
       
+      // Validate and convert session_timeout properly
+      let sessionTimeout = req.body['session-timeout'];
+      if (!sessionTimeout || sessionTimeout === '0' || sessionTimeout === 0) {
+        sessionTimeout = '3600'; // Default to 1 hour if not provided or zero
+      }
+      
       const { data: dbPlan, error: dbError } = await supabase
         .from('planos')
         .insert({
@@ -329,11 +335,11 @@ const createHotspotProfile = async (req, res) => {
           valor: req.body.valor || 0,
           descricao: req.body.descricao || `Plano ${req.body.name}`,
           rate_limit: req.body['rate-limit'],
-          session_timeout: req.body['session-timeout'],
-          idle_timeout: req.body['idle-timeout'],
+          session_timeout: sessionTimeout,
+          idle_timeout: req.body['idle-timeout'] || '300',
           velocidade_upload: req.body['rate-limit']?.split('/')[0],
           velocidade_download: req.body['rate-limit']?.split('/')[1],
-          minutos: req.body['session-timeout'] ? Math.floor(parseInt(req.body['session-timeout']) / 60) : null
+          minutos: sessionTimeout ? Math.floor(parseInt(sessionTimeout) / 60) : null
         })
         .select()
         .single();
@@ -393,17 +399,23 @@ const updateHotspotProfile = async (req, res) => {
         .single();
 
       if (!findError && dbPlan) {
+        // Validate and convert session_timeout properly
+        let sessionTimeout = req.body['session-timeout'];
+        if (sessionTimeout && (sessionTimeout === '0' || sessionTimeout === 0)) {
+          sessionTimeout = '3600'; // Default to 1 hour if zero
+        }
+        
         const { error: updateError } = await supabase
           .from('planos')
           .update({
             nome: req.body.name,
             valor: req.body.valor || dbPlan.valor,
             rate_limit: req.body['rate-limit'],
-            session_timeout: req.body['session-timeout'],
-            idle_timeout: req.body['idle-timeout'],
+            session_timeout: sessionTimeout || dbPlan.session_timeout,
+            idle_timeout: req.body['idle-timeout'] || dbPlan.idle_timeout,
             velocidade_upload: req.body['rate-limit']?.split('/')[0],
             velocidade_download: req.body['rate-limit']?.split('/')[1],
-            minutos: req.body['session-timeout'] ? Math.floor(parseInt(req.body['session-timeout']) / 60) : null,
+            minutos: sessionTimeout ? Math.floor(parseInt(sessionTimeout) / 60) : dbPlan.minutos,
             updated_at: new Date().toISOString()
           })
           .eq('id', dbPlan.id);
