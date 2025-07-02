@@ -148,7 +148,15 @@ class SubscriptionController {
 
     async processWebhook(req, res) {
         try {
-            const { data } = req.body;
+            console.log('[SUBSCRIPTION WEBHOOK] Received webhook:', req.body);
+            
+            const { type, data } = req.body;
+            
+            // Only process payment notifications
+            if (type !== 'payment') {
+                console.log('[SUBSCRIPTION WEBHOOK] Notification type not handled:', type);
+                return res.status(200).json({ message: 'Notification type not handled' });
+            }
             
             if (!data || !data.id) {
                 console.log('[SUBSCRIPTION WEBHOOK] Invalid webhook data');
@@ -161,7 +169,10 @@ class SubscriptionController {
             // Buscar o pagamento no banco
             const { data: subscriptionPayment, error: paymentError } = await supabase
                 .from('subscription_payments')
-                .select('*')
+                .select(`
+                    *,
+                    subscription_plans (*)
+                `)
                 .eq('mercadopago_payment_id', mercadopagoPaymentId)
                 .single();
 
@@ -179,19 +190,36 @@ class SubscriptionController {
             }
 
             const newStatus = mpPayment.status;
-            console.log(`[SUBSCRIPTION WEBHOOK] Payment status: ${newStatus}`);
+            const statusDetail = mpPayment.status_detail;
+            
+            console.log(`[SUBSCRIPTION WEBHOOK] Payment ${subscriptionPayment.payment_id}: ${newStatus} (${statusDetail})`);
+
+            // Verificar se o status realmente mudou
+            if (newStatus === subscriptionPayment.status) {
+                console.log(`[SUBSCRIPTION WEBHOOK] Status unchanged for ${subscriptionPayment.payment_id}`);
+                return res.status(200).json({ message: 'Status unchanged' });
+            }
 
             // Atualizar status do pagamento
-            await supabase
+            const updateData = {
+                status: newStatus === 'approved' ? 'approved' : newStatus,
+                paid_at: newStatus === 'approved' ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString()
+            };
+
+            const { error: updateError } = await supabase
                 .from('subscription_payments')
-                .update({ 
-                    status: newStatus === 'approved' ? 'approved' : newStatus,
-                    paid_at: newStatus === 'approved' ? new Date().toISOString() : null
-                })
+                .update(updateData)
                 .eq('id', subscriptionPayment.id);
+
+            if (updateError) {
+                throw updateError;
+            }
 
             // Se aprovado, ativar/renovar assinatura
             if (newStatus === 'approved') {
+                console.log(`[SUBSCRIPTION WEBHOOK] Activating subscription for payment: ${subscriptionPayment.payment_id}`);
+                
                 await this.activateSubscription(subscriptionPayment);
                 
                 // Log da transação
@@ -203,15 +231,21 @@ class SubscriptionController {
                         valor: 0, // Não mexe no saldo, apenas ativa plano
                         saldo_anterior: 0,
                         saldo_atual: 0,
-                        motivo: `Ativação Do Plano - Pagamento ${subscriptionPayment.payment_id}`
+                        motivo: `Ativação do Plano - Pagamento ${subscriptionPayment.payment_id} (Webhook)`
                     });
 
-                console.log(`[SUBSCRIPTION WEBHOOK] Subscription activated for user: ${subscriptionPayment.user_id}`);
+                console.log(`[SUBSCRIPTION WEBHOOK] ✅ Subscription activated for user: ${subscriptionPayment.user_id}`);
+                
+            } else if (newStatus === 'rejected' || newStatus === 'cancelled') {
+                console.log(`[SUBSCRIPTION WEBHOOK] ❌ Payment ${subscriptionPayment.payment_id} ${newStatus}`);
+            } else {
+                console.log(`[SUBSCRIPTION WEBHOOK] ℹ️ Payment ${subscriptionPayment.payment_id} status: ${newStatus}`);
             }
 
-            res.json({ success: true });
+            res.status(200).json({ success: true, message: 'Webhook processed successfully' });
+            
         } catch (error) {
-            console.error('Error processing subscription webhook:', error);
+            console.error('[SUBSCRIPTION WEBHOOK] Error processing webhook:', error);
             res.status(500).json({
                 error: 'Failed to process webhook',
                 message: error.message

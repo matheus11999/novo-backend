@@ -16,7 +16,11 @@ const paymentPollingRoutes = require('./routes/payment-polling');
 const saquesRoutes = require('./routes/saques');
 const usersRoutes = require('./routes/users');
 const subscriptionRoutes = require('./routes/subscription');
+const expiredPlansRoutes = require('./routes/expired-plans');
+const autoTrialRoutes = require('./routes/auto-trial');
 const paymentPollingService = require('./services/paymentPollingService');
+const subscriptionPaymentService = require('./services/subscriptionPaymentService');
+const expiredPlansService = require('./services/expiredPlansService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -108,6 +112,8 @@ app.use('/api/payment-polling', paymentPollingRoutes);
 app.use('/api/saques', saquesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/expired-plans', expiredPlansRoutes);
+app.use('/api/auto-trial', autoTrialRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -132,12 +138,16 @@ app.use((error, req, res, next) => {
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down gracefully');
     paymentPollingService.stop();
+    subscriptionPaymentService.stop();
+    expiredPlansService.stop();
     process.exit(0);
 });
 
 process.on('SIGINT', () => {
     console.log('SIGINT received, shutting down gracefully');
     paymentPollingService.stop();
+    subscriptionPaymentService.stop();
+    expiredPlansService.stop();
     process.exit(0);
 });
 
@@ -150,6 +160,12 @@ app.listen(PORT, () => {
     setTimeout(() => {
         console.log('🔄 Starting payment polling service...');
         paymentPollingService.start();
+        
+        console.log('🔄 Starting subscription payment polling service...');
+        subscriptionPaymentService.start();
+        
+        console.log('🔄 Starting expired plans service...');
+        expiredPlansService.start();
     }, 5000); // Aguardar 5 segundos para garantir que tudo foi inicializado
 });
 
