@@ -125,7 +125,7 @@ class PaymentPollingController {
             const { supabase } = require('../config/database');
             
             const { data: pendingVendas, error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .select(`
                     id,
                     payment_id,

@@ -59,8 +59,8 @@ class PaymentPollingService {
             // Buscar vendas com status completed mas sem usuário criado
             // OU vendas pendentes que podem ter sido pagas
             // Excluir vendas marcadas como not_found no MercadoPago
-            const { data: pendingVendas, error } = await supabase
-                .from('vendas')
+            const { data: vendas, error } = await supabase
+                .from('vendas_pix')
                 .select(`
                     *,
                     planos (*),
@@ -76,15 +76,15 @@ class PaymentPollingService {
                 return;
             }
 
-            if (!pendingVendas || pendingVendas.length === 0) {
+            if (!vendas || vendas.length === 0) {
                 console.log('✅ [PAYMENT-POLLING] Nenhuma venda pendente encontrada');
                 return;
             }
 
-            console.log(`📊 [PAYMENT-POLLING] Encontradas ${pendingVendas.length} vendas para verificar`);
+            console.log(`📊 [PAYMENT-POLLING] Encontradas ${vendas.length} vendas para verificar`);
 
             // Processar cada venda
-            for (const venda of pendingVendas) {
+            for (const venda of vendas) {
                 await this.processVenda(venda);
                 
                 // Aguardar um pouco entre processamentos
@@ -209,7 +209,7 @@ class PaymentPollingService {
 
             // 3. Atualizar venda no banco
             const { error: updateError } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .update(updateData)
                 .eq('id', venda.id);
 
@@ -233,7 +233,7 @@ class PaymentPollingService {
     async updatePaymentStatus(venda, mpPayment) {
         try {
             const { error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .update({
                     mercadopago_status: mpPayment.status,
                     updated_at: new Date().toISOString()
@@ -253,7 +253,7 @@ class PaymentPollingService {
     async handleRejectedPayment(venda, mpPayment) {
         try {
             const { error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .update({
                     status: 'failed',
                     mercadopago_status: mpPayment.status,
@@ -276,7 +276,7 @@ class PaymentPollingService {
     async handleCancelledPayment(venda, mpPayment) {
         try {
             const { error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .update({
                     status: 'cancelled',
                     mercadopago_status: mpPayment.status,
@@ -483,7 +483,7 @@ class PaymentPollingService {
             console.log('🧹 [PAYMENT-POLLING] Limpando pagamentos de teste antigos...');
             
             const { data: oldVendas, error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .select('id, payment_id, created_at')
                 .eq('status', 'pending')
                 .is('mercadopago_status', null)
@@ -527,7 +527,7 @@ class PaymentPollingService {
             console.log(`🔍 [PAYMENT-POLLING] Processamento manual de: ${paymentId}`);
 
             const { data: venda, error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .select(`
                     *,
                     planos (*),

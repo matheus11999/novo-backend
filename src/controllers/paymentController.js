@@ -135,7 +135,7 @@ class PaymentController {
             // NOVA LÓGICA DE COMISSÕES CORRIGIDA:
             // O usuário do MikroTik recebe a porcentagem, admin recebe o restante
             const porcentagemUsuario = parseFloat(mikrotik.porcentagem) || 0;
-            const valorTotal = parseFloat(plano.preco);
+            const valorTotal = parseFloat(plano.valor);
             const valorUsuario = (valorTotal * porcentagemUsuario) / 100; // Usuário recebe a porcentagem
             const valorAdmin = valorTotal - valorUsuario; // Admin recebe o restante
 
@@ -147,7 +147,7 @@ class PaymentController {
 
             const paymentData = {
                 transaction_amount: valorTotal,
-                description: `Plano ${plano.nome} - ${plano.tempo_limite}`,
+                description: `Plano ${plano.nome} - ${formatDuration(plano.session_timeout)}`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
                 payer: {
@@ -187,9 +187,9 @@ class PaymentController {
                     qr_code: mpPayment.point_of_interaction?.transaction_data?.qr_code_base64 || null,
                     pix_code: mpPayment.point_of_interaction?.transaction_data?.qr_code || null,
                     plano_nome: plano.nome,
-                    plano_valor: plano.preco,
-                    plano_session_timeout: plano.tempo_limite,
-                    plano_rate_limit: plano.velocidade,
+                    plano_valor: plano.valor,
+                    plano_session_timeout: plano.session_timeout,
+                    plano_rate_limit: plano.rate_limit,
                     expires_at: expiresAt.toISOString()
                 })
                 .select()
@@ -371,7 +371,7 @@ class PaymentController {
 
             // NOVA LÓGICA DE COMISSÕES CORRIGIDA para Captive Portal
             const porcentagemUsuario = parseFloat(mikrotik.porcentagem) || 0;
-            const valorTotal = parseFloat(plano.preco);
+            const valorTotal = parseFloat(plano.valor);
             const valorUsuario = (valorTotal * porcentagemUsuario) / 100; // Usuário recebe a porcentagem
             const valorAdmin = valorTotal - valorUsuario; // Admin recebe o restante
 
@@ -381,7 +381,7 @@ class PaymentController {
             
             const paymentData = {
                 transaction_amount: valorTotal,
-                description: `${plano.nome} - ${formatDuration(plano.tempo_limite)} - Hotspot`,
+                description: `${plano.nome} - ${formatDuration(plano.session_timeout)} - Hotspot`,
                 payment_method_id: 'pix',
                 external_reference: paymentId,
                 payer: {
@@ -440,9 +440,9 @@ class PaymentController {
                     pix_code: mpPayment.point_of_interaction?.transaction_data?.qr_code || null,
                     mac_address: mac_address.toUpperCase(),
                     plano_nome: plano.nome,
-                    plano_valor: plano.preco,
-                    plano_session_timeout: plano.tempo_limite,
-                    plano_rate_limit: plano.velocidade,
+                    plano_valor: plano.valor,
+                    plano_session_timeout: plano.session_timeout,
+                    plano_rate_limit: plano.rate_limit,
                     expires_at: expiresAt.toISOString()
                 })
                 .select()
@@ -464,7 +464,7 @@ class PaymentController {
                     expires_at: expiresAt,
                     status: 'pending',
                     plan_name: plano.nome,
-                    plan_duration: formatDuration(plano.tempo_limite),
+                    plan_duration: formatDuration(plano.session_timeout),
                     commission_info: {
                         total: valorTotal,
                         user_percentage: porcentagemUsuario,
@@ -804,7 +804,7 @@ class PaymentController {
                 }
 
                 const { data: venda, error: vendaError } = await supabase
-                    .from('vendas')
+                    .from('vendas_pix')
                     .insert(vendaData)
                     .select()
                     .single();
@@ -943,7 +943,7 @@ class PaymentController {
             }
 
             const { data: venda, error: vendaError } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .insert(vendaData)
                 .select()
                 .single();

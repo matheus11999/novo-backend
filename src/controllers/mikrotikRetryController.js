@@ -1,4 +1,5 @@
 const MikroTikUserService = require('../services/mikrotikUserService');
+const { supabase } = require('../config/database');
 
 class MikroTikRetryController {
     constructor() {
@@ -33,7 +34,7 @@ class MikroTikRetryController {
             res.json({
                 success: true,
                 data: failedVendas,
-                count: failedVendas.length,
+                count: failedVendas?.length || 0,
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
@@ -72,9 +73,8 @@ class MikroTikRetryController {
             console.log(`🔄 [RETRY-CONTROLLER] Retry específico para venda: ${vendaId}`);
             
             // Buscar dados da venda
-            const { supabase } = require('../config/database');
             const { data: venda, error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .select(`
                     *,
                     planos (*),

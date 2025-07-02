@@ -315,7 +315,7 @@ class MikroTikUserService {
     async updateVendaStatus(vendaId, updates) {
         try {
             const { error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .update(updates)
                 .eq('id', vendaId);
             
@@ -332,7 +332,7 @@ class MikroTikUserService {
     async getFailedCreations() {
         try {
             const { data, error } = await supabase
-                .from('vendas')
+                .from('vendas_pix')
                 .select(`
                     *,
                     planos (*),
