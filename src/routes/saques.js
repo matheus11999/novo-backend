@@ -18,4 +18,9 @@ router.patch('/:id/reject', saquesController.rejectSaque); // PATCH /api/saques/
 // Rota para estatísticas (admin)
 router.get('/stats', saquesController.getSaquesStats); // GET /api/saques/stats - Estatísticas de saques
 
+// Rotas para saque automático (admin only)
+router.get('/auto/eligible', saquesController.getEligibleForAutoWithdrawal); // GET /api/saques/auto/eligible - Usuários elegíveis para saque automático
+router.post('/auto/trigger', saquesController.triggerAutomaticWithdrawals); // POST /api/saques/auto/trigger - Triggerar saques automáticos manualmente
+router.get('/auto/stats', saquesController.getAutomaticWithdrawalStats); // GET /api/saques/auto/stats - Estatísticas de saques automáticos
+
 module.exports = router;

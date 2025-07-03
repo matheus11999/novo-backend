@@ -3,6 +3,7 @@ const { payment } = require('../config/mercadopago');
 const axios = require('axios');
 const MikroTikUserService = require('../services/mikrotikUserService');
 const paymentPollingService = require('../services/paymentPollingService');
+const automaticWithdrawalService = require('../services/automaticWithdrawalService');
 
 class WebhookController {
     constructor() {
@@ -289,6 +290,26 @@ class WebhookController {
                     console.error('❌ Erro ao atualizar saldo do admin:', adminUpdateError);
                     throw adminUpdateError;
                 }
+
+                // Check and process automatic withdrawal for admin if conditions are met
+                try {
+                    const automaticWithdrawalResult = await automaticWithdrawalService.processAutomaticWithdrawal(
+                        adminUserId, 
+                        adminSaldoNovo, 
+                        adminSaldoAnterior
+                    );
+                    
+                    if (automaticWithdrawalResult.success) {
+                        console.log('✅ Admin automatic withdrawal created:', automaticWithdrawalResult);
+                    } else if (automaticWithdrawalResult.reason) {
+                        console.log(`ℹ️ Admin automatic withdrawal not triggered: ${automaticWithdrawalResult.reason}`);
+                    } else {
+                        console.error('❌ Error in admin automatic withdrawal:', automaticWithdrawalResult.error);
+                    }
+                } catch (autoWithdrawalError) {
+                    console.error('❌ Unexpected error in admin automatic withdrawal processing:', autoWithdrawalError);
+                    // Don't throw here as this shouldn't break the main payment flow
+                }
             }
 
             // Atualizar saldo do usuário do MikroTik (se diferente do admin)
@@ -301,6 +322,26 @@ class WebhookController {
                 if (userUpdateError) {
                     console.error('❌ Erro ao atualizar saldo do usuário:', userUpdateError);
                     throw userUpdateError;
+                }
+
+                // Check and process automatic withdrawal if conditions are met
+                try {
+                    const automaticWithdrawalResult = await automaticWithdrawalService.processAutomaticWithdrawal(
+                        mikrotikUserId, 
+                        userSaldoNovo, 
+                        userSaldoAnterior
+                    );
+                    
+                    if (automaticWithdrawalResult.success) {
+                        console.log('✅ Automatic withdrawal created:', automaticWithdrawalResult);
+                    } else if (automaticWithdrawalResult.reason) {
+                        console.log(`ℹ️ Automatic withdrawal not triggered: ${automaticWithdrawalResult.reason}`);
+                    } else {
+                        console.error('❌ Error in automatic withdrawal:', automaticWithdrawalResult.error);
+                    }
+                } catch (autoWithdrawalError) {
+                    console.error('❌ Unexpected error in automatic withdrawal processing:', autoWithdrawalError);
+                    // Don't throw here as this shouldn't break the main payment flow
                 }
             }
 

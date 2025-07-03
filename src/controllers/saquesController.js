@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const automaticWithdrawalService = require('../services/automaticWithdrawalService');
 
 class SaquesController {
   // Listar saques (próprios para usuários, todos para admin)
@@ -107,7 +108,7 @@ class SaquesController {
       // Verificar se admin não pode fazer saques
       if (user.role === 'admin') {
         return res.status(403).json({ 
-          error: 'Administradores não podem solicitar saques' 
+          error: 'Administradores não podem solicitar saques. Use o painel de aprovação para gerenciar solicitações dos usuários.' 
         });
       }
 
@@ -151,7 +152,8 @@ class SaquesController {
         user_id: user.id,
         valor: parseFloat(valor),
         metodo_pagamento,
-        observacoes: observacoes || null
+        observacoes: observacoes || null,
+        automatico: false // Manual withdrawal request
       };
 
       if (metodo_pagamento === 'pix') {
@@ -546,6 +548,157 @@ class SaquesController {
 
     } catch (error) {
       console.error('Error in getSaquesStats:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        details: error.message 
+      });
+    }
+  }
+
+  // Get users eligible for automatic withdrawal (admin only)
+  async getEligibleForAutoWithdrawal(req, res) {
+    try {
+      const { user } = req;
+
+      if (user.role !== 'admin') {
+        return res.status(403).json({ 
+          error: 'Apenas administradores podem acessar esta funcionalidade' 
+        });
+      }
+
+      const result = await automaticWithdrawalService.getEligibleUsers();
+
+      if (!result.success) {
+        return res.status(500).json({ 
+          error: 'Erro ao buscar usuários elegíveis',
+          details: result.error 
+        });
+      }
+
+      res.json({
+        message: 'Usuários elegíveis para saque automático',
+        users: result.users,
+        total: result.users.length
+      });
+
+    } catch (error) {
+      console.error('Error in getEligibleForAutoWithdrawal:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        details: error.message 
+      });
+    }
+  }
+
+  // Manually trigger automatic withdrawals for eligible users (admin only)
+  async triggerAutomaticWithdrawals(req, res) {
+    try {
+      const { user } = req;
+
+      if (user.role !== 'admin') {
+        return res.status(403).json({ 
+          error: 'Apenas administradores podem triggerar saques automáticos' 
+        });
+      }
+
+      const result = await automaticWithdrawalService.triggerAutomaticWithdrawalsForEligibleUsers();
+
+      if (!result.success) {
+        return res.status(500).json({ 
+          error: 'Erro ao processar saques automáticos',
+          details: result.error 
+        });
+      }
+
+      const successCount = result.results.filter(r => r.result.success).length;
+      const failureCount = result.results.length - successCount;
+
+      res.json({
+        message: 'Processamento de saques automáticos concluído',
+        summary: {
+          total_processed: result.results.length,
+          successful: successCount,
+          failed: failureCount
+        },
+        details: result.results
+      });
+
+    } catch (error) {
+      console.error('Error in triggerAutomaticWithdrawals:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        details: error.message 
+      });
+    }
+  }
+
+  // Get automatic withdrawal statistics (admin only)
+  async getAutomaticWithdrawalStats(req, res) {
+    try {
+      const { user } = req;
+
+      if (user.role !== 'admin') {
+        return res.status(403).json({ 
+          error: 'Apenas administradores podem ver estatísticas' 
+        });
+      }
+
+      // Get automatic withdrawals statistics
+      const { data: autoSaques, error: autoSaquesError } = await supabase
+        .from('saques')
+        .select('status, valor, created_at, user_id')
+        .eq('automatico', true);
+
+      if (autoSaquesError) {
+        console.error('Error fetching automatic withdrawal stats:', autoSaquesError);
+        return res.status(500).json({ 
+          error: 'Erro ao buscar estatísticas de saques automáticos',
+          details: autoSaquesError.message 
+        });
+      }
+
+      // Get users with automatic withdrawal enabled
+      const { data: usersWithAuto, error: usersError } = await supabase
+        .from('users')
+        .select('id, nome, email, saldo, chave_pix')
+        .eq('role', 'user')
+        .eq('saque_automatico', true);
+
+      if (usersError) {
+        console.error('Error fetching users with auto withdrawal:', usersError);
+        return res.status(500).json({ 
+          error: 'Erro ao buscar usuários com saque automático',
+          details: usersError.message 
+        });
+      }
+
+      const hoje = new Date();
+      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+      const stats = {
+        automatic_withdrawals: {
+          total: autoSaques.length,
+          total_value: autoSaques.reduce((sum, s) => sum + parseFloat(s.valor), 0),
+          pending: autoSaques.filter(s => s.status === 'pendente').length,
+          approved: autoSaques.filter(s => s.status === 'aprovado').length,
+          rejected: autoSaques.filter(s => s.status === 'rejeitado').length,
+          this_month: autoSaques.filter(s => {
+            const data = new Date(s.created_at);
+            return data >= inicioMes;
+          }).length
+        },
+        users_with_auto_enabled: {
+          total: usersWithAuto.length,
+          with_pix_key: usersWithAuto.filter(u => u.chave_pix && u.chave_pix.trim() !== '').length,
+          eligible_balance: usersWithAuto.filter(u => u.saldo >= 50).length,
+          total_balance: usersWithAuto.reduce((sum, u) => sum + (parseFloat(u.saldo) || 0), 0)
+        }
+      };
+
+      res.json(stats);
+
+    } catch (error) {
+      console.error('Error in getAutomaticWithdrawalStats:', error);
       res.status(500).json({ 
         error: 'Erro interno do servidor',
         details: error.message 
