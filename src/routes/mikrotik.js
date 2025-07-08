@@ -128,6 +128,7 @@ router.get('/template/:filename', (req, res) => {
 
 // Rotas para templates (sem autenticação para permitir acesso do frontend)
 router.get('/templates', mikrotikController.getTemplates);
+router.get('/templates/:templateId/html', mikrotikController.getTemplateHtml);
 router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
 router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 

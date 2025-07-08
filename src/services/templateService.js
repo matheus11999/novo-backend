@@ -37,6 +37,22 @@ class TemplateService {
     }
   }
 
+  // Obter HTML puro de um template (sem processamento de variáveis)
+  getTemplateHtml(templateId) {
+    try {
+      const templatePath = path.join(this.templatesPath, templateId, 'login.html');
+      
+      if (!fs.existsSync(templatePath)) {
+        throw new Error(`Template HTML não encontrado: ${templateId}`);
+      }
+      
+      return fs.readFileSync(templatePath, 'utf8');
+    } catch (error) {
+      console.error(`Erro ao ler template HTML ${templateId}:`, error);
+      throw error;
+    }
+  }
+
   // Obter configuração de um template específico
   getTemplateConfig(templateId) {
     const configs = {

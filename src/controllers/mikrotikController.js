@@ -942,6 +942,37 @@ const getTemplateFiles = async (req, res) => {
   }
 };
 
+// Get template HTML content
+const getTemplateHtml = async (req, res) => {
+  try {
+    const { templateId } = req.params;
+    
+    const templateConfig = templateService.getTemplateConfig(templateId);
+    
+    if (!templateConfig) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template não encontrado'
+      });
+    }
+
+    // Obter HTML do template
+    const templateHtml = await templateService.getTemplateHtml(templateId);
+    
+    res.json({
+      success: true,
+      html: templateHtml,
+      templateId: templateId
+    });
+  } catch (error) {
+    console.error('Error getting template HTML:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 // Apply template to MikroTik using new template service
 const applyTemplate = async (req, res) => {
   try {
@@ -949,7 +980,8 @@ const applyTemplate = async (req, res) => {
       mikrotikId, 
       serverProfileId, 
       templateId, 
-      variables
+      variables,
+      templateContent
     } = req.body
 
     // Validar parâmetros obrigatórios
@@ -972,18 +1004,28 @@ const applyTemplate = async (req, res) => {
 
     console.log(`[APPLY-TEMPLATE] Aplicando template ${templateId} para MikroTik ${mikrotikId}`)
 
-    // Validar variáveis obrigatórias
-    try {
-      templateService.validateVariables(templateId, variables || {});
-    } catch (validationError) {
-      return res.status(400).json({
-        success: false,
-        error: validationError.message
-      });
-    }
+    // Se templateContent foi enviado pelo frontend, usar diretamente
+    let processedFiles;
+    if (templateContent) {
+      console.log(`[APPLY-TEMPLATE] Usando template processado do frontend`)
+      processedFiles = [{
+        name: 'login.html',
+        content: templateContent
+      }];
+    } else {
+      // Fallback para o método antigo
+      try {
+        templateService.validateVariables(templateId, variables || {});
+      } catch (validationError) {
+        return res.status(400).json({
+          success: false,
+          error: validationError.message
+        });
+      }
 
-    // Processar template com o novo serviço
-    const processedFiles = await templateService.processTemplate(templateId, variables || {}, mikrotikId);
+      // Processar template com o novo serviço
+      processedFiles = await templateService.processTemplate(templateId, variables || {}, mikrotikId);
+    }
 
     console.log(`[APPLY-TEMPLATE] Template processado: ${processedFiles.length} arquivo(s)`)
 
@@ -2016,6 +2058,7 @@ module.exports = {
   // Template endpoints
   getTemplates,
   getTemplateDetails,
+  getTemplateHtml,
   getTemplateFiles,
   applyTemplate,
   getWireRestInterface,
