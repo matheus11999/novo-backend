@@ -212,6 +212,11 @@ class TemplateService {
       const templateFiles = this.getTemplateFiles(templateId);
       const processedFiles = [];
 
+      console.log(`[TEMPLATE-SERVICE] Processando ${templateFiles.length} arquivo(s) do template ${templateId}:`);
+      templateFiles.forEach(f => {
+        console.log(`  - ${f.relativePath} (${f.size} bytes)`);
+      });
+
       for (const file of templateFiles) {
         const content = await this.processFileContent(file.fullPath, variables, mikrotikId);
         
@@ -222,6 +227,11 @@ class TemplateService {
           originalPath: file.fullPath
         });
       }
+
+      console.log(`[TEMPLATE-SERVICE] Template processado com ${processedFiles.length} arquivo(s):`);
+      processedFiles.forEach(f => {
+        console.log(`  - ${f.name} -> ${f.path}`);
+      });
 
       return processedFiles;
     } catch (error) {

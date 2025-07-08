@@ -1004,14 +1004,29 @@ const applyTemplate = async (req, res) => {
 
     console.log(`[APPLY-TEMPLATE] Aplicando template ${templateId} para MikroTik ${mikrotikId}`)
 
-    // Se templateContent foi enviado pelo frontend, usar diretamente
+    // Se templateContent foi enviado pelo frontend, processar todos os arquivos do template
     let processedFiles;
     if (templateContent) {
       console.log(`[APPLY-TEMPLATE] Usando template processado do frontend`)
-      processedFiles = [{
-        name: 'login.html',
-        content: templateContent
-      }];
+      
+      // Processar todos os arquivos do template, não apenas login.html
+      const allTemplateFiles = await templateService.processTemplate(templateId, variables || {}, mikrotikId);
+      
+      // Substituir apenas o login.html com o conteúdo processado do frontend
+      processedFiles = allTemplateFiles.map(file => {
+        if (file.name === 'login.html') {
+          return {
+            ...file,
+            content: templateContent
+          };
+        }
+        return file;
+      });
+      
+      console.log(`[APPLY-TEMPLATE] Template processado com ${processedFiles.length} arquivo(s):`)
+      processedFiles.forEach(f => {
+        console.log(`  - ${f.name} -> ${f.path}`)
+      })
     } else {
       // Fallback para o método antigo
       try {
@@ -1047,6 +1062,12 @@ const applyTemplate = async (req, res) => {
       global.templateCache.set(uniqueFileName, file.content)
       
       console.log(`[APPLY-TEMPLATE] Fazendo fetch de ${file.name} para ${file.path}`)
+      
+      // Verificar se o arquivo está em uma subpasta
+      const isInSubfolder = file.name.includes('/');
+      if (isInSubfolder) {
+        console.log(`[APPLY-TEMPLATE] Arquivo está em subpasta: ${file.name}`)
+      }
       
       try {
         // Executar comando fetch via RouterOS API para cada arquivo
