@@ -67,7 +67,7 @@ class PaymentPollingService {
                     planos (*),
                     mikrotiks (*)
                 `)
-                .or('status.eq.pending,and(status.eq.completed,mikrotik_user_created.eq.false)')
+                .or('status.eq.pending,and(status.eq.completed,ip_binding_created.eq.false)')
                 .not('mercadopago_status', 'eq', 'not_found')
                 .gte('created_at', new Date(Date.now() - this.maxPaymentAge).toISOString())
                 .order('created_at', { ascending: false });
@@ -151,7 +151,7 @@ class PaymentPollingService {
             const needsUpdate = mpPayment.status !== venda.mercadopago_status;
             const isApproved = mpPayment.status === 'approved';
             const wasNotCompleted = venda.status !== 'completed';
-            const userNotCreated = !venda.mikrotik_user_created;
+            const userNotCreated = !venda.ip_binding_created;
 
             // Processar diferentes status
             if (isApproved && (wasNotCompleted || userNotCreated)) {
