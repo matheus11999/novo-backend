@@ -62,25 +62,43 @@ class TemplateService {
         preview: '/templates/basic/preview.png',
         variables: [
           {
-            key: 'PROVIDER_NAME',
-            label: 'Nome do Provedor',
-            type: 'text',
-            required: true,
-            placeholder: 'Ex: MikroPix Internet'
-          },
-          {
-            key: 'LOGO_URL',
-            label: 'URL do Logo',
-            type: 'url',
-            required: false,
-            placeholder: 'https://exemplo.com/logo.png'
-          },
-          {
             key: 'PRIMARY_COLOR',
             label: 'Cor Primária',
             type: 'color',
             required: false,
             placeholder: '#3b82f6'
+          },
+          {
+            key: 'LOGO_ICON',
+            label: 'Ícone/Logo',
+            type: 'text',
+            required: false,
+            placeholder: '🌐 ou <img src="logo.png" alt="Logo">'
+          },
+          {
+            key: 'WELCOME_TITLE',
+            label: 'Título de Boas-vindas',
+            type: 'text',
+            required: false,
+            placeholder: 'Bem-vindo à nossa rede'
+          },
+          {
+            key: 'WELCOME_MESSAGE',
+            label: 'Mensagem de Boas-vindas',
+            type: 'text',
+            required: false,
+            placeholder: 'Conecte-se para acessar a internet'
+          },
+          {
+            key: 'DEBUG_MODE',
+            label: 'Modo Debug',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'true', label: 'Ativado' },
+              { value: 'false', label: 'Desativado' }
+            ],
+            placeholder: 'false'
           }
         ]
       },
@@ -218,7 +236,7 @@ class TemplateService {
       });
 
       for (const file of templateFiles) {
-        const content = await this.processFileContent(file.fullPath, variables, mikrotikId);
+        const content = await this.processFileContent(file.fullPath, variables, mikrotikId, templateId);
         
         processedFiles.push({
           name: file.relativePath,
@@ -241,7 +259,7 @@ class TemplateService {
   }
 
   // Processar conteúdo de um arquivo
-  async processFileContent(filePath, variables, mikrotikId) {
+  async processFileContent(filePath, variables, mikrotikId, templateId) {
     try {
       const extension = path.extname(filePath).toLowerCase();
       
@@ -255,6 +273,10 @@ class TemplateService {
       // Para arquivos de texto, ler como string e processar variáveis
       let content = fs.readFileSync(filePath, 'utf8');
 
+      // Obter configuração do template para valores padrão
+      const templateConfig = templateId ? this.getTemplateConfig(templateId) : null;
+      const templateVariables = templateConfig ? templateConfig.variables : [];
+
       // Substituir variáveis do usuário
       if (variables && typeof variables === 'object') {
         Object.entries(variables).forEach(([key, value]) => {
@@ -264,6 +286,24 @@ class TemplateService {
           }
         });
       }
+
+      // Aplicar valores padrão para variáveis não fornecidas pelo usuário
+      templateVariables.forEach(variable => {
+        const regex = new RegExp(`{{${variable.key}}}`, 'g');
+        const userValue = variables && variables[variable.key];
+        
+        if (!userValue && variable.placeholder) {
+          let defaultValue = variable.placeholder;
+          
+          // Para tipo select, usar o primeiro valor das opções se não for placeholder simples
+          if (variable.type === 'select' && variable.options && variable.options.length > 0) {
+            const placeholderOption = variable.options.find(opt => opt.value === variable.placeholder);
+            defaultValue = placeholderOption ? placeholderOption.value : variable.options[0].value;
+          }
+          
+          content = content.replace(regex, defaultValue);
+        }
+      });
 
       // Substituir variáveis automáticas do sistema
       content = content.replace(/{{MIKROTIK_ID}}/g, mikrotikId || '');
