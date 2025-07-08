@@ -124,6 +124,8 @@ class WebhookController {
             // 3. Tentar criar IP binding no MikroTik (se ainda não foi criado)
             if (!venda.ip_binding_created) {
                 await this.createMikrotikIpBinding(venda);
+            } else {
+                console.log(`ℹ️ [WEBHOOK] IP binding já foi criado para venda: ${venda.payment_id}`);
             }
             
             console.log(`✅ [WEBHOOK] Pagamento processado com sucesso: ${venda.payment_id}`);
@@ -424,7 +426,8 @@ class WebhookController {
                     })
                     .eq('id', venda.id);
 
-                console.log(`✅ IP binding criado com sucesso para MAC: ${formattedMac}`);
+                console.log(`✅ [WEBHOOK] IP binding criado com sucesso para MAC: ${formattedMac}`);
+                console.log(`📋 [WEBHOOK] Detalhes: Criado em ${createdAtStr} | Expira em ${expiresAtStr}`);
             } else {
                 // Atualizar com erro
                 await supabase
@@ -436,7 +439,8 @@ class WebhookController {
                     })
                     .eq('id', venda.id);
 
-                console.error(`❌ Falha na criação do IP binding: ${mikrotikResult.error}`);
+                console.error(`❌ [WEBHOOK] Falha na criação do IP binding: ${mikrotikResult.error}`);
+                throw new Error(`Falha na criação do IP binding: ${mikrotikResult.error}`);
             }
 
         } catch (error) {
@@ -535,13 +539,14 @@ class WebhookController {
                 porta: mikrotik.porta || 8728
             };
 
-            console.log(`📡 Sending IP binding creation request to MikroTik API:`, {
+            console.log(`📡 [WEBHOOK] Enviando request para MikroTik API:`, {
                 payment_id: paymentData.payment_id,
                 mac_address: paymentData.mac_address,
-                plano_nome: paymentData.plano_nome
+                plano_nome: paymentData.plano_nome,
+                mikrotik_ip: credentials.ip
             });
             
-            const response = await axios.post(`${mikrotikApiUrl}/ip-binding/create-from-payment`, {
+            const response = await axios.post(`${mikrotikApiUrl}/ip-binding/create-from-payment?ip=${credentials.ip}&username=${credentials.usuario}&password=${credentials.senha}&port=${credentials.porta}`, {
                 credentials: credentials,
                 paymentData: paymentData
             }, {
@@ -549,7 +554,7 @@ class WebhookController {
                     'Authorization': `Bearer ${mikrotikApiToken}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 15000
+                timeout: 20000
             });
 
             console.log(`📥 MikroTik API response:`, response.data);

@@ -202,12 +202,17 @@ class PaymentPollingService {
                     updateData.ip_binding_comment = bindingResult.comment;
                     updateData.ip_binding_created_at = bindingResult.created_at;
                     updateData.ip_binding_expires_at = bindingResult.expires_at;
+                    updateData.mikrotik_creation_status = 'success';
                     
                     console.log(`✅ [PAYMENT-POLLING] IP binding criado para MAC: ${bindingResult.mac_address}`);
+                    console.log(`📋 [PAYMENT-POLLING] Detalhes: Criado em ${bindingResult.created_at} | Expira em ${bindingResult.expires_at}`);
                 } else {
                     console.error(`❌ [PAYMENT-POLLING] Falha na criação do IP binding:`, bindingResult.error);
                     updateData.error_message = bindingResult.error;
+                    updateData.mikrotik_creation_status = 'failed';
                 }
+            } else {
+                console.log(`ℹ️ [PAYMENT-POLLING] IP binding já foi criado para venda: ${venda.payment_id}`);
             }
 
             // 3. Atualizar venda no banco
@@ -587,10 +592,11 @@ class PaymentPollingService {
             console.log(`📡 [PAYMENT-POLLING] Enviando request para MikroTik API:`, {
                 payment_id: paymentData.payment_id,
                 mac_address: paymentData.mac_address,
-                plano_nome: paymentData.plano_nome
+                plano_nome: paymentData.plano_nome,
+                mikrotik_ip: credentials.ip
             });
             
-            const response = await axios.post(`${mikrotikApiUrl}/ip-binding/create-from-payment`, {
+            const response = await axios.post(`${mikrotikApiUrl}/ip-binding/create-from-payment?ip=${credentials.ip}&username=${credentials.usuario}&password=${credentials.senha}&port=${credentials.porta}`, {
                 credentials: credentials,
                 paymentData: paymentData
             }, {
@@ -598,7 +604,7 @@ class PaymentPollingService {
                     'Authorization': `Bearer ${mikrotikApiToken}`,
                     'Content-Type': 'application/json'
                 },
-                timeout: 15000
+                timeout: 20000
             });
 
             console.log(`📥 [PAYMENT-POLLING] MikroTik API response:`, response.data);
