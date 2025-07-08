@@ -51,16 +51,71 @@ router.get('/template/:filename', (req, res) => {
       });
     }
     
-    // Set appropriate headers for HTML content
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    // Determinar o tipo de conteúdo baseado na extensão do arquivo
+    const extension = filename.split('.').pop().toLowerCase();
+    let contentType = 'text/html; charset=utf-8';
+    
+    switch (extension) {
+      case 'js':
+        contentType = 'application/javascript; charset=utf-8';
+        break;
+      case 'css':
+        contentType = 'text/css; charset=utf-8';
+        break;
+      case 'json':
+        contentType = 'application/json; charset=utf-8';
+        break;
+      case 'txt':
+        contentType = 'text/plain; charset=utf-8';
+        break;
+      case 'png':
+        contentType = 'image/png';
+        break;
+      case 'jpg':
+      case 'jpeg':
+        contentType = 'image/jpeg';
+        break;
+      case 'gif':
+        contentType = 'image/gif';
+        break;
+      case 'svg':
+        contentType = 'image/svg+xml';
+        break;
+      case 'ico':
+        contentType = 'image/x-icon';
+        break;
+      case 'xml':
+        contentType = 'application/xml; charset=utf-8';
+        break;
+      case 'xsd':
+        contentType = 'application/xml; charset=utf-8';
+        break;
+      default:
+        contentType = 'text/html; charset=utf-8';
+    }
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    // Send the template content
-    res.send(templateContent);
-    
-    console.log(`Template served: ${filename}, size: ${templateContent.length} bytes`);
+    // Para arquivos de imagem em base64, processar diferente
+    if (typeof templateContent === 'string' && templateContent.startsWith('data:image')) {
+      // Extrair dados base64
+      const base64Data = templateContent.split(',')[1];
+      const imageBuffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Length', imageBuffer.length);
+      res.end(imageBuffer);
+      
+      console.log(`Template image served: ${filename}, size: ${imageBuffer.length} bytes`);
+    } else {
+      // Enviar conteúdo de texto normalmente
+      res.send(templateContent);
+      
+      console.log(`Template served: ${filename}, type: ${contentType}, size: ${templateContent.length} bytes`);
+    }
     
   } catch (error) {
     console.error('Error serving template:', error);
