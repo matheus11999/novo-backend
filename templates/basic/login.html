@@ -4,6 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MikroTik Hotspot - Login</title>
+    <!-- Variables provided by MikroTik -->
+    <script>
+        // MikroTik variables
+        window.mikrotikVars = {
+            linkLogin: '$(link-login)',
+            linkLoginOnly: '$(link-login-only)',
+            linkOrig: '$(link-orig)',
+            mac: '$(mac)',
+            ip: '$(ip)',
+            username: '$(username)',
+            interface: '$(interface)',
+            error: '$(error)',
+            errorMsg: '$(error-orig)',
+            chapId: '$(chap-id)',
+            chapChallenge: '$(chap-challenge)'
+        };
+    </script>
     <style>
         :root {
             --primary: {{PRIMARY_COLOR}};
@@ -709,6 +726,13 @@
         <input type="hidden" name="popup" value="true" />
     </form>
 
+    <!-- Alternative Login Form for direct submission -->
+    <form name="sendin" method="post" action="$(link-login-only)" style="display: none;">
+        <input type="text" name="username" id="directUsername" />
+        <input type="password" name="password" id="directPassword" />
+        <input type="hidden" name="dst" value="$(link-orig)" />
+    </form>
+
     <script>
         // ==================================================
         // CONFIGURAÇÃO IMPORTANTE - ALTERE AQUI!
@@ -762,13 +786,26 @@
             // Get URL parameters and MikroTik variables
             getUrlParams();
             
+            // Initialize with MikroTik variables
+            if (window.mikrotikVars) {
+                state.mac = window.mikrotikVars.mac || state.mac;
+                state.ip = window.mikrotikVars.ip || state.ip;
+                state.interface = window.mikrotikVars.interface || state.interface;
+                state.linkOrig = window.mikrotikVars.linkOrig || state.linkOrig;
+                state.linkLogin = window.mikrotikVars.linkLogin || state.linkLogin;
+                
+                console.log('MikroTik Variables loaded:', window.mikrotikVars);
+            }
+            
             // Override with CONFIG values
             state.mikrotikId = state.mikrotikId || CONFIG.MIKROTIK_ID;
             state.apiUrl = state.apiUrl || CONFIG.API_URL;
             state.debug = state.debug || CONFIG.DEBUG;
             
             // Clean API URL
-            state.apiUrl = state.apiUrl.replace(/\/$/, '');
+            if (state.apiUrl) {
+                state.apiUrl = state.apiUrl.replace(/\/$/, '');
+            }
             
             // Update debug info
             updateDebugInfo('Aplicação inicializada');
@@ -778,7 +815,26 @@
             
             // Check if we have required configuration
             if (!state.mikrotikId || !state.apiUrl) {
-                showMessage('⚠️ Configuração incompleta. Verifique MIKROTIK_ID e API_URL.', 'error');
+                console.warn('⚠️ Configuração incompleta. Modo offline ativado.');
+                showMessage('ℹ️ Modo offline - Login direto disponível', 'info');
+            }
+            
+            // Add debug info to welcome screen
+            if (state.debug) {
+                const debugInfo = document.createElement('div');
+                debugInfo.innerHTML = `
+                    <div style="margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px;">
+                        <strong>Debug Info:</strong><br>
+                        API: ${state.apiUrl || 'Não configurado'}<br>
+                        MikroTik ID: ${state.mikrotikId || 'Não configurado'}<br>
+                        MAC: ${state.mac || 'Não disponível'}<br>
+                        IP: ${state.ip || 'Não disponível'}
+                    </div>
+                `;
+                const welcomeScreen = document.getElementById('welcomeScreen');
+                if (welcomeScreen) {
+                    welcomeScreen.appendChild(debugInfo);
+                }
             }
         }
 
@@ -994,13 +1050,57 @@
         // Login direto no MikroTik
         function loginDirectly(password) {
             console.log('🔗 Fazendo login direto no MikroTik');
-            showMessage('Conectado !!!', 'success');
+            showMessage('Conectando...', 'info');
             updateDebugInfo('Login direto com senha: ' + password);
             
-            // Set credentials and submit form
-            document.getElementById('hiddenUsername').value = password;
-            document.getElementById('hiddenPassword').value = password;
-            document.forms.login.submit();
+            try {
+                // Method 1: Try hidden form
+                if (document.forms.login) {
+                    document.getElementById('hiddenUsername').value = password;
+                    document.getElementById('hiddenPassword').value = password;
+                    document.forms.login.submit();
+                    return;
+                }
+                
+                // Method 2: Try alternative form
+                if (document.forms.sendin) {
+                    document.getElementById('directUsername').value = password;
+                    document.getElementById('directPassword').value = password;
+                    document.forms.sendin.submit();
+                    return;
+                }
+                
+                // Method 3: Create dynamic form
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = window.mikrotikVars ? window.mikrotikVars.linkLoginOnly : '$(link-login-only)';
+                
+                const usernameInput = document.createElement('input');
+                usernameInput.type = 'hidden';
+                usernameInput.name = 'username';
+                usernameInput.value = password;
+                
+                const passwordInput = document.createElement('input');
+                passwordInput.type = 'hidden';
+                passwordInput.name = 'password';
+                passwordInput.value = password;
+                
+                const dstInput = document.createElement('input');
+                dstInput.type = 'hidden';
+                dstInput.name = 'dst';
+                dstInput.value = window.mikrotikVars ? window.mikrotikVars.linkOrig : '$(link-orig)';
+                
+                form.appendChild(usernameInput);
+                form.appendChild(passwordInput);
+                form.appendChild(dstInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+                
+            } catch (error) {
+                console.error('Erro ao fazer login:', error);
+                showMessage('Erro ao conectar. Tente novamente.', 'error');
+            }
         }
 
         // Load plans from API
@@ -1398,9 +1498,57 @@
             const password = document.getElementById('successPass').textContent;
             
             if (username && password && username !== '-' && password !== '-') {
-                document.getElementById('hiddenUsername').value = username;
-                document.getElementById('hiddenPassword').value = password;
-                document.forms.login.submit();
+                console.log('🔗 Conectando com credenciais do pagamento');
+                showMessage('Conectando...', 'info');
+                
+                try {
+                    // Method 1: Try hidden form
+                    if (document.forms.login) {
+                        document.getElementById('hiddenUsername').value = username;
+                        document.getElementById('hiddenPassword').value = password;
+                        document.forms.login.submit();
+                        return;
+                    }
+                    
+                    // Method 2: Try alternative form
+                    if (document.forms.sendin) {
+                        document.getElementById('directUsername').value = username;
+                        document.getElementById('directPassword').value = password;
+                        document.forms.sendin.submit();
+                        return;
+                    }
+                    
+                    // Method 3: Create dynamic form
+                    const form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = window.mikrotikVars ? window.mikrotikVars.linkLoginOnly : '$(link-login-only)';
+                    
+                    const usernameInput = document.createElement('input');
+                    usernameInput.type = 'hidden';
+                    usernameInput.name = 'username';
+                    usernameInput.value = username;
+                    
+                    const passwordInput = document.createElement('input');
+                    passwordInput.type = 'hidden';
+                    passwordInput.name = 'password';
+                    passwordInput.value = password;
+                    
+                    const dstInput = document.createElement('input');
+                    dstInput.type = 'hidden';
+                    dstInput.name = 'dst';
+                    dstInput.value = window.mikrotikVars ? window.mikrotikVars.linkOrig : '$(link-orig)';
+                    
+                    form.appendChild(usernameInput);
+                    form.appendChild(passwordInput);
+                    form.appendChild(dstInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                    
+                } catch (error) {
+                    console.error('Erro ao conectar com credenciais:', error);
+                    showMessage('Erro ao conectar. Tente novamente.', 'error');
+                }
             } else {
                 showMessage('Credenciais não encontradas', 'error');
             }
