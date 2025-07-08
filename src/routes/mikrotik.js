@@ -164,6 +164,9 @@ router.put('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikCont
 router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikController.deleteHotspotServerProfile);
 
 // Rotas para templates
+router.get('/templates', mikrotikController.getTemplates);
+router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
+router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
 // Rotas para templates personalizados de senhas

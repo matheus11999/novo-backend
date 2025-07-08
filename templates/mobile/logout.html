@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+	 <head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>DROGARIA VIVA MAIS - Desconectado</title>
+		<link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+		<link href="css/bootstrap.min.css" rel="stylesheet">
+		<link href="css/style.css" rel="stylesheet">
+	</head>
+	<body>
+		<script language="JavaScript">
+		<!--
+			function openLogin() {
+			if (window.name != 'hotspot_logout') return true;
+			open('$(link-login)', '_blank', '');
+			window.close();
+			return false;
+			}
+		//-->
+		</script>
+		<div class="container">
+			<div class="row">
+				<div class="col-md-offset-4 col-md-4">
+					<div class="panel-second"></div>
+					<div class="panel">				
+						<form class="login" action="$(link-login)" name="login" onSubmit="return openLogin()">
+							<div class="l-login">
+								<img src="img/icon-oops.png" />
+								<p class="user"><span class="name">Senha $(username) desconectada..!</span></p>
+								<p><small>Voce se desconectou do Wi-Fi, caso queira se conectar novamente pressione o botao conectar abaixo. </small></p>
+							</div>
+							<button type="submit" class="btn-login text-space">CONECTAR</button>
+							$(endif)
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="js/jquery.min.js"></script>
+		<script src="js/bootstrap.min.js"></script>
+	</body>
+</html>
