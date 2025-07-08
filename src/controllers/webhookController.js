@@ -121,9 +121,9 @@ class WebhookController {
             // 2. Atualizar saldos dos usuários
             await this.updateUserBalances(venda);
             
-            // 3. Tentar criar usuário no MikroTik (se ainda não foi criado)
-            if (!venda.mikrotik_user_created) {
-                await this.createMikrotikUser(venda);
+            // 3. Tentar criar IP binding no MikroTik (se ainda não foi criado)
+            if (!venda.ip_binding_created) {
+                await this.createMikrotikIpBinding(venda);
             }
             
             console.log(`✅ [WEBHOOK] Pagamento processado com sucesso: ${venda.payment_id}`);
@@ -357,71 +357,97 @@ class WebhookController {
         }
     }
 
-    async createMikrotikUser(venda) {
+    async createMikrotikIpBinding(venda) {
         try {
-            console.log('👤 [WEBHOOK] Criando usuário no MikroTik para venda:', venda.payment_id);
+            console.log('🔗 [WEBHOOK] Criando IP binding no MikroTik para venda:', venda.payment_id);
             
-            // Dados do usuário baseados no MAC address
+            // Dados do IP binding baseados no MAC address
             const macAddress = venda.mac_address;
             const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
             const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
-            // Comentário formatado para identificação
-            const comment = `PIX ${venda.payment_id} - Plano: ${venda.plano_nome} - Valor: ${parseFloat(venda.plano_valor).toFixed(2)} - ${new Date().toISOString().split('T')[0]}`;
+            // Calcular data de expiração baseada no plano
+            const createdAt = new Date();
+            const expiresAt = new Date(createdAt);
             
-            const userData = {
-                name: formattedMac,
-                password: formattedMac,
-                profile: venda.plano_nome || 'default',
-                comment: comment,
-                'mac-address': formattedMac
+            // Extrair tempo do session_timeout (formato: HH:MM:SS ou duração em segundos)
+            let sessionTimeoutSeconds = 0;
+            if (venda.plano_session_timeout) {
+                const timeout = venda.plano_session_timeout;
+                if (timeout.includes(':')) {
+                    // Formato HH:MM:SS
+                    const parts = timeout.split(':');
+                    sessionTimeoutSeconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                } else {
+                    // Formato em segundos
+                    sessionTimeoutSeconds = parseInt(timeout);
+                }
+            }
+            
+            // Se não tem session timeout, assumir 1 hora como padrão
+            if (sessionTimeoutSeconds === 0) {
+                sessionTimeoutSeconds = 3600; // 1 hora
+            }
+            
+            expiresAt.setSeconds(expiresAt.getSeconds() + sessionTimeoutSeconds);
+            
+            // Formatação do comentário com informações do pagamento
+            const createdAtStr = createdAt.toISOString().replace('T', ' ').split('.')[0];
+            const expiresAtStr = expiresAt.toISOString().replace('T', ' ').split('.')[0];
+            
+            const comment = `PIX-${venda.payment_id} | Plano: ${venda.plano_nome} | Valor: R$ ${parseFloat(venda.plano_valor).toFixed(2)} | Criado: ${createdAtStr} | Expira: ${expiresAtStr}`;
+            
+            const paymentData = {
+                payment_id: venda.payment_id,
+                mac_address: formattedMac,
+                plano_nome: venda.plano_nome,
+                plano_valor: venda.plano_valor,
+                plano_session_timeout: venda.plano_session_timeout,
+                plano_rate_limit: venda.plano_rate_limit
             };
 
             // Tentar criar via API do MikroTik
-            const mikrotikResult = await this.createMikrotikUserAPI(venda.mikrotiks, userData, {
-                nome: venda.plano_nome,
-                session_timeout: venda.plano_session_timeout,
-                rate_limit: venda.plano_rate_limit
-            });
+            const mikrotikResult = await this.createMikrotikIpBindingAPI(venda.mikrotiks, paymentData);
 
             if (mikrotikResult.success) {
                 // Atualizar venda com sucesso
                 await supabase
                     .from('vendas_pix')
                     .update({
-                        usuario_criado: userData.name,
-                        senha_usuario: userData.password,
-                        mikrotik_user_id: mikrotikResult.mikrotikUserId || userData.name,
-                        mikrotik_user_created: true,
+                        ip_binding_created: true,
+                        ip_binding_mac: formattedMac,
+                        ip_binding_comment: comment,
+                        ip_binding_created_at: createdAtStr,
+                        ip_binding_expires_at: expiresAtStr,
                         mikrotik_creation_status: 'success',
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', venda.id);
 
-                console.log(`✅ Usuário MikroTik criado com sucesso: ${userData.name}`);
+                console.log(`✅ IP binding criado com sucesso para MAC: ${formattedMac}`);
             } else {
                 // Atualizar com erro
                 await supabase
                     .from('vendas_pix')
                     .update({
                         mikrotik_creation_status: 'failed',
-                        error_message: mikrotikResult.error || 'Falha na criação do usuário MikroTik',
+                        error_message: mikrotikResult.error || 'Falha na criação do IP binding',
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', venda.id);
 
-                console.error(`❌ Falha na criação do usuário MikroTik: ${mikrotikResult.error}`);
+                console.error(`❌ Falha na criação do IP binding: ${mikrotikResult.error}`);
             }
 
         } catch (error) {
-            console.error('❌ Erro ao criar usuário MikroTik:', error);
+            console.error('❌ Erro ao criar IP binding:', error);
             
             // Atualizar venda com erro
             await supabase
                 .from('vendas_pix')
                 .update({
                     mikrotik_creation_status: 'failed',
-                    error_message: `Erro na criação do usuário: ${error.message}`,
+                    error_message: `Erro na criação do IP binding: ${error.message}`,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', venda.id);
@@ -491,9 +517,9 @@ class WebhookController {
         }
     }
 
-    async createMikrotikUserAPI(mikrotik, userData, planData) {
+    async createMikrotikIpBindingAPI(mikrotik, paymentData) {
         try {
-            console.log(`👤 Creating MikroTik user: ${userData.username}`);
+            console.log(`🔗 Creating MikroTik IP binding for MAC: ${paymentData.mac_address}`);
             
             const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://localhost:3001';
             const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
@@ -509,19 +535,15 @@ class WebhookController {
                 porta: mikrotik.porta || 8728
             };
 
-            const userPayload = {
-                name: userData.username,
-                password: userData.password,
-                profile: userData.profile,
-                comment: userData.comment,
-                'mac-address': userData['mac-address']
-            };
-
-            console.log(`📡 Sending user creation request to MikroTik API:`, userPayload);
+            console.log(`📡 Sending IP binding creation request to MikroTik API:`, {
+                payment_id: paymentData.payment_id,
+                mac_address: paymentData.mac_address,
+                plano_nome: paymentData.plano_nome
+            });
             
-            const response = await axios.post(`${mikrotikApiUrl}/users/create`, {
+            const response = await axios.post(`${mikrotikApiUrl}/ip-binding/create-from-payment`, {
                 credentials: credentials,
-                user: userPayload
+                paymentData: paymentData
             }, {
                 headers: {
                     'Authorization': `Bearer ${mikrotikApiToken}`,
@@ -535,13 +557,13 @@ class WebhookController {
             if (response.data?.success) {
                 return {
                     success: true,
-                    user_id: response.data.data?.['.id'] || null,
+                    binding_id: response.data.data?.result?.[0] || null,
                     data: response.data
                 };
             } else {
                 return {
                     success: false,
-                    error: response.data?.error || response.data?.message || 'Unknown error creating user'
+                    error: response.data?.error || response.data?.message || 'Unknown error creating IP binding'
                 };
             }
         } catch (error) {
