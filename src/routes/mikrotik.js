@@ -126,6 +126,11 @@ router.get('/template/:filename', (req, res) => {
   }
 });
 
+// Rotas para templates (sem autenticação para permitir acesso do frontend)
+router.get('/templates', mikrotikController.getTemplates);
+router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
+router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
+
 // Apply authentication to all other routes
 router.use(authenticateUser);
 
@@ -163,10 +168,7 @@ router.post('/hotspot/server-profiles/:mikrotikId', mikrotikController.createHot
 router.put('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikController.updateHotspotServerProfile);
 router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikController.deleteHotspotServerProfile);
 
-// Rotas para templates
-router.get('/templates', mikrotikController.getTemplates);
-router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
-router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
+// Rota para aplicar templates (com autenticação)
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
 // Rotas para templates personalizados de senhas
