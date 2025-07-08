@@ -368,8 +368,9 @@ class WebhookController {
             const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
             const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
-            // Calcular data de expiração baseada no plano
+            // Calcular data de expiração baseada no plano (timezone Manaus)
             const createdAt = new Date();
+            createdAt.setHours(createdAt.getHours() - 4); // UTC-4 (Manaus)
             const expiresAt = new Date(createdAt);
             
             // Extrair tempo do session_timeout (formato: HH:MM:SS, duração em segundos, ou formato como "1h")
