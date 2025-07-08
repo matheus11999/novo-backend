@@ -866,15 +866,22 @@ const deleteHotspotServerProfile = async (req, res) => {
 // Get available templates
 const getTemplates = async (req, res) => {
   try {
+    console.log('[GET-TEMPLATES] Requisição recebida');
+    console.log('[GET-TEMPLATES] Headers:', req.headers);
+    console.log('[GET-TEMPLATES] User:', req.user?.id);
+    
     const templates = templateService.getAvailableTemplates();
+    console.log('[GET-TEMPLATES] Templates encontrados:', templates.length);
     
     res.json({
       success: true,
       data: templates,
       count: templates.length
     });
+    
+    console.log('[GET-TEMPLATES] Resposta enviada com sucesso');
   } catch (error) {
-    console.error('Error getting templates:', error);
+    console.error('[GET-TEMPLATES] Erro:', error);
     res.status(500).json({
       success: false,
       error: error.message

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="expires" content="0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0; maximum-scale=1.0;"/>
+    <meta name="robots" content="noindex, nofollow" />
+    <title>WiFi Premium - Carregando...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .loading-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            max-width: 400px;
+            width: 90%;
+            position: absolute;
+            z-index: 1000;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .loading-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00D9FF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #1F2937;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .loading-subtitle {
+            color: #6B7280;
+            font-size: 14px;
+        }
+
+        .template-iframe {
+            width: 100%;
+            height: 100vh;
+            border: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .template-iframe.loaded {
+            opacity: 1;
+        }
+
+        .error-container {
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            position: absolute;
+            z-index: 1001;
+            display: none;
+        }
+
+        .error-container h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .error-container p {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .retry-btn {
+            background: white;
+            color: #EF4444;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .retry-btn:hover {
+            background: #f9fafb;
+            transform: translateY(-2px);
+        }
+
+        /* Debug info */
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: monospace;
+            max-width: 300px;
+            display: none;
+        }
+
+        .debug-info.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-container" id="loadingContainer">
+        <div class="spinner"></div>
+        <div class="loading-text">Carregando WiFi Premium</div>
+        <div class="loading-subtitle">Preparando sua experiência...</div>
+    </div>
+
+    <!-- Error Screen -->
+    <div class="error-container" id="errorContainer">
+        <h3>⚠️ Erro ao Carregar</h3>
+        <p>Não foi possível carregar o captive portal. Verifique sua conexão.</p>
+        <button class="retry-btn" onclick="retryLoad()">Tentar Novamente</button>
+    </div>
+
+    <!-- Template Iframe -->
+    <iframe id="templateIframe" class="template-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-top-navigation"></iframe>
+
+    <!-- Debug Info -->
+    <div class="debug-info" id="debugInfo"></div>
+
+    <script>
+        // Global variables
+        let loadTimeout;
+        let retryCount = 0;
+        const maxRetries = 3;
+        const loadTimeoutMs = 10000; // 10 seconds
+
+        // Get URL parameters and MikroTik variables
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const urlParams = {};
+            
+            // Get parameters from URL
+            for (const [key, value] of params) {
+                urlParams[key] = value;
+            }
+
+            // Add MikroTik variables if available (when served by MikroTik)
+            const mikrotikVars = {
+                mac: '$(mac)',
+                ip: '$(ip)',
+                interface: '$(interface-name)',
+                linkOrig: '$(link-orig)',
+                linkLogin: '$(link-login-only)',
+                chapId: '$(chap-id)',
+                trial: '$(trial)',
+                error: '$(error)',
+                username: '$(username)'
+            };
+
+            // Check if MikroTik variables are processed (don't contain $()
+            const isMikroTikEnvironment = !mikrotikVars.mac.includes('$(');
+            
+            if (isMikroTikEnvironment) {
+                // Running on MikroTik - use processed variables
+                Object.assign(urlParams, mikrotikVars);
+                urlParams.environment = 'mikrotik';
+            } else {
+                // Running on external server - use URL parameters only
+                urlParams.environment = 'external';
+            }
+
+            return urlParams;
+        }
+
+        // Get API configuration from URL or defaults
+        function getApiConfig() {
+            const params = new URLSearchParams(window.location.search);
+            
+            return {
+                apiUrl: params.get('api_url') || 'https://api.lucro.top',
+                mikrotikId: params.get('mikrotik_id') || '78957cd3-7096-4acd-970b-0aa0a768c555'
+            };
+        }
+
+        // Build template URL with parameters
+        function buildTemplateUrl() {
+            const params = getUrlParams();
+            const apiConfig = getApiConfig();
+            
+            // Use API URL from config or current origin as fallback
+            const baseUrl = apiConfig.apiUrl || window.location.origin;
+            
+            // Cache busting parameter
+            const cacheBuster = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Build URL with all parameters
+            const templateUrl = new URL('/api/templates/1/login.html', baseUrl);
+            
+            // Add all parameters to template URL
+            Object.keys(params).forEach(key => {
+                if (params[key] && !params[key].includes('$(')) {
+                    templateUrl.searchParams.set(key, params[key]);
+                }
+            });
+            
+            // Add API configuration
+            templateUrl.searchParams.set('api_url', apiConfig.apiUrl);
+            templateUrl.searchParams.set('mikrotik_id', apiConfig.mikrotikId);
+            
+            // Add cache buster
+            templateUrl.searchParams.set('v', cacheBuster);
+            templateUrl.searchParams.set('_t', Date.now());
+            
+            return templateUrl.toString();
+        }
+
+        // Validate required data
+        function validateData() {
+            const params = getUrlParams();
+            const apiConfig = getApiConfig();
+            const errors = [];
+            
+            // Check if we have MAC address (essential for MikroTik)
+            if (!params.mac || params.mac === 'N/A' || params.mac.includes('$(')) {
+                errors.push('MAC address não encontrado');
+            }
+            
+            // Check API configuration
+            if (!apiConfig.apiUrl) {
+                errors.push('URL da API não configurada');
+            }
+            
+            if (!apiConfig.mikrotikId) {
+                errors.push('ID do MikroTik não configurado');
+            }
+            
+            return {
+                isValid: errors.length === 0,
+                errors: errors
+            };
+        }
+
+        // Load template in iframe
+        function loadTemplate() {
+            const iframe = document.getElementById('templateIframe');
+            const loadingContainer = document.getElementById('loadingContainer');
+            const errorContainer = document.getElementById('errorContainer');
+            
+            // Reset states
+            errorContainer.style.display = 'none';
+            loadingContainer.classList.remove('hidden');
+            iframe.classList.remove('loaded');
+            
+            // Clear any existing timeout
+            if (loadTimeout) {
+                clearTimeout(loadTimeout);
+            }
+            
+            // Validate required data
+            const validation = validateData();
+            if (!validation.isValid) {
+                showError('Dados obrigatórios ausentes: ' + validation.errors.join(', '));
+                return;
+            }
+            
+            // Build template URL
+            const templateUrl = buildTemplateUrl();
+            
+            console.log('Loading template:', templateUrl);
+            updateDebugInfo('Loading: ' + templateUrl);
+            
+            // Set up load timeout
+            loadTimeout = setTimeout(() => {
+                console.error('Template load timeout');
+                showError('Timeout ao carregar o template');
+            }, loadTimeoutMs);
+            
+            // Set up iframe load handlers
+            iframe.onload = function() {
+                console.log('Template loaded successfully');
+                clearTimeout(loadTimeout);
+                
+                // Hide loading, show iframe
+                setTimeout(() => {
+                    loadingContainer.classList.add('hidden');
+                    iframe.classList.add('loaded');
+                    updateDebugInfo('Loaded successfully');
+                }, 500);
+            };
+            
+            iframe.onerror = function() {
+                console.error('Template load error');
+                clearTimeout(loadTimeout);
+                showError('Erro ao carregar o template');
+            };
+            
+            // Load the template
+            iframe.src = templateUrl;
+        }
+
+        // Show error
+        function showError(message) {
+            const loadingContainer = document.getElementById('loadingContainer');
+            const errorContainer = document.getElementById('errorContainer');
+            
+            loadingContainer.classList.add('hidden');
+            errorContainer.style.display = 'block';
+            errorContainer.querySelector('p').textContent = message;
+            
+            updateDebugInfo('Error: ' + message + ' (Retry: ' + retryCount + '/' + maxRetries + ')');
+        }
+
+        // Retry loading
+        function retryLoad() {
+            retryCount++;
+            
+            if (retryCount <= maxRetries) {
+                console.log('Retrying load, attempt:', retryCount);
+                loadTemplate();
+            } else {
+                showError('Máximo de tentativas excedido. Recarregue a página.');
+            }
+        }
+
+        // Update debug info
+        function updateDebugInfo(message) {
+            const debugInfo = document.getElementById('debugInfo');
+            const params = getUrlParams();
+            const apiConfig = getApiConfig();
+            
+            // Show debug if debug parameter is present
+            if (params.debug === '1' || params.debug === 'true') {
+                debugInfo.innerHTML = `
+                    <strong>Debug Info:</strong><br>
+                    Status: ${message}<br>
+                    Environment: ${params.environment}<br>
+                    Retry: ${retryCount}/${maxRetries}<br>
+                    <br><strong>MikroTik Data:</strong><br>
+                    MAC: ${params.mac || 'N/A'}<br>
+                    IP: ${params.ip || 'N/A'}<br>
+                    Interface: ${params.interface || 'N/A'}<br>
+                    Link Login: ${params.linkLogin || 'N/A'}<br>
+                    Link Orig: ${params.linkOrig || 'N/A'}<br>
+                    <br><strong>API Config:</strong><br>
+                    API URL: ${apiConfig.apiUrl}<br>
+                    MikroTik ID: ${apiConfig.mikrotikId}<br>
+                    <br>Time: ${new Date().toLocaleTimeString()}
+                `;
+                debugInfo.classList.add('show');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Redirect page loaded - initializing template iframe');
+            updateDebugInfo('Initializing...');
+            
+            // Start loading template
+            setTimeout(loadTemplate, 100);
+        });
+
+        // Handle iframe communication (optional)
+        window.addEventListener('message', function(event) {
+            // Handle messages from template iframe if needed
+            console.log('Message from template:', event.data);
+            
+            if (event.data && event.data.type === 'template_ready') {
+                updateDebugInfo('Template ready');
+            }
+        });
+    </script>
+</body>
+</html> 
