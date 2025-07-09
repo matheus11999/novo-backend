@@ -156,7 +156,12 @@ class OptimizedPaymentPollingService {
         } catch (error) {
             logger.error('Error in payment polling cycle', { 
                 component: 'PAYMENT_POLLING',
-                error: error.message 
+                error: error.message,
+                stack: error.stack,
+                errorDetails: {
+                    name: error.name,
+                    cause: error.cause
+                }
             });
         }
     }
@@ -220,8 +225,24 @@ class OptimizedPaymentPollingService {
         try {
             logger.debug('Processing payment', { 
                 component: 'PAYMENT_POLLING',
-                paymentId 
+                paymentId,
+                vendaData: {
+                    id: venda.id,
+                    status: venda.status,
+                    mercadopago_status: venda.mercadopago_status,
+                    ip_binding_created: venda.ip_binding_created
+                }
             });
+
+            // Verificações básicas de dados
+            if (!venda || !venda.id) {
+                logger.error('Invalid venda object', { 
+                    component: 'PAYMENT_POLLING',
+                    paymentId,
+                    venda 
+                });
+                return { success: false, reason: 'invalid_venda_data' };
+            }
 
             // Verificar se tem MercadoPago Payment ID
             if (!venda.mercadopago_payment_id) {
@@ -238,11 +259,34 @@ class OptimizedPaymentPollingService {
             
             if (!mpPayment) {
                 // Consultar MercadoPago com circuit breaker
-                mpPayment = await this.mpBreaker.fire(venda.mercadopago_payment_id);
-                
-                if (mpPayment) {
-                    // Cache por 5 minutos
-                    await cacheService.set(cacheKey, mpPayment, 300);
+                try {
+                    mpPayment = await this.mpBreaker.fire(venda.mercadopago_payment_id);
+                    
+                    if (mpPayment) {
+                        // Cache por 5 minutos
+                        await cacheService.set(cacheKey, mpPayment, 300);
+                    }
+                } catch (circuitBreakerError) {
+                    logger.warn('Circuit breaker error for MercadoPago API', { 
+                        component: 'PAYMENT_POLLING',
+                        paymentId,
+                        error: circuitBreakerError.message
+                    });
+                    
+                    // Tentar sem circuit breaker como fallback
+                    try {
+                        mpPayment = await this.getMercadoPagoPayment(venda.mercadopago_payment_id);
+                        if (mpPayment) {
+                            await cacheService.set(cacheKey, mpPayment, 300);
+                        }
+                    } catch (fallbackError) {
+                        logger.error('Fallback MercadoPago API also failed', { 
+                            component: 'PAYMENT_POLLING',
+                            paymentId,
+                            error: fallbackError.message
+                        });
+                        mpPayment = null;
+                    }
                 }
             }
 
@@ -293,7 +337,14 @@ class OptimizedPaymentPollingService {
             logger.error('Error processing payment', { 
                 component: 'PAYMENT_POLLING',
                 paymentId,
-                error: error.message 
+                error: error.message,
+                stack: error.stack,
+                vendaInfo: {
+                    id: venda.id,
+                    status: venda.status,
+                    mercadopago_payment_id: venda.mercadopago_payment_id,
+                    mac_address: venda.mac_address
+                }
             });
             
             // Incrementar contador de tentativas
@@ -309,8 +360,27 @@ class OptimizedPaymentPollingService {
 
     async getMercadoPagoPayment(paymentId) {
         try {
+            if (!paymentId) {
+                logger.warn('MercadoPago payment ID is empty', { 
+                    component: 'PAYMENT_POLLING' 
+                });
+                return null;
+            }
+
             const mpPayment = await payment.get({ id: paymentId });
+            
+            // Verificar se o retorno é válido
+            if (!mpPayment || !mpPayment.status) {
+                logger.warn('Invalid MercadoPago response', { 
+                    component: 'PAYMENT_POLLING',
+                    paymentId,
+                    response: mpPayment 
+                });
+                return null;
+            }
+            
             return mpPayment;
+            
         } catch (error) {
             // Tratar erro 404 como não encontrado
             if (error.status === 404 || error.message?.includes('resource not found')) {
@@ -320,6 +390,26 @@ class OptimizedPaymentPollingService {
                 });
                 return null;
             }
+            
+            // Tratar erros de rede/timeout
+            if (error.code === 'ENOTFOUND' || error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+                logger.warn('MercadoPago network error', { 
+                    component: 'PAYMENT_POLLING',
+                    paymentId,
+                    errorCode: error.code,
+                    error: error.message
+                });
+                return null;
+            }
+            
+            logger.error('MercadoPago API error', { 
+                component: 'PAYMENT_POLLING',
+                paymentId,
+                error: error.message,
+                status: error.status,
+                code: error.code
+            });
+            
             throw error;
         }
     }
