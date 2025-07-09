@@ -1,6 +1,47 @@
 const { v4: uuidv4 } = require('uuid');
 const { supabase } = require('../config/database');
 const { payment } = require('../config/mercadopago');
+const axios = require('axios');
+
+/**
+ * Atualizar comentário do usuário com data de expiração
+ */
+async function updateCommentWithExpiration(credentials, username, password) {
+    try {
+        const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000';
+        const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
+        
+        const queryParams = new URLSearchParams({
+            ip: credentials.ip,
+            username: credentials.username,
+            password: credentials.password,
+            port: credentials.port.toString()
+        });
+
+        const updateUrl = `${mikrotikApiUrl}/user-auth/check?${queryParams}`;
+        
+        const response = await axios.post(updateUrl, {
+            username: username,
+            password: password
+        }, {
+            headers: {
+                'Authorization': `Bearer ${mikrotikApiToken}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        if (response.data?.success) {
+            console.log(`⏰ [UPDATE-COMMENT] Comentário atualizado com sucesso para usuário: ${username}`);
+            return response.data;
+        } else {
+            throw new Error(`Falha ao atualizar comentário: ${response.data?.error || 'Erro desconhecido'}`);
+        }
+    } catch (error) {
+        console.error(`❌ [UPDATE-COMMENT] Erro ao atualizar comentário para ${username}:`, error.message);
+        throw error;
+    }
+}
 
 // Helper function to format duration
 function formatDuration(sessionTimeout) {
@@ -860,7 +901,7 @@ class PaymentController {
                 // Só atualizar comentário se contém "Valor"
                 if (temComentario && mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                     try {
-                        await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
                         console.log(`⏰ [CAPTIVE-CHECK] Comentário genérico atualizado com data de expiração`);
                     } catch (expError) {
                         console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário genérico com expiração:`, expError.message);
@@ -940,7 +981,7 @@ class PaymentController {
                 // Atualizar comentário com data de expiração (só se contém "Valor:")
                 if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                     try {
-                        await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
                         console.log(`⏰ [CAPTIVE-CHECK] Comentário físico atualizado com data de expiração`);
                     } catch (expError) {
                         console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico com expiração:`, expError.message);
@@ -1078,7 +1119,7 @@ class PaymentController {
                 // Atualizar comentário com data de expiração (só se contém "Valor:")
                 if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                     try {
-                        await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
                         console.log(`⏰ [CAPTIVE-CHECK] Comentário PIX atualizado com data de expiração`);
                     } catch (expError) {
                         console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário PIX com expiração:`, expError.message);
@@ -1207,7 +1248,7 @@ class PaymentController {
             // Atualizar comentário com data de expiração (só se contém "Valor:")
             if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                 try {
-                    await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                    await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
                     console.log(`⏰ [CAPTIVE-CHECK] Comentário físico final atualizado com data de expiração`);
                 } catch (expError) {
                     console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico final com expiração:`, expError.message);
@@ -1267,46 +1308,6 @@ class PaymentController {
         }
     }
 
-    /**
-     * Atualizar comentário do usuário com data de expiração
-     */
-    async updateCommentWithExpiration(credentials, username, password) {
-        try {
-            const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000';
-            const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
-            
-            const queryParams = new URLSearchParams({
-                ip: credentials.ip,
-                username: credentials.username,
-                password: credentials.password,
-                port: credentials.port.toString()
-            });
-
-            const updateUrl = `${mikrotikApiUrl}/user-auth/check?${queryParams}`;
-            
-            const axios = require('axios');
-            const response = await axios.post(updateUrl, {
-                username: username,
-                password: password
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${mikrotikApiToken}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000
-            });
-
-            if (response.data?.success) {
-                console.log(`⏰ [UPDATE-COMMENT] Comentário atualizado com sucesso para usuário: ${username}`);
-                return response.data;
-            } else {
-                throw new Error(`Falha ao atualizar comentário: ${response.data?.error || 'Erro desconhecido'}`);
-            }
-        } catch (error) {
-            console.error(`❌ [UPDATE-COMMENT] Erro ao atualizar comentário para ${username}:`, error.message);
-            throw error;
-        }
-    }
 
 }
 
