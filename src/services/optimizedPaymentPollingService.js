@@ -173,7 +173,15 @@ class OptimizedPaymentPollingService {
             if (!this.isRunning) break;
             
             // Processar lote com concorrência limitada
-            const promises = chunk.map(venda => this.processVenda(venda));
+            const promises = chunk.map(venda => () => {
+                logger.debug('Creating promise for payment processing', {
+                    component: 'PAYMENT_POLLING',
+                    paymentId: venda.payment_id,
+                    vendaId: venda.id,
+                    status: venda.status
+                });
+                return this.processVenda(venda);
+            });
             
             // Aguardar com concorrência limitada
             const results = await this.promiseAllWithConcurrency(promises, this.maxConcurrency);
@@ -181,6 +189,28 @@ class OptimizedPaymentPollingService {
             // Log resultados do lote
             const successful = results.filter(r => r.status === 'fulfilled').length;
             const failed = results.filter(r => r.status === 'rejected').length;
+            
+            // Log detalhado dos resultados
+            results.forEach((result, index) => {
+                const venda = chunk[index];
+                if (result.status === 'rejected') {
+                    logger.error('Payment processing failed in batch', {
+                        component: 'PAYMENT_POLLING',
+                        paymentId: venda.payment_id,
+                        vendaId: venda.id,
+                        error: result.reason?.message || result.reason,
+                        stack: result.reason?.stack
+                    });
+                } else if (result.value && !result.value.success) {
+                    logger.warn('Payment processing completed with failure', {
+                        component: 'PAYMENT_POLLING',
+                        paymentId: venda.payment_id,
+                        vendaId: venda.id,
+                        reason: result.value.reason,
+                        error: result.value.error
+                    });
+                }
+            });
             
             logger.info('Batch processed', {
                 component: 'PAYMENT_POLLING',
