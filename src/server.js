@@ -4,6 +4,12 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
+// Importar configurações otimizadas
+const logger = require('./config/logger');
+const cacheService = require('./config/cache');
+const circuitBreakerService = require('./config/circuitBreaker');
+const { httpMetricsMiddleware } = require('./config/metrics');
+
 const paymentRoutes = require('./routes/payment');
 const webhookRoutes = require('./routes/webhook');
 const mikrotikRoutes = require('./routes/mikrotik');
@@ -18,12 +24,19 @@ const usersRoutes = require('./routes/users');
 const subscriptionRoutes = require('./routes/subscription');
 const expiredPlansRoutes = require('./routes/expired-plans');
 const autoTrialRoutes = require('./routes/auto-trial');
-const paymentPollingService = require('./services/paymentPollingService');
+const healthRoutes = require('./routes/health');
+
+// Importar serviços otimizados
+const OptimizedPaymentPollingService = require('./services/optimizedPaymentPollingService');
 const subscriptionPaymentService = require('./services/subscriptionPaymentService');
-const expiredPlansService = require('./services/expiredPlansService');
+const DailyExpiredPlansService = require('./services/dailyExpiredPlansService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Inicializar serviços
+const optimizedPaymentPollingService = new OptimizedPaymentPollingService();
+const dailyExpiredPlansService = new DailyExpiredPlansService();
 
 // Trust proxy for accurate IP detection behind reverse proxy
 app.set('trust proxy', true);
@@ -56,7 +69,8 @@ const corsConfig = {
     optionsSuccessStatus: 204
 };
 
-console.log('🔧 CORS Configuration:', {
+logger.info('CORS Configuration', {
+    component: 'SERVER',
     environment: process.env.NODE_ENV || 'development',
     origin: corsConfig.origin,
     methods: corsConfig.methods
@@ -75,29 +89,31 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Credentials', 'true');
     
     if (req.method === 'OPTIONS') {
-        console.log('🔄 Preflight request handled for:', req.path);
+        logger.debug('Preflight request handled', { 
+            component: 'SERVER',
+            path: req.path 
+        });
         return res.status(204).end();
     }
     
     next();
 });
 
-// Logging middleware
-app.use(morgan('combined'));
+// Middleware de métricas (antes do logging)
+app.use(httpMetricsMiddleware);
+
+// Logging middleware estruturado
+app.use(morgan('combined', {
+    stream: {
+        write: (message) => {
+            logger.http(message.trim(), { component: 'HTTP' });
+        }
+    }
+}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development'
-    });
-});
 
 // API routes
 app.use('/api/payment', paymentRoutes);
@@ -115,6 +131,9 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/expired-plans', expiredPlansRoutes);
 app.use('/api/auto-trial', autoTrialRoutes);
 
+// Health check routes
+app.use('/health', healthRoutes);
+
 // 404 handler
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -125,7 +144,13 @@ app.use('*', (req, res) => {
 
 // Global error handler
 app.use((error, req, res, next) => {
-    console.error('Global error handler:', error);
+    logger.error('Global error handler', {
+        component: 'SERVER',
+        error: error.message,
+        stack: error.stack,
+        url: req.url,
+        method: req.method
+    });
     
     res.status(error.status || 500).json({
         error: 'Internal server error',
@@ -135,37 +160,79 @@ app.use((error, req, res, next) => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    paymentPollingService.stop();
-    subscriptionPaymentService.stop();
-    expiredPlansService.stop();
-    process.exit(0);
+process.on('SIGTERM', async () => {
+    logger.info('SIGTERM received, shutting down gracefully', { component: 'SERVER' });
+    
+    try {
+        optimizedPaymentPollingService.stop();
+        subscriptionPaymentService.stop();
+        dailyExpiredPlansService.stop();
+        
+        // Fechar cache
+        await cacheService.close();
+        
+        // Fechar circuit breakers
+        circuitBreakerService.shutdown();
+        
+        logger.info('Graceful shutdown completed', { component: 'SERVER' });
+        process.exit(0);
+    } catch (error) {
+        logger.error('Error during graceful shutdown', { 
+            component: 'SERVER',
+            error: error.message 
+        });
+        process.exit(1);
+    }
 });
 
-process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    paymentPollingService.stop();
-    subscriptionPaymentService.stop();
-    expiredPlansService.stop();
-    process.exit(0);
+process.on('SIGINT', async () => {
+    logger.info('SIGINT received, shutting down gracefully', { component: 'SERVER' });
+    
+    try {
+        optimizedPaymentPollingService.stop();
+        subscriptionPaymentService.stop();
+        dailyExpiredPlansService.stop();
+        
+        // Fechar cache
+        await cacheService.close();
+        
+        // Fechar circuit breakers
+        circuitBreakerService.shutdown();
+        
+        logger.info('Graceful shutdown completed', { component: 'SERVER' });
+        process.exit(0);
+    } catch (error) {
+        logger.error('Error during graceful shutdown', { 
+            component: 'SERVER',
+            error: error.message 
+        });
+        process.exit(1);
+    }
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info('Server started successfully', {
+        component: 'SERVER',
+        port: PORT,
+        environment: process.env.NODE_ENV || 'development',
+        healthCheck: `http://localhost:${PORT}/health`,
+        metrics: `http://localhost:${PORT}/health/metrics`
+    });
     
-    // Iniciar polling de pagamentos automaticamente
+    // Iniciar serviços automaticamente
     setTimeout(() => {
-        console.log('🔄 Starting payment polling service...');
-        paymentPollingService.start();
+        logger.info('Starting optimized services...', { component: 'SERVER' });
         
-        console.log('🔄 Starting subscription payment polling service...');
+        // Iniciar payment polling otimizado
+        optimizedPaymentPollingService.start();
+        
+        // Iniciar subscription payment polling
         subscriptionPaymentService.start();
         
-        console.log('🔄 Starting expired plans service...');
-        expiredPlansService.start();
+        // Iniciar expired plans service diário
+        dailyExpiredPlansService.start();
+        
+        logger.info('All services started successfully', { component: 'SERVER' });
     }, 5000); // Aguardar 5 segundos para garantir que tudo foi inicializado
 });
 
