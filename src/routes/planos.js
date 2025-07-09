@@ -5,6 +5,39 @@ const authenticateUser = require('../middleware/auth');
 
 router.use(authenticateUser);
 
+/**
+ * Converte session_timeout para minutos
+ * @param sessionTimeout Session timeout em formato MikroTik (ex: "1h", "30m", "3600")
+ * @returns Número de minutos
+ */
+function convertSessionTimeoutToMinutes(sessionTimeout) {
+    if (!sessionTimeout) return null;
+    
+    const timeout = sessionTimeout.toString().toLowerCase().trim();
+    
+    if (timeout.endsWith('h')) {
+        const hours = parseInt(timeout.replace('h', ''));
+        return hours * 60;
+    } else if (timeout.endsWith('m')) {
+        const minutes = parseInt(timeout.replace('m', ''));
+        return minutes;
+    } else if (timeout.includes(':')) {
+        // Formato HH:MM:SS
+        const parts = timeout.split(':');
+        const hours = parseInt(parts[0]) || 0;
+        const mins = parseInt(parts[1]) || 0;
+        return (hours * 60) + mins;
+    } else {
+        // Formato em segundos
+        const seconds = parseInt(timeout);
+        if (!isNaN(seconds)) {
+            return Math.floor(seconds / 60);
+        }
+    }
+    
+    return null;
+}
+
 // Função para obter credenciais do MikroTik
 const getMikrotikCredentials = async (mikrotikId, userId) => {
   const { data: mikrotik, error } = await supabase
@@ -247,19 +280,37 @@ router.put('/:id', async (req, res) => {
       });
     }
     
+    // Calcular valores atualizados antes de usar
+    const calculatedMinutes = (() => {
+      if (minutos) return parseInt(minutos);
+      if (session_timeout) {
+        const calculatedMinutes = convertSessionTimeoutToMinutes(session_timeout);
+        return calculatedMinutes !== null ? calculatedMinutes : planoExistente.minutos;
+      }
+      return planoExistente.minutos;
+    })();
+    
+    const finalSessionTimeout = session_timeout || (calculatedMinutes ? `${calculatedMinutes * 60}` : planoExistente.session_timeout);
+    const finalRateLimit = rate_limit || `${velocidade_upload || planoExistente.velocidade_upload}/${velocidade_download || planoExistente.velocidade_download}`;
+    
     // Atualizar profile no MikroTik se existir mikrotik_profile_id
-    if (planoExistente.mikrotik_profile_id && mikrotik_id) {
+    if (planoExistente.mikrotik_profile_id && (mikrotik_id || planoExistente.mikrotik_id)) {
       try {
-        const credentials = await getMikrotikCredentials(mikrotik_id, req.user.id);
+        const credentials = await getMikrotikCredentials(mikrotik_id || planoExistente.mikrotik_id, req.user.id);
         
         const mikrotikProfileData = {
-          name: nome,
-          'rate-limit': rate_limit || `${velocidade_upload || '1M'}/${velocidade_download || '1M'}`,
-          'session-timeout': session_timeout || (minutos ? `${minutos * 60}` : '3600'),
-          'idle-timeout': idle_timeout || '300'
+          name: nome || planoExistente.nome,
+          'rate-limit': finalRateLimit,
+          'session-timeout': finalSessionTimeout,
+          'idle-timeout': idle_timeout || planoExistente.idle_timeout || '300'
         };
         
-        console.log('Updating MikroTik profile:', { profileId: planoExistente.mikrotik_profile_id, data: mikrotikProfileData });
+        console.log('Updating MikroTik profile:', { 
+          profileId: planoExistente.mikrotik_profile_id, 
+          data: mikrotikProfileData,
+          originalSessionTimeout: planoExistente.session_timeout,
+          newSessionTimeout: finalSessionTimeout
+        });
         
         // Use the profile ID for the API call
         await makeApiRequest(`/hotspot/profiles`, credentials, 'PUT', {
@@ -267,7 +318,7 @@ router.put('/:id', async (req, res) => {
           id: planoExistente.mikrotik_profile_id
         });
         
-        console.log('MikroTik profile updated successfully');
+        console.log('MikroTik profile updated successfully with session-timeout:', finalSessionTimeout);
       } catch (mikrotikError) {
         console.warn('Failed to update MikroTik profile, continuing with database update:', mikrotikError.message);
         // Continue with database update even if MikroTik update fails
@@ -281,11 +332,11 @@ router.put('/:id', async (req, res) => {
         nome: nome || planoExistente.nome,
         descricao: descricao || planoExistente.descricao,
         valor: valor ? parseFloat(valor) : planoExistente.valor,
-        minutos: minutos ? parseInt(minutos) : planoExistente.minutos,
+        minutos: calculatedMinutes,
         velocidade_download: velocidade_download || rate_limit?.split('/')[1] || planoExistente.velocidade_download,
         velocidade_upload: velocidade_upload || rate_limit?.split('/')[0] || planoExistente.velocidade_upload,
-        rate_limit: rate_limit || `${velocidade_upload || planoExistente.velocidade_upload}/${velocidade_download || planoExistente.velocidade_download}`,
-        session_timeout: session_timeout || (minutos ? `${minutos * 60}` : planoExistente.session_timeout),
+        rate_limit: finalRateLimit,
+        session_timeout: finalSessionTimeout,
         idle_timeout: idle_timeout || planoExistente.idle_timeout,
         limite_dados: limite_dados || planoExistente.limite_dados,
         ativo: ativo !== undefined ? ativo : planoExistente.ativo,
