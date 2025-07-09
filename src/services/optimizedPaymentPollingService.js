@@ -84,34 +84,51 @@ class OptimizedPaymentPollingService {
         try {
             logger.info('Checking pending payments', { component: 'PAYMENT_POLLING' });
             
-            // Query otimizada com índices
-            const { data: vendas, error } = await supabase
-                .from('vendas_pix')
-                .select(`
-                    id,
-                    payment_id,
-                    mercadopago_payment_id,
-                    status,
-                    mercadopago_status,
-                    ip_binding_created,
-                    mac_address,
-                    created_at,
-                    user_id,
-                    plano_id,
-                    mikrotik_id,
-                    planos(id, nome, duracao_dias, valor),
-                    mikrotiks(id, nome, ip_address, usuario, senha, porta, ativo)
-                `)
-                .or('status.eq.pending,and(status.eq.completed,ip_binding_created.eq.false)')
-                .not('mercadopago_status', 'eq', 'not_found')
-                .gte('created_at', new Date(Date.now() - this.maxPaymentAge).toISOString())
-                .order('created_at', { ascending: false })
-                .limit(100); // Limitar para não sobrecarregar
+            // Query otimizada com índices - com tratamento de erro mais robusto
+            let vendas, error;
+            
+            try {
+                const result = await supabase
+                    .from('vendas_pix')
+                    .select(`
+                        id,
+                        payment_id,
+                        mercadopago_payment_id,
+                        status,
+                        mercadopago_status,
+                        ip_binding_created,
+                        mac_address,
+                        created_at,
+                        user_id,
+                        plano_id,
+                        mikrotik_id,
+                        planos(id, nome, valor),
+                        mikrotiks(id, nome, ip, usuario, senha, porta, ativo)
+                    `)
+                    .or('status.eq.pending,and(status.eq.completed,ip_binding_created.eq.false)')
+                    .not('mercadopago_status', 'eq', 'not_found')
+                    .gte('created_at', new Date(Date.now() - this.maxPaymentAge).toISOString())
+                    .order('created_at', { ascending: false })
+                    .limit(100); // Limitar para não sobrecarregar
+                
+                vendas = result.data;
+                error = result.error;
+                
+            } catch (queryError) {
+                logger.error('Database query error in payment polling', { 
+                    component: 'PAYMENT_POLLING',
+                    error: queryError.message,
+                    stack: queryError.stack
+                });
+                return;
+            }
 
             if (error) {
                 logger.error('Error fetching pending payments', { 
                     component: 'PAYMENT_POLLING',
-                    error: error.message 
+                    error: error.message,
+                    details: error.details || 'No additional details',
+                    hint: error.hint || 'No hint available'
                 });
                 return;
             }

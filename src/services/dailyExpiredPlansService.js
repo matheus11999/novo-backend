@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { supabase } = require('../config/supabase');
+const { supabase } = require('../config/database');
 const logger = require('../config/logger');
 const cacheService = require('../config/cache');
 
@@ -86,7 +86,7 @@ class DailyExpiredPlansService {
                 .select(`
                     id,
                     user_id,
-                    subscription_plan_id,
+                    plan_id,
                     status,
                     expires_at,
                     created_at,
