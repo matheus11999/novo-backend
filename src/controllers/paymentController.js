@@ -865,7 +865,7 @@ class PaymentController {
                 
                 return res.json({
                     success: true,
-                    message: `User authenticated successfully - ${authReason}`,
+                    message: 'Conectado!',
                     data: {
                         username: mikrotikUser.name,
                         profile: mikrotikUser.profile,
@@ -943,7 +943,7 @@ class PaymentController {
 
                 return res.json({
                     success: true,
-                    message: 'User authenticated successfully with physical voucher',
+                    message: 'Conectado!',
                     data: {
                         username: mikrotikUser.name,
                         profile: mikrotikUser.profile,
@@ -1078,7 +1078,7 @@ class PaymentController {
 
                 return res.json({
                     success: true,
-                    message: 'User authenticated successfully with PIX voucher',
+                    message: 'Conectado!',
                     data: {
                         username: mikrotikUser.name,
                         profile: mikrotikUser.profile,
@@ -1205,7 +1205,7 @@ class PaymentController {
 
             return res.json({
                 success: true,
-                message: 'User authenticated successfully with physical voucher',
+                message: 'Conectado!',
                 data: {
                     username: mikrotikUser.name,
                     profile: mikrotikUser.profile,
