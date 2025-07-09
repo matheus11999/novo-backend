@@ -192,8 +192,10 @@ class OptimizedPaymentPollingService {
             const failed = results.filter(r => r.status === 'rejected').length;
             
             // Log detalhado dos resultados
-            results.forEach((result, index) => {
+            for (let index = 0; index < results.length; index++) {
+                const result = results[index];
                 const venda = chunk[index];
+                
                 if (result.status === 'rejected') {
                     logger.error('Payment processing failed in batch', {
                         component: 'PAYMENT_POLLING',
@@ -234,7 +236,7 @@ class OptimizedPaymentPollingService {
                         severity: 'warn'
                     });
                 }
-            });
+            }
             
             logger.info('Batch processed', {
                 component: 'PAYMENT_POLLING',
