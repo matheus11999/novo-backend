@@ -16,11 +16,19 @@ class CacheService {
         try {
             const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
             
+            logger.info('Initializing Redis connection', { 
+                component: 'CACHE',
+                url: redisUrl.replace(/:[^:]*@/, ':***@') // Mascarar senha no log
+            });
+            
             this.client = redis.createClient({
                 url: redisUrl,
                 socket: {
-                    connectTimeout: 10000,
-                    lazyConnect: true
+                    connectTimeout: parseInt(process.env.REDIS_CONNECTION_TIMEOUT) || 10000,
+                    commandTimeout: parseInt(process.env.REDIS_COMMAND_TIMEOUT) || 5000,
+                    lazyConnect: true,
+                    keepAlive: true,
+                    noDelay: true
                 },
                 retry_strategy: (options) => {
                     if (options.error && options.error.code === 'ECONNREFUSED') {
@@ -41,8 +49,19 @@ class CacheService {
                         return new Error('Max retries reached');
                     }
                     
-                    return Math.min(options.attempt * this.retryDelay, 3000);
-                }
+                    const delay = Math.min(options.attempt * this.retryDelay, 3000);
+                    logger.warn(`Redis retry attempt ${options.attempt}`, {
+                        component: 'CACHE',
+                        delay,
+                        totalRetryTime: options.total_retry_time
+                    });
+                    
+                    return delay;
+                },
+                // Configurações específicas para EasyPanel/Docker
+                family: 4, // IPv4
+                password: process.env.REDIS_PASSWORD || undefined,
+                database: parseInt(process.env.REDIS_DATABASE) || 0
             });
 
             // Event handlers
