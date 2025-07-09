@@ -25,11 +25,13 @@ const subscriptionRoutes = require('./routes/subscription');
 const expiredPlansRoutes = require('./routes/expired-plans');
 const autoTrialRoutes = require('./routes/auto-trial');
 const healthRoutes = require('./routes/health');
+const errorLogsRoutes = require('./routes/error-logs');
 
 // Importar serviços otimizados
 const OptimizedPaymentPollingService = require('./services/optimizedPaymentPollingService');
 const subscriptionPaymentService = require('./services/subscriptionPaymentService');
 const DailyExpiredPlansService = require('./services/dailyExpiredPlansService');
+const errorLogService = require('./services/errorLogService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -134,6 +136,9 @@ app.use('/api/auto-trial', autoTrialRoutes);
 // Health check routes
 app.use('/health', healthRoutes);
 
+// Error logs routes
+app.use('/api/error-logs', errorLogsRoutes);
+
 // 404 handler
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -174,6 +179,9 @@ process.on('SIGTERM', async () => {
         // Fechar circuit breakers
         circuitBreakerService.shutdown();
         
+        // Flush error logs
+        await errorLogService.shutdown();
+        
         logger.info('Graceful shutdown completed', { component: 'SERVER' });
         process.exit(0);
     } catch (error) {
@@ -198,6 +206,9 @@ process.on('SIGINT', async () => {
         
         // Fechar circuit breakers
         circuitBreakerService.shutdown();
+        
+        // Flush error logs
+        await errorLogService.shutdown();
         
         logger.info('Graceful shutdown completed', { component: 'SERVER' });
         process.exit(0);

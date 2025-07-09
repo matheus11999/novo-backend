@@ -4,6 +4,7 @@ const MikroTikUserService = require('./mikrotikUserService');
 const logger = require('../config/logger');
 const cacheService = require('../config/cache');
 const circuitBreakerService = require('../config/circuitBreaker');
+const errorLogService = require('./errorLogService');
 
 class OptimizedPaymentPollingService {
     constructor() {
@@ -209,6 +210,29 @@ class OptimizedPaymentPollingService {
                         reason: result.value.reason,
                         error: result.value.error
                     });
+
+                    // Salvar failure no banco também
+                    await errorLogService.logError({
+                        component: 'PAYMENT_POLLING',
+                        errorType: 'payment_processing_failure',
+                        errorMessage: result.value.error || `Processing failed: ${result.value.reason}`,
+                        errorStack: null,
+                        context: {
+                            reason: result.value.reason,
+                            vendaInfo: {
+                                id: venda.id,
+                                payment_id: venda.payment_id,
+                                status: venda.status,
+                                mercadopago_payment_id: venda.mercadopago_payment_id,
+                                mac_address: venda.mac_address
+                            }
+                        },
+                        paymentId: venda.payment_id,
+                        vendaId: venda.id,
+                        userId: venda.user_id,
+                        mikrotikId: venda.mikrotik_id,
+                        severity: 'warn'
+                    });
                 }
             });
             
@@ -364,6 +388,7 @@ class OptimizedPaymentPollingService {
             return result;
 
         } catch (error) {
+            // Log detalhado no console
             logger.error('Error processing payment', { 
                 component: 'PAYMENT_POLLING',
                 paymentId,
@@ -375,6 +400,31 @@ class OptimizedPaymentPollingService {
                     mercadopago_payment_id: venda.mercadopago_payment_id,
                     mac_address: venda.mac_address
                 }
+            });
+
+            // Salvar erro no banco de dados
+            await errorLogService.logError({
+                component: 'PAYMENT_POLLING',
+                errorType: 'payment_processing_error',
+                errorMessage: error.message,
+                errorStack: error.stack,
+                context: {
+                    vendaInfo: {
+                        id: venda.id,
+                        status: venda.status,
+                        mercadopago_payment_id: venda.mercadopago_payment_id,
+                        mac_address: venda.mac_address,
+                        ip_binding_created: venda.ip_binding_created,
+                        created_at: venda.created_at
+                    },
+                    retryCount: retryCount,
+                    maxRetries: this.maxRetries
+                },
+                paymentId: paymentId,
+                vendaId: venda.id,
+                userId: venda.user_id,
+                mikrotikId: venda.mikrotik_id,
+                severity: 'error'
             });
             
             // Incrementar contador de tentativas
