@@ -4,6 +4,7 @@ const axios = require('axios');
 const MikroTikUserService = require('../services/mikrotikUserService');
 const paymentPollingService = require('../services/paymentPollingService');
 const automaticWithdrawalService = require('../services/automaticWithdrawalService');
+const { formatDurationInMinutes } = require('./paymentController');
 
 class WebhookController {
     constructor() {
@@ -405,8 +406,9 @@ class WebhookController {
             // Formatação do comentário com informações do pagamento
             const createdAtStr = createdAt.toISOString().replace('T', ' ').split('.')[0];
             const expiresAtStr = expiresAt.toISOString().replace('T', ' ').split('.')[0];
+            const durationText = formatDurationInMinutes(venda.plano_session_timeout);
             
-            const comment = `PIX-${venda.payment_id} | Plano: ${venda.plano_nome} | Valor: R$ ${parseFloat(venda.plano_valor).toFixed(2)} | Criado: ${createdAtStr} | Expira: ${expiresAtStr}`;
+            const comment = `PIX-${venda.payment_id} | Plano: ${venda.plano_nome} | Valor: R$ ${parseFloat(venda.plano_valor).toFixed(2)} | Duração: ${durationText} | Criado: ${createdAtStr} | Expira: ${expiresAtStr}`;
             
             const paymentData = {
                 payment_id: venda.payment_id,

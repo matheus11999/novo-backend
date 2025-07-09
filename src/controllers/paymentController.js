@@ -80,6 +80,45 @@ function formatDuration(sessionTimeout) {
     }
 }
 
+// Helper function to format duration in minutes for consistency
+function formatDurationInMinutes(sessionTimeout) {
+    if (!sessionTimeout) return 'Sem limite';
+    
+    const timeString = sessionTimeout.toString().toLowerCase().trim();
+    
+    // Handle different formats and convert to minutes
+    if (timeString.endsWith('h')) {
+        const hours = parseInt(timeString.replace('h', ''));
+        const minutes = hours * 60;
+        return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+    } else if (timeString.endsWith('m')) {
+        const minutes = parseInt(timeString.replace('m', ''));
+        return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+    } else if (timeString.includes(':')) {
+        // Formato HH:MM:SS
+        const parts = timeString.split(':');
+        const hours = parseInt(parts[0]) || 0;
+        const mins = parseInt(parts[1]) || 0;
+        const totalMinutes = (hours * 60) + mins;
+        
+        return totalMinutes === 1 ? '1 minuto' : `${totalMinutes} minutos`;
+    } else {
+        // Formato em segundos
+        const seconds = parseInt(timeString);
+        if (!isNaN(seconds)) {
+            const minutes = Math.floor(seconds / 60);
+            
+            if (minutes >= 1) {
+                return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+            } else {
+                return `${seconds} segundos`;
+            }
+        }
+    }
+    
+    return 'Sem limite';
+}
+
 class PaymentController {
     async getPlans(req, res) {
         try {
@@ -1191,3 +1230,4 @@ class PaymentController {
 }
 
 module.exports = new PaymentController();
+module.exports.formatDurationInMinutes = formatDurationInMinutes;
