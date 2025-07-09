@@ -857,6 +857,16 @@ class PaymentController {
                 console.log(`🆓 [CAPTIVE-CHECK] Usuário ${authReason} - apenas autenticando (SEM BANCO)`);
                 console.log(`🆓 [CAPTIVE-CHECK] temComentario = ${temComentario}, isPixComment = ${isPixComment}, isPhysicalComment = ${isPhysicalComment}, planoValor = ${planoValor}`);
                 
+                // Só atualizar comentário se contém "Valor"
+                if (temComentario && mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
+                    try {
+                        await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        console.log(`⏰ [CAPTIVE-CHECK] Comentário genérico atualizado com data de expiração`);
+                    } catch (expError) {
+                        console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário genérico com expiração:`, expError.message);
+                    }
+                }
+                
                 // Gerar URL de autenticação do captive portal
                 const authUrl = `http://${mikrotik.ip}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
                 
@@ -927,12 +937,14 @@ class PaymentController {
                     });
                 }
 
-                // Atualizar comentário com data de expiração
-                try {
-                    await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
-                    console.log(`⏰ [CAPTIVE-CHECK] Comentário atualizado com data de expiração`);
-                } catch (expError) {
-                    console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário com expiração:`, expError.message);
+                // Atualizar comentário com data de expiração (só se contém "Valor:")
+                if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
+                    try {
+                        await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        console.log(`⏰ [CAPTIVE-CHECK] Comentário físico atualizado com data de expiração`);
+                    } catch (expError) {
+                        console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico com expiração:`, expError.message);
+                    }
                 }
 
                 // Gerar URL de autenticação para voucher físico
@@ -1063,12 +1075,14 @@ class PaymentController {
                     });
                 }
 
-                // Atualizar comentário com data de expiração
-                try {
-                    await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
-                    console.log(`⏰ [CAPTIVE-CHECK] Comentário PIX atualizado com data de expiração`);
-                } catch (expError) {
-                    console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário PIX com expiração:`, expError.message);
+                // Atualizar comentário com data de expiração (só se contém "Valor:")
+                if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
+                    try {
+                        await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        console.log(`⏰ [CAPTIVE-CHECK] Comentário PIX atualizado com data de expiração`);
+                    } catch (expError) {
+                        console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário PIX com expiração:`, expError.message);
+                    }
                 }
 
                 // Gerar URL de autenticação para usuário PIX
@@ -1190,12 +1204,14 @@ class PaymentController {
                 });
             }
 
-            // Atualizar comentário com data de expiração
-            try {
-                await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
-                console.log(`⏰ [CAPTIVE-CHECK] Comentário físico atualizado com data de expiração`);
-            } catch (expError) {
-                console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico com expiração:`, expError.message);
+            // Atualizar comentário com data de expiração (só se contém "Valor:")
+            if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
+                try {
+                    await this.updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                    console.log(`⏰ [CAPTIVE-CHECK] Comentário físico final atualizado com data de expiração`);
+                } catch (expError) {
+                    console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico final com expiração:`, expError.message);
+                }
             }
 
             // Gerar URL de autenticação para usuário físico
