@@ -26,9 +26,32 @@ winston.addColors(colors);
 const format = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
   winston.format.colorize({ all: true }),
-  winston.format.printf(
-    (info) => `${info.timestamp} [${info.level}] ${info.message}`
-  )
+  winston.format.printf((info) => {
+    let message = `${info.timestamp} [${info.level}] ${info.message}`;
+    
+    // Adicionar detalhes extras se existirem
+    if (info.component) {
+      message += ` [${info.component}]`;
+    }
+    
+    if (info.error) {
+      message += ` - Error: ${info.error}`;
+    }
+    
+    if (info.stack) {
+      message += `\nStack: ${info.stack}`;
+    }
+    
+    if (info.vendaInfo) {
+      message += `\nVenda Info: ${JSON.stringify(info.vendaInfo, null, 2)}`;
+    }
+    
+    if (info.errorDetails) {
+      message += `\nError Details: ${JSON.stringify(info.errorDetails, null, 2)}`;
+    }
+    
+    return message;
+  })
 );
 
 // Define transports

@@ -654,29 +654,34 @@ class OptimizedPaymentPollingService {
         return chunks;
     }
 
-    async promiseAllWithConcurrency(promises, concurrency) {
+    async promiseAllWithConcurrency(promiseFunctions, concurrency) {
         const results = [];
-        const executing = [];
         
-        for (const promise of promises) {
-            const p = Promise.resolve(promise()).then(
-                value => ({ status: 'fulfilled', value }),
-                reason => ({ status: 'rejected', reason })
-            );
+        // Processar em lotes sequenciais para evitar problemas
+        for (let i = 0; i < promiseFunctions.length; i += concurrency) {
+            const batch = promiseFunctions.slice(i, i + concurrency);
             
-            results.push(p);
-            
-            if (promises.length >= concurrency) {
-                executing.push(p);
-                
-                if (executing.length >= concurrency) {
-                    await Promise.race(executing);
-                    executing.splice(executing.findIndex(p => p.status !== 'pending'), 1);
+            // Executar lote atual
+            const batchPromises = batch.map(async (promiseFunc) => {
+                try {
+                    const result = await promiseFunc();
+                    return { status: 'fulfilled', value: result };
+                } catch (error) {
+                    return { status: 'rejected', reason: error };
                 }
+            });
+            
+            // Aguardar todos do lote atual
+            const batchResults = await Promise.all(batchPromises);
+            results.push(...batchResults);
+            
+            // Pequena pausa entre lotes
+            if (i + concurrency < promiseFunctions.length) {
+                await this.sleep(100);
             }
         }
         
-        return Promise.all(results);
+        return results;
     }
 
     sleep(ms) {
