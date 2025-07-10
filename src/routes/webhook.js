@@ -8,7 +8,7 @@ const { webhookLimiter } = require('../middleware/rateLimiter');
 router.use(webhookLimiter);
 
 // MercadoPago webhook endpoint
-router.post('/mercadopago', webhookController.handleMercadoPagoWebhook);
+router.post('/mercadopago', (req, res) => webhookController.handleMercadoPagoWebhook(req, res));
 
 // MercadoPago webhook endpoint for subscriptions
 router.post('/subscription', (req, res) => subscriptionController.processWebhook(req, res));
