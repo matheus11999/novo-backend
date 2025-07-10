@@ -59,7 +59,7 @@ class TemplateService {
       template1: {
         name: 'Template 1',
         description: 'Template simples e limpo para hotspot',
-        preview: '/templates/basic/preview.png',
+        preview: `${process.env.BASE_URL || 'http://localhost:3001'}/api/mikrotik/template/template1_preview.png`,
         variables: [
           {
             key: 'PRIMARY_COLOR',
@@ -105,7 +105,7 @@ class TemplateService {
       template2: {
         name: 'Template 2',
         description: 'Template otimizado para dispositivos móveis',
-        preview: '/templates/mobile/preview.png',
+        preview: `${process.env.BASE_URL || 'http://localhost:3001'}/api/mikrotik/template/template2_preview.png`,
         variables: [
           {
             key: 'PROVIDER_NAME',

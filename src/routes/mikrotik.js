@@ -40,6 +40,27 @@ router.get('/template/:filename', (req, res) => {
   try {
     const { filename } = req.params;
     
+    // Handle preview images directly from filesystem
+    if (filename.includes('_preview.png')) {
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Extract template ID from filename (e.g., template1_preview.png -> template1)
+      const templateId = filename.replace('_preview.png', '');
+      const previewPath = path.join(__dirname, '../../templates', templateId, 'preview.png');
+      
+      if (fs.existsSync(previewPath)) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        return fs.createReadStream(previewPath).pipe(res);
+      } else {
+        return res.status(404).json({
+          success: false,
+          error: 'Preview image not found'
+        });
+      }
+    }
+    
     // Check if template exists in cache
     const templateCache = global.templateCache || new Map();
     const templateContent = templateCache.get(filename);
