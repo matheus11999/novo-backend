@@ -391,11 +391,18 @@ class MikroTikUserService {
 
             // === 1. Extrair credenciais do MikroTik ===
             const mikrotik = vendaData.mikrotiks || {};
+            // A API ip-binding espera as chaves "usuario" e "senha" no objeto credentials.
+            // Para manter compatibilidade com outros serviços que usam "username/password",
+            // preenchemos ambos os pares de chaves.
             const credentials = {
                 ip: mikrotik.ip,
+                // aliases username/usuario e password/senha
                 username: mikrotik.username || mikrotik.usuario,
+                usuario: mikrotik.username || mikrotik.usuario,
                 password: mikrotik.password || mikrotik.senha,
-                port: mikrotik.port || mikrotik.porta || 8728
+                senha: mikrotik.password || mikrotik.senha,
+                port: mikrotik.port || mikrotik.porta || 8728,
+                porta: mikrotik.port || mikrotik.porta || 8728
             };
 
             if (!credentials.ip || !credentials.username || !credentials.password) {
