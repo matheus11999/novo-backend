@@ -756,7 +756,7 @@ class PaymentController {
                 return res.status(404).json({
                     success: false,
                     error: 'User not found',
-                    message: 'Username not found in MikroTik'
+                    message: 'Senha errada, tente novamente.'
                 });
             }
 

@@ -56,8 +56,8 @@ class TemplateService {
   // Obter configuração de um template específico
   getTemplateConfig(templateId) {
     const configs = {
-      basic: {
-        name: 'Template Básico',
+      template1: {
+        name: 'Template 1',
         description: 'Template simples e limpo para hotspot',
         preview: '/templates/basic/preview.png',
         variables: [
@@ -102,8 +102,8 @@ class TemplateService {
           }
         ]
       },
-      mobile: {
-        name: 'Template Mobile',
+      template2: {
+        name: 'Template 2',
         description: 'Template otimizado para dispositivos móveis',
         preview: '/templates/mobile/preview.png',
         variables: [
@@ -134,48 +134,6 @@ class TemplateService {
             type: 'text',
             required: false,
             placeholder: 'Bem-vindo ao nosso hotspot!'
-          }
-        ]
-      },
-      business: {
-        name: 'Template Empresarial',
-        description: 'Template profissional para empresas',
-        preview: '/templates/business/preview.png',
-        variables: [
-          {
-            key: 'PROVIDER_NAME',
-            label: 'Nome do Provedor',
-            type: 'text',
-            required: true,
-            placeholder: 'Ex: MikroPix Internet'
-          },
-          {
-            key: 'LOGO_URL',
-            label: 'URL do Logo',
-            type: 'url',
-            required: false,
-            placeholder: 'https://exemplo.com/logo.png'
-          },
-          {
-            key: 'PRIMARY_COLOR',
-            label: 'Cor Primária',
-            type: 'color',
-            required: false,
-            placeholder: '#3b82f6'
-          },
-          {
-            key: 'COMPANY_PHONE',
-            label: 'Telefone da Empresa',
-            type: 'text',
-            required: false,
-            placeholder: '(11) 99999-9999'
-          },
-          {
-            key: 'SUPPORT_EMAIL',
-            label: 'Email de Suporte',
-            type: 'text',
-            required: false,
-            placeholder: 'suporte@empresa.com'
           }
         ]
       }

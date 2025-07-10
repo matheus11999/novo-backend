@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="description" content="Portal de Acesso Wi-Fi">
+    <title>Portal Wi-Fi</title>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="preload" href="script.js" as="script">
+    <!-- Variables provided by MikroTik -->
+    <script>
+        window.mikrotikVars = {
+            linkLogin: '$(link-login)',
+            linkLoginOnly: '$(link-login-only)',
+            linkOrig: '$(link-orig)',
+            mac: '$(mac)',
+            ip: '$(ip)',
+            username: '$(username)',
+            interface: '$(interface)',
+            error: '$(error)',
+            errorMsg: '$(error-orig)',
+            chapId: '$(chap-id)',
+            chapChallenge: '$(chap-challenge)'
+        };
+    </script>
+    <!-- Critical CSS loaded synchronously -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Debug Info -->
+    <div class="debug-info" id="debugInfo"></div>
+
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div class="screen active fade-in" id="welcomeScreen">
+            <div class="header">
+                <div class="logo">
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+                    </svg>
+                </div>
+                <h1 class="title">Portal Wi-Fi</h1>
+                <p class="subtitle">Digite seu código de acesso</p>
+            </div>
+            
+            <div class="form-group">
+                <form onsubmit="loginWithPassword(); return false;" style="margin-bottom:1.5rem;">
+                    <div class="otp-inputs" id="otpInputs">
+                        <input class="otp" type="text" maxlength="1" inputmode="numeric" />
+                        <input class="otp" type="text" maxlength="1" inputmode="numeric" />
+                        <input class="otp" type="text" maxlength="1" inputmode="numeric" />
+                        <input class="otp" type="text" maxlength="1" inputmode="numeric" />
+                        <input class="otp" type="text" maxlength="1" inputmode="numeric" />
+                    </div>
+                    <button type="submit" class="btn btn-block">Conectar</button>
+                </form>
+                <div class="separator"><span>OU</span></div>
+                <button class="btn btn-success btn-block" onclick="showPlansScreen()">
+                    <svg width="16" height="16" viewBox="0 0 512 512" style="margin-right: 0.5rem; fill: currentColor;">
+                        <path d="M242.4 292.5C247.8 287.1 257.1 287.1 262.5 292.5L339.5 369.5C353.7 383.7 372.6 391.5 392.6 391.5H407.7L310.6 488.6C280.3 518.1 231.1 518.1 200.8 488.6L103.3 391.2H112.6C132.6 391.2 151.5 383.4 165.7 369.2L242.4 292.5zM262.5 218.9C256.1 224.4 247.9 224.5 242.4 218.9L165.7 142.2C151.5 127.1 132.6 120.2 112.6 120.2H103.3L200.7 22.8C231.1-7.6 280.3-7.6 310.6 22.8L407.8 119.9H392.6C372.6 119.9 353.7 127.7 339.5 141.9L262.5 218.9zM112.6 142.7C126.4 142.7 139.1 148.3 149.7 158.1L226.4 234.8C233.6 241.1 243 245.6 252.5 245.6C261.9 245.6 271.3 241.1 278.5 234.8L355.5 157.8C365.3 148.1 378.8 142.5 392.6 142.5H430.3L488.6 200.8C518.9 231.1 518.9 280.3 488.6 310.6L430.3 368.9H392.6C378.8 368.9 365.3 363.3 355.5 353.5L278.5 276.5C264.6 262.6 240.3 262.6 226.4 276.6L149.7 353.2C139.1 363 126.4 368.6 112.6 368.6H80.8L22.8 310.6C-7.6 280.3-7.6 231.1 22.8 200.8L80.8 142.7H112.6z"/>
+                    </svg>
+                    Comprar via PIX
+                </button>
+            </div>
+        </div>
+
+        <!-- Password Screen -->
+        <div class="screen" id="passwordScreen">
+            <div class="header">
+                <div class="logo">🔐</div>
+                <h1 class="title">Login com Senha</h1>
+                <p class="subtitle">Digite suas credenciais para conectar</p>
+            </div>
+            
+            <form onsubmit="loginWithPassword(); return false;">
+                <div class="form-group">
+                    <label class="form-label" for="password">Senha de Acesso</label>
+                    <input type="password" id="password" class="form-control" 
+                           placeholder="Digite sua senha" required>
+                </div>
+                
+                <div class="form-group">
+                    <button type="submit" class="btn btn-block">Conectar</button>
+                    <button type="button" class="btn btn-outline btn-block" onclick="showWelcomeScreen()">
+                        Voltar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Plans Screen -->
+        <div class="screen" id="plansScreen">
+            <div class="header">
+                <div class="logo">💳</div>
+                <h1 class="title">Escolha seu Plano</h1>
+                <p class="subtitle">Selecione o plano ideal para você</p>
+            </div>
+            
+            <div class="loading" id="loadingPlans">
+                <div class="spinner"></div>
+                <p>Carregando planos...</p>
+            </div>
+            
+            <div id="plansContainer"></div>
+            
+            <div class="form-group">
+                <button class="btn btn-outline btn-block" onclick="showWelcomeScreen()">
+                    Voltar
+                </button>
+            </div>
+        </div>
+
+        <!-- Instructions Screen -->
+        <div class="screen" id="instructionsScreen">
+            <div class="header">
+                <div class="logo">ℹ️</div>
+                <h1 class="title">Como Pagar</h1>
+                <p class="subtitle">Siga os passos para finalizar sua compra</p>
+            </div>
+            
+            <div class="pix-info">
+                <h3>📱 Instruções para pagamento PIX:</h3>
+                <ol style="margin: 1rem 0; padding-left: 1.5rem;">
+                    <li>Escaneie o QR Code com seu banco</li>
+                    <li>Ou copie e cole a chave PIX</li>
+                    <li>Confirme o pagamento</li>
+                    <li>Aguarde a confirmação automática</li>
+                </ol>
+            </div>
+            
+            <div class="form-group">
+                <button class="btn btn-success btn-block pulse" onclick="generatePix()">
+                    🚀 Gerar PIX Agora
+                </button>
+                <button class="btn btn-outline btn-block" onclick="showPlansScreen()">
+                    Voltar aos Planos
+                </button>
+            </div>
+        </div>
+
+        <!-- PIX Screen -->
+        <div class="screen" id="pixScreen">
+            <div class="header">
+                <div class="logo">💰</div>
+                <h1 class="title">Pagamento PIX</h1>
+                <p class="subtitle">Escaneie o código ou copie a chave</p>
+            </div>
+            
+            <div class="timer" id="paymentTimer">⏱️ 30:00</div>
+            
+            <div class="qr-container">
+                <div style="margin-bottom: 0.75rem; font-weight: 600; color: var(--dark);">📱 Escaneie com seu banco:</div>
+                <img id="qrCode" class="qr-code" alt="QR Code PIX" />
+            </div>
+            
+            <div style="text-align: center; margin: 1rem 0; font-weight: 600; color: var(--gray);">
+                📋 Ou copie e cole a chave PIX:
+            </div>
+            
+            <div class="pix-code" id="pixCodeContainer">
+                <div id="pixCode" style="font-size: 0.85rem; line-height: 1.3;"></div>
+                <button class="copy-btn" id="copyPixBtn">📋 Copiar Chave PIX</button>
+            </div>
+            
+            <div class="pix-info">
+                <div class="pix-info-title">💳 Detalhes do Pagamento</div>
+                <div class="pix-info-row">
+                    <span class="pix-info-label">📋 Plano:</span>
+                    <span class="pix-info-value" id="pixPlanName">-</span>
+                </div>
+                <div class="pix-info-row">
+                    <span class="pix-info-label">⏱️ Duração:</span>
+                    <span class="pix-info-value" id="pixPlanDuration">-</span>
+                </div>
+                <div class="pix-info-row">
+                    <span class="pix-info-label">💰 Valor:</span>
+                    <span class="pix-info-value" id="pixAmount" style="color: var(--success); font-weight: 700; font-size: 1.1rem;">-</span>
+                </div>
+            </div>
+            
+            <!-- Tutorial PIX -->
+            <div class="pix-tutorial">
+                <div class="tutorial-title">📖 Como pagar:</div>
+                <div class="tutorial-steps">
+                    <div class="tutorial-step">
+                        <span class="step-number">1</span>
+                        <span class="step-text">Copie a chave PIX abaixo</span>
+                        <span class="step-action">📋 COPIAR</span>
+                    </div>
+                    <div class="tutorial-step">
+                        <span class="step-number">2</span>
+                        <span class="step-text">Acesse seu aplicativo do banco e faça o pagamento</span>
+                    </div>
+                </div>
+                <div class="tutorial-bonus">
+                    🎁 <strong>Bônus:</strong> Você ganhará <strong>3 minutos de acesso</strong> para fazer o pagamento. Quando o pagamento for confirmado, seu acesso será liberado automaticamente em alguns segundos!
+                </div>
+            </div>
+            
+            <div class="loading" id="paymentChecking" style="display: none;">
+                <div class="spinner"></div>
+                <p>🔍 Verificando pagamento...</p>
+            </div>
+            
+            <div class="form-group">
+                <button class="btn btn-outline btn-block" onclick="showPlansScreen()">
+                    Escolher Outro Plano
+                </button>
+            </div>
+        </div>
+
+        <!-- Success Screen -->
+        <div class="screen" id="successScreen">
+            <div class="header">
+                <div class="success-icon">✅</div>
+                <h1 class="title">Pagamento Aprovado!</h1>
+                <p class="subtitle">Suas credenciais de acesso foram geradas</p>
+            </div>
+            
+            <div class="credentials">
+                <div class="credential-item">
+                    <span class="credential-label">👤 Usuário:</span>
+                    <span class="credential-value" id="successUser">-</span>
+                </div>
+                <div class="credential-item">
+                    <span class="credential-label">🔑 Senha:</span>
+                    <span class="credential-value" id="successPass">-</span>
+                </div>
+            </div>
+            
+            <div class="message success">
+                <strong>🎉 Pronto!</strong> Use suas credenciais para fazer login.
+                A conexão será liberada automaticamente.
+            </div>
+            
+            <div class="form-group">
+                <button class="btn btn-success btn-block" onclick="connectWithCredentials()">
+                    🌐 Conectar Automaticamente
+                </button>
+                <button class="btn btn-outline btn-block" onclick="location.reload()">
+                    Nova Compra
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div class="screen" id="loadingScreen">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p id="loadingText">Processando...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MikroTik Login Form (Hidden) -->
+    <form name="login" method="post" action="$(link-login-only)" style="display: none;">
+        <input type="hidden" name="username" id="hiddenUsername" />
+        <input type="hidden" name="password" id="hiddenPassword" />
+        <input type="hidden" name="dst" value="$(link-orig)" />
+        <input type="hidden" name="popup" value="true" />
+    </form>
+
+    <!-- Alternative Login Form for direct submission -->
+    <form name="sendin" method="post" action="$(link-login-only)" style="display: none;">
+        <input type="text" name="username" id="directUsername" />
+        <input type="password" name="password" id="directPassword" />
+        <input type="hidden" name="dst" value="$(link-orig)" />
+    </form>
+
+    <!-- Core template logic loaded asynchronously -->
+    <script src="script.js" async></script>
+    <!-- Fallback for script loading -->
+    <noscript>
+        <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:#1e293b;color:#f1f5f9;display:flex;align-items:center;justify-content:center;z-index:9999;">
+            <div style="text-align:center;padding:2rem;">
+                <h2>JavaScript Necessário</h2>
+                <p>Por favor, habilite JavaScript para usar este portal.</p>
+            </div>
+        </div>
+    </noscript>
+</body>
+</html>
