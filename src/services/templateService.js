@@ -134,6 +134,17 @@ class TemplateService {
             type: 'text',
             required: false,
             placeholder: 'Bem-vindo ao nosso hotspot!'
+          },
+          {
+            key: 'DEBUG_MODE',
+            label: 'Modo Debug',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'true', label: 'Ativado' },
+              { value: 'false', label: 'Desativado' }
+            ],
+            placeholder: 'false'
           }
         ]
       }

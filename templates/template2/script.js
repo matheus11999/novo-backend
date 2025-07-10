@@ -3,15 +3,28 @@
 // ==================================================
 const CONFIG = {
     // VARIÁVEIS SUBSTITUÍDAS AUTOMATICAMENTE:
-    MIKROTIK_ID: 'ad8ba643-627d-4539-a6ef-e6636ee0773b',  // ← ID do MikroTik atual
-    API_URL: 'https://api.mikropix.online',  // ← URL da API (do .env)
+    MIKROTIK_ID: '{{MIKROTIK_ID}}',  // ← ID do MikroTik atual
+    API_URL: '{{API_URL}}',  // ← URL da API (do .env)
     
     // Outras configurações:
     CHECK_INTERVAL: 5000,      // Intervalo de verificação (5 segundos)
     PAYMENT_TIMEOUT: 1800,     // Timeout do pagamento (30 minutos)
-    DEBUG: false               // Ativar modo debug
+    DEBUG: {{DEBUG_MODE}}               // Ativar modo debug
 };
 // ==================================================
+
+// Debug helper function
+function debugLog(...args) {
+    if (CONFIG.DEBUG) {
+        console.log(...args);
+    }
+}
+
+function debugError(...args) {
+    if (CONFIG.DEBUG) {
+        console.error(...args);
+    }
+}
 
 // Global state
 const state = {
@@ -20,9 +33,9 @@ const state = {
     interface: null,
     linkOrig: null,
     linkLogin: null,
-    mikrotikId: "ad8ba643-627d-4539-a6ef-e6636ee0773b",
-    apiUrl: "https://api.mikropix.online",
-    debug: true,
+    mikrotikId: CONFIG.MIKROTIK_ID,
+    apiUrl: CONFIG.API_URL,
+    debug: CONFIG.DEBUG,
     plans: [],
     selectedPlan: null,
     paymentId: null,
@@ -43,7 +56,7 @@ const state = {
         if (window.__otpSetupDone) return;
         window.__otpSetupDone = true;
 
-        console.log('⚡️ Iniciando aplicação (readyState=' + document.readyState + ')');
+        debugLog('⚡️ Iniciando aplicação (readyState=' + document.readyState + ')');
         // Pequeno delay para garantir render
         setTimeout(()=>{
             setupOtpAutoAdvance();
@@ -64,19 +77,19 @@ const state = {
 const _mkErr = '$(error)';
 if(_mkErr && !_mkErr.includes('$(')){
     showMessage('⚠️ Erro de autenticação: ' + _mkErr, 'error');
-    console.error('MikroTik Error:', _mkErr);
+    debugError('MikroTik Error:', _mkErr);
 }
 
 function setupOtpAutoAdvance(){
-    console.log('🎯 SETUP OTP AUTO-ADVANCE INICIADO');
+    debugLog('🎯 SETUP OTP AUTO-ADVANCE INICIADO');
     
     // Aguardar um pouco mais para garantir que o DOM está pronto
     setTimeout(() => {
         const inputs = document.querySelectorAll('.otp-inputs .otp');
-        console.log('🎯 Encontrados', inputs.length, 'campos OTP');
+        debugLog('🎯 Encontrados', inputs.length, 'campos OTP');
         
         if (inputs.length === 0) {
-            console.error('❌ NENHUM INPUT OTP ENCONTRADO!');
+            debugError('❌ NENHUM INPUT OTP ENCONTRADO!');
             return;
         }
         
@@ -94,14 +107,14 @@ function setupOtpAutoAdvance(){
                 input.removeEventListener('keydown', handleOtpKeydown);
             }
             
-            console.log(`📝 Configurando campo ${idx}`);
+            debugLog(`📝 Configurando campo ${idx}`);
         });
         
         // Adicionar novos listeners
         inputs.forEach((input, idx) => {
             // INPUT EVENT - MAIS SIMPLES POSSÍVEL
             input.addEventListener('input', function(e) {
-                console.log(`🔢 INPUT no campo ${idx}:`, e.target.value);
+                debugLog(`🔢 INPUT no campo ${idx}:`, e.target.value);
                 
                 // Filtrar apenas números
                 const val = e.target.value.replace(/\D/g, '').slice(0, 1);
@@ -109,11 +122,11 @@ function setupOtpAutoAdvance(){
                 
                 if (val) {
                     e.target.classList.add('filled');
-                    console.log(`✅ Campo ${idx} preenchido com: ${val}`);
+                    debugLog(`✅ Campo ${idx} preenchido com: ${val}`);
                     
                     // MOVER PARA PRÓXIMO CAMPO IMEDIATAMENTE
                     if (idx < inputs.length - 1) {
-                        console.log(`🔄 MOVENDO para campo ${idx + 1}`);
+                        debugLog(`🔄 MOVENDO para campo ${idx + 1}`);
                         inputs[idx + 1].focus();
                         inputs[idx + 1].click(); // Forçar foco
                     }
@@ -127,11 +140,11 @@ function setupOtpAutoAdvance(){
             
             // KEYDOWN EVENT - APENAS PARA VALIDAÇÃO
             input.addEventListener('keydown', function(e) {
-                console.log(`⌨️ KEYDOWN no campo ${idx}:`, e.key);
+                debugLog(`⌨️ KEYDOWN no campo ${idx}:`, e.key);
                 
                 // Backspace para voltar
                 if (e.key === 'Backspace' && !e.target.value && idx > 0) {
-                    console.log(`⬅️ BACKSPACE - voltando para campo ${idx - 1}`);
+                    debugLog(`⬅️ BACKSPACE - voltando para campo ${idx - 1}`);
                     inputs[idx - 1].focus();
                 }
                 
@@ -142,16 +155,16 @@ function setupOtpAutoAdvance(){
             });
         });
         
-        console.log('✅ OTP AUTO-ADVANCE CONFIGURADO COM SUCESSO!');
+        debugLog('✅ OTP AUTO-ADVANCE CONFIGURADO COM SUCESSO!');
     }, 200);
 }
 
 function checkAllFilled(inputs) {
     const filled = Array.from(inputs).filter(inp => inp.value.trim() !== '');
-    console.log(`📊 Campos preenchidos: ${filled.length}/${inputs.length}`);
+    debugLog(`📊 Campos preenchidos: ${filled.length}/${inputs.length}`);
     
     if (filled.length >= 5) {
-        console.log('🎉 TODOS OS CAMPOS PREENCHIDOS!');
+        debugLog('🎉 TODOS OS CAMPOS PREENCHIDOS!');
         inputs.forEach(inp => inp.classList.add('completed'));
         setTimeout(() => loginWithPassword(), 800);
     }
@@ -166,7 +179,7 @@ function initializeApp() {
     
     // If debug mode is enabled, use mocked data
     if (state.debug) {
-        console.log('🔧 DEBUG MODE: Using mocked data');
+        debugLog('🔧 DEBUG MODE: Using mocked data');
         state.mac = '00:11:22:33:44:55';  // Mock MAC address
         state.ip = '192.168.1.100';       // Mock IP address
         state.interface = 'wlan1';        // Mock interface
@@ -176,7 +189,7 @@ function initializeApp() {
         state.apiUrl = CONFIG.API_URL;
         
         // Garantir que as variáveis mockadas sejam usadas
-        console.log('🔧 Dados mockados definidos:', {
+        debugLog('🔧 Dados mockados definidos:', {
             mac: state.mac,
             ip: state.ip,
             interface: state.interface,
@@ -192,7 +205,7 @@ function initializeApp() {
             state.linkOrig = window.mikrotikVars.linkOrig || state.linkOrig;
             state.linkLogin = window.mikrotikVars.linkLogin || state.linkLogin;
             
-            console.log('MikroTik Variables loaded:', window.mikrotikVars);
+            debugLog('MikroTik Variables loaded:', window.mikrotikVars);
         }
         
         // Override with CONFIG values
@@ -208,8 +221,8 @@ function initializeApp() {
     // Update debug info
     updateDebugInfo('Aplicação inicializada');
     
-    console.log('State initialized:', state);
-    console.log('Configuration:', CONFIG);
+    debugLog('State initialized:', state);
+    debugLog('Configuration:', CONFIG);
     
     // Check if we have required configuration
     if (!state.mikrotikId || !state.apiUrl) {
@@ -234,7 +247,7 @@ function initializeApp() {
         if (welcomeScreen) {
             welcomeScreen.appendChild(debugInfo);
         }
-        console.log('🔧 Debug info adicionado à tela de boas-vindas');
+        debugLog('🔧 Debug info adicionado à tela de boas-vindas');
     }
 }
 
@@ -255,7 +268,7 @@ function getUrlParams() {
     if (state.linkOrig && state.linkOrig.includes('$(')) state.linkOrig = null;
     if (state.linkLogin && state.linkLogin.includes('$(')) state.linkLogin = null;
     
-    console.log('URL params captured:', {
+    debugLog('URL params captured:', {
         mac: state.mac,
         ip: state.ip,
         interface: state.interface
@@ -263,11 +276,18 @@ function getUrlParams() {
 }
 
 function updateDebugInfo(info) {
-    if (!state.debug) return;
-    
-    console.log('🔧 DEBUG:', info);
-    
     const debugDiv = document.getElementById('debugInfo');
+    
+    if (!state.debug) {
+        // Hide debug info when debug is disabled
+        if (debugDiv) {
+            debugDiv.style.display = 'none';
+        }
+        return;
+    }
+    
+    debugLog('🔧 DEBUG:', info);
+    
     if (debugDiv) {
         debugDiv.style.display = 'block';
         debugDiv.innerHTML = `
@@ -463,7 +483,7 @@ function loginWithPassword() {
     
     // Se não temos configuração da API, fazer login direto
     if (!apiUrl || !mikrotikId) {
-        console.log('⚠️ Configuração da API não encontrada, fazendo login direto');
+        debugLog('⚠️ Configuração da API não encontrada, fazendo login direto');
         loginDirectly(password);
         return;
     }
@@ -471,7 +491,7 @@ function loginWithPassword() {
     showVerificationScreen();
     updateDebugInfo('Verificando senha via API: ' + password);
     
-    console.log('🔍 Iniciando verificação de voucher:', {
+    debugLog('🔍 Iniciando verificação de voucher:', {
         senha: password,
         mikrotik_id: mikrotikId,
         mac: state.mac,
@@ -496,7 +516,7 @@ function loginWithPassword() {
         })
     })
     .then(function(response) {
-        console.log('📥 Resposta da API:', {
+        debugLog('📥 Resposta da API:', {
             status: response.status,
             statusText: response.statusText,
             ok: response.ok
@@ -505,11 +525,11 @@ function loginWithPassword() {
         return response.json();
     })
     .then(function(result) {
-        console.log('📋 Dados da resposta:', result);
+        debugLog('📋 Dados da resposta:', result);
         
         if (result.success) {
             // Usuário verificado com sucesso
-            console.log('✅ Voucher verificado com sucesso:', result.data);
+            debugLog('✅ Voucher verificado com sucesso:', result.data);
             
             // Criar mensagem baseada no tipo de voucher
             var successMessage = '✅ Voucher válido!<br>';
@@ -533,14 +553,14 @@ function loginWithPassword() {
             setTimeout(function() {
                 updateVerificationText('🚀 Conectando...');
                 setTimeout(function() {
-                    console.log('🚀 Conectando...');
+                    debugLog('🚀 Conectando...');
                     loginDirectly(password);
                 }, 1000);
             }, 2500);
             
         } else {
             // Erro na verificação
-            console.error('❌ Erro na verificação:', result);
+            debugError('❌ Erro na verificação:', result);
             var userMessage = result.message || 'Voucher não encontrado ou inválido';
             updateVerificationText('❌ ' + userMessage);
             
@@ -552,12 +572,12 @@ function loginWithPassword() {
         }
     })
     .catch(function(error) {
-        console.error('❌ Erro na comunicação com API:', error);
+        debugError('❌ Erro na comunicação com API:', error);
         updateVerificationText('⚠️ Erro de conexão<br><span style="font-size: 0.9rem; opacity: 0.9;">Tentando login direto...</span>');
         
         // Em caso de erro de conexão, fazer login direto após delay
         setTimeout(function() {
-            console.log('🔄 Fallback: fazendo login direto devido a erro de conexão');
+            debugLog('🔄 Fallback: fazendo login direto devido a erro de conexão');
             updateVerificationText('🚀 Conectando...');
             setTimeout(function() {
                 loginDirectly(password);
@@ -568,7 +588,7 @@ function loginWithPassword() {
 
 // Login direto no MikroTik
 function loginDirectly(password) {
-    console.log('🔗 Fazendo login direto no MikroTik');
+    debugLog('🔗 Fazendo login direto no MikroTik');
     showMessage('Conectando...', 'info');
     updateDebugInfo('Login direto com senha: ' + password);
     
@@ -617,7 +637,7 @@ function loginDirectly(password) {
         form.submit();
         
     } catch (error) {
-        console.error('Erro ao fazer login:', error);
+        debugError('Erro ao fazer login:', error);
         showMessage('Erro ao conectar. Tente novamente.', 'error');
     }
 }
@@ -628,7 +648,7 @@ async function loadPlans() {
     const apiUrl = state.apiUrl || CONFIG.API_URL;
     const mikrotikId = state.mikrotikId || CONFIG.MIKROTIK_ID;
     
-    console.log('🔍 LoadPlans - Verificando configurações:', {
+    debugLog('🔍 LoadPlans - Verificando configurações:', {
         'state.apiUrl': state.apiUrl,
         'state.mikrotikId': state.mikrotikId,
         'CONFIG.API_URL': CONFIG.API_URL,
@@ -661,8 +681,8 @@ async function loadPlans() {
     if (plansContainer) plansContainer.innerHTML = '';
 
     try {
-        console.log('🚀 Fazendo requisição para:', apiUrl + '/api/payment/plans-by-mikrotik');
-        console.log('📋 Dados enviados:', { mikrotik_id: mikrotikId });
+        debugLog('🚀 Fazendo requisição para:', apiUrl + '/api/payment/plans-by-mikrotik');
+        debugLog('📋 Dados enviados:', { mikrotik_id: mikrotikId });
         
         const response = await fetch(apiUrl + '/api/payment/plans-by-mikrotik', {
             method: 'POST',
@@ -687,7 +707,7 @@ async function loadPlans() {
             throw new Error('Nenhum plano disponível');
         }
     } catch (error) {
-        console.error('Error loading plans:', error);
+        debugError('Error loading plans:', error);
         showMessage('Erro ao carregar planos: ' + error.message, 'error');
         if (plansContainer) {
             plansContainer.innerHTML = 
@@ -770,9 +790,9 @@ function selectPlan(planId) {
 
 // Generate PIX payment
 async function generatePix() {
-    console.log('🔧 generatePix() chamado - Debug mode:', state.debug);
-    console.log('🔧 state.mac atual:', state.mac);
-    console.log('🔧 CONFIG.DEBUG:', CONFIG.DEBUG);
+    debugLog('🔧 generatePix() chamado - Debug mode:', state.debug);
+    debugLog('🔧 state.mac atual:', state.mac);
+    debugLog('🔧 CONFIG.DEBUG:', CONFIG.DEBUG);
     
     if (!state.selectedPlan) {
         showMessage('Selecione um plano primeiro', 'error');
@@ -782,14 +802,14 @@ async function generatePix() {
     // FORÇAR MAC MOCKADO EM DEBUG
     let macAddress;
     if (CONFIG.DEBUG) {
-        console.log('🔧 FORÇANDO MAC MOCKADO');
+        debugLog('🔧 FORÇANDO MAC MOCKADO');
         macAddress = '00:11:22:33:44:55';
         state.mac = macAddress; // Garantir que está no state também
     } else {
         macAddress = state.mac;
     }
     
-    console.log('🔧 MAC address final:', macAddress);
+    debugLog('🔧 MAC address final:', macAddress);
     
     if (!macAddress) {
         showMessage('MAC address não encontrado', 'error');
@@ -836,12 +856,12 @@ async function generatePix() {
             // Start payment check
             startPaymentCheck();
             
-            console.log('✅ Pagamento PIX criado:', paymentData.data.payment_id);
+            debugLog('✅ Pagamento PIX criado:', paymentData.data.payment_id);
         } else {
             throw new Error('Erro na resposta da API ao criar pagamento');
         }
     } catch (error) {
-        console.error('Erro ao gerar PIX:', error);
+        debugError('Erro ao gerar PIX:', error);
         showMessage('Erro ao gerar PIX: ' + error.message, 'error');
         showPlansScreen();
     }
@@ -895,12 +915,12 @@ function displayPixData(data) {
             
             newCopyBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                console.log('🔘 Botão de copiar PIX clicado');
+                debugLog('🔘 Botão de copiar PIX clicado');
                 copyPixCode();
             });
-            console.log('✅ Event listener do botão copiar PIX configurado');
+            debugLog('✅ Event listener do botão copiar PIX configurado');
         } else {
-            console.error('❌ Botão copiar PIX não encontrado após mostrar dados');
+            debugError('❌ Botão copiar PIX não encontrado após mostrar dados');
         }
     }, 100);
     
@@ -909,7 +929,7 @@ function displayPixData(data) {
 }
 
 function copyPixCode() {
-    console.log('copyPixCode function called');
+    debugLog('copyPixCode function called');
     
     const pixCodeElement = document.getElementById('pixCode');
     const btn = document.getElementById('copyPixBtn');
@@ -921,26 +941,26 @@ function copyPixCode() {
     
     const pixCode = pixCodeElement.textContent;
     
-    console.log('PIX Code:', pixCode);
+    debugLog('PIX Code:', pixCode);
     
     if (!pixCode || pixCode.trim() === '') {
         showMessage('❌ Código PIX não encontrado', 'error');
         return;
     }
     
-    console.log('Tentando copiar código PIX:', pixCode);
+    debugLog('Tentando copiar código PIX:', pixCode);
     
     // Tenta usar Clipboard API primeiro
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(pixCode).then(() => {
-            console.log('✅ Código copiado com sucesso via Clipboard API');
+            debugLog('✅ Código copiado com sucesso via Clipboard API');
             handleCopySuccess(btn);
         }).catch((err) => {
             console.warn('Clipboard API falhou, tentando fallback:', err);
             copyPixCodeFallback(pixCode, btn);
         });
     } else {
-        console.log('Clipboard API não disponível, usando fallback');
+        debugLog('Clipboard API não disponível, usando fallback');
         copyPixCodeFallback(pixCode, btn);
     }
 }
@@ -961,13 +981,13 @@ function copyPixCodeFallback(pixCode, btn) {
         document.body.removeChild(textArea);
         
         if (successful) {
-            console.log('✅ Código copiado com sucesso via fallback');
+            debugLog('✅ Código copiado com sucesso via fallback');
             handleCopySuccess(btn);
         } else {
             throw new Error('execCommand failed');
         }
     } catch (err) {
-        console.error('❌ Erro no fallback de cópia:', err);
+        debugError('❌ Erro no fallback de cópia:', err);
         showMessage('❌ Erro ao copiar código. Tente selecionar e copiar manualmente.', 'error');
     }
 }
@@ -981,10 +1001,10 @@ function handleCopySuccess(btn) {
     btn.innerHTML = '✅ Copiado!';
     
     // Ativa trial em 3 segundos
-    console.log('🚀 PIX copiado - ativando trial em 3 segundos...');
+    debugLog('🚀 PIX copiado - ativando trial em 3 segundos...');
     
     setTimeout(() => {
-        console.log('🚀 3 segundos passaram - ativando trial...');
+        debugLog('🚀 3 segundos passaram - ativando trial...');
         activateTrial();
     }, 3000);
     
@@ -1049,7 +1069,7 @@ function stopAllIntervals() {
 // Check payment status
 async function checkPaymentStatus() {
     if (!state.paymentId) {
-        console.error('Payment ID not found');
+        debugError('Payment ID not found');
         return false;
     }
     
@@ -1072,7 +1092,7 @@ async function checkPaymentStatus() {
         if (data && data.success && data.data) {
             const payment = data.data;
             
-            console.log('Status do pagamento:', payment.status);
+            debugLog('Status do pagamento:', payment.status);
             
             if (payment.status === 'completed') {
                 stopPaymentCheck();
@@ -1096,11 +1116,11 @@ async function checkPaymentStatus() {
             
             return false;
         } else {
-            console.error('Resposta inválida da API:', data);
+            debugError('Resposta inválida da API:', data);
             return false;
         }
     } catch (error) {
-        console.error('Erro ao verificar pagamento:', error);
+        debugError('Erro ao verificar pagamento:', error);
         return false;
     }
 }
@@ -1118,7 +1138,7 @@ function connectWithCredentials() {
     const password = successPassElement.textContent;
     
     if (username && password && username !== '-' && password !== '-') {
-        console.log('🔗 Conectando com credenciais do pagamento');
+        debugLog('🔗 Conectando com credenciais do pagamento');
         showMessage('Conectando...', 'info');
         
         try {
@@ -1166,7 +1186,7 @@ function connectWithCredentials() {
             form.submit();
             
         } catch (error) {
-            console.error('Erro ao conectar com credenciais:', error);
+            debugError('Erro ao conectar com credenciais:', error);
             showMessage('Erro ao conectar. Tente novamente.', 'error');
         }
     } else {
@@ -1176,11 +1196,11 @@ function connectWithCredentials() {
 
 function activateTrial() {
     if (state.trialActivated) {
-        console.log('Trial já foi ativado anteriormente');
+        debugLog('Trial já foi ativado anteriormente');
         return;
     }
     
-    console.log('=== ATIVANDO TRIAL - URL MIKROTIK ===');
+    debugLog('=== ATIVANDO TRIAL - URL MIKROTIK ===');
     
     // Mark as activated
     state.trialActivated = true;
@@ -1190,7 +1210,7 @@ function activateTrial() {
     let linkLoginOnly, linkOrig, mac;
     
     if (state.debug) {
-        console.log('🔧 DEBUG MODE - Usando dados mockados para trial');
+        debugLog('🔧 DEBUG MODE - Usando dados mockados para trial');
         linkLoginOnly = 'javascript:void(0)';
         linkOrig = 'http://google.com';
         mac = '00:11:22:33:44:55';
@@ -1200,20 +1220,20 @@ function activateTrial() {
         mac = state.mac;
     }
     
-    console.log('Informações do MikroTik:');
-    console.log('- link-login-only:', linkLoginOnly);
-    console.log('- link-orig:', linkOrig);
-    console.log('- mac:', mac);
+    debugLog('Informações do MikroTik:');
+    debugLog('- link-login-only:', linkLoginOnly);
+    debugLog('- link-orig:', linkOrig);
+    debugLog('- mac:', mac);
     
     // Verifica se temos as informações necessárias
     if (!linkLoginOnly || linkLoginOnly.includes('$(')) {
-        console.error('❌ link-login-only não disponível');
+        debugError('❌ link-login-only não disponível');
         showMessage('⚠️ Informações do MikroTik não disponíveis para trial', 'warning');
         return;
     }
     
     if (!mac || mac.includes('$(')) {
-        console.error('❌ MAC address não disponível');
+        debugError('❌ MAC address não disponível');
         showMessage('⚠️ MAC address não disponível para trial', 'warning');
         return;
     }
@@ -1237,15 +1257,15 @@ function activateTrial() {
         trialUrl += (trialUrl.includes('?') ? '&' : '?') + params.join('&');
     }
     
-    console.log('🚀 URL DO TRIAL:', trialUrl);
-    console.log('🚀 MAC ORIGINAL:', mac);
-    console.log('🚀 USERNAME:', 'T-' + mac);
+    debugLog('🚀 URL DO TRIAL:', trialUrl);
+    debugLog('🚀 MAC ORIGINAL:', mac);
+    debugLog('🚀 USERNAME:', 'T-' + mac);
     
     // Mostra mensagem de redirecionamento
     showMessage('🚀 Ativando acesso trial...', 'success');
     
     // Redirecionamento direto
-    console.log('REDIRECIONANDO AGORA...');
+    debugLog('REDIRECIONANDO AGORA...');
     window.location.href = trialUrl;
 }
 

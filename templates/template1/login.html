@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MikroTik Hotspot - Login</title>
+    <title>{{WELCOME_TITLE}} - Portal Wi-Fi</title>
     <!-- Variables provided by MikroTik -->
     <script>
         // MikroTik variables
@@ -748,6 +748,19 @@
             DEBUG: {{DEBUG_MODE}}               // Ativar modo debug
         };
         // ==================================================
+
+        // Debug helper functions
+        function debugLog(...args) {
+            if (CONFIG.DEBUG) {
+                console.log(...args);
+            }
+        }
+
+        function debugError(...args) {
+            if (CONFIG.DEBUG) {
+                console.error(...args);
+            }
+        }
 
         // Global state
         const state = {
@@ -1642,5 +1655,10 @@
             }
         }
     </script>
+
+    <!-- MikroPix Watermark -->
+    <a href="https://mikropix.online" target="_blank" style="position:fixed;bottom:10px;right:10px;font-size:11px;color:rgba(255,255,255,0.6);text-decoration:none;z-index:9999;background:rgba(0,0,0,0.1);padding:4px 8px;border-radius:4px;backdrop-filter:blur(4px);transition:all 0.3s ease;" onmouseover="this.style.color='rgba(255,255,255,0.9)';this.style.background='rgba(0,0,0,0.2)';this.style.transform='scale(1.05)'" onmouseout="this.style.color='rgba(255,255,255,0.6)';this.style.background='rgba(0,0,0,0.1)';this.style.transform='scale(1)'" title="Sistema de Gerenciamento MikroTik">
+        🚀 MikroPix - Sistema de Gerenciamento MikroTik
+    </a>
 </body>
 </html>
