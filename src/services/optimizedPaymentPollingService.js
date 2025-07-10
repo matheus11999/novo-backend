@@ -545,7 +545,17 @@ class OptimizedPaymentPollingService {
                 
                 if (bindingResult && bindingResult.success) {
                     updateData.ip_binding_created = true;
-                    updateData.ip_binding_details = bindingResult.details;
+
+                    // Preenche colunas já existentes na tabela vendas_pix para manter consistência com o webhook
+                    if (bindingResult.details?.data?.data) {
+                        const bindingData = bindingResult.details.data.data;
+                        updateData.ip_binding_mac = bindingData.mac_address || venda.mac_address;
+                        updateData.ip_binding_comment = bindingData.comment || null;
+                        updateData.ip_binding_created_at = bindingData.created_at || new Date().toISOString();
+                        updateData.ip_binding_expires_at = bindingData.expires_at || null;
+                    }
+
+                    updateData.mikrotik_creation_status = 'success';
                     
                     logger.info('IP binding created successfully', { 
                         component: 'PAYMENT_POLLING',
