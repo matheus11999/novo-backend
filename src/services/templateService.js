@@ -59,7 +59,7 @@ class TemplateService {
       template1: {
         name: 'Template 1',
         description: 'Template simples e limpo para hotspot',
-        preview: `${process.env.BASE_URL || 'https://api.mikropix.online'}/api/mikrotik/template/template1_preview.png`,
+        preview: `${process.env.BASE_URL || 'https://api.mikropix.online'}/api/mikrotik/templates/template1/preview`,
         variables: [
           {
             key: 'PRIMARY_COLOR',
@@ -105,7 +105,7 @@ class TemplateService {
       template2: {
         name: 'Template 2',
         description: 'Template otimizado para dispositivos móveis',
-        preview: `${process.env.BASE_URL || 'https://api.mikropix.online'}/api/mikrotik/template/template2_preview.png`,
+        preview: `${process.env.BASE_URL || 'https://api.mikropix.online'}/api/mikrotik/templates/template2/preview`,
         variables: [
           {
             key: 'PROVIDER_NAME',

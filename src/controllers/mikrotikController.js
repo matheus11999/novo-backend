@@ -921,6 +921,55 @@ const deleteHotspotServerProfile = async (req, res) => {
 
 // ==================== TEMPLATES ====================
 
+// Get template preview image
+const getTemplatePreview = async (req, res) => {
+  try {
+    const { templateId } = req.params;
+    const fs = require('fs');
+    const path = require('path');
+    
+    console.log(`[GET-TEMPLATE-PREVIEW] Serving preview for template: ${templateId}`);
+    
+    const previewPath = path.join(__dirname, '../../templates', templateId, 'preview.png');
+    
+    if (!fs.existsSync(previewPath)) {
+      console.log(`[GET-TEMPLATE-PREVIEW] Preview not found: ${previewPath}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Preview image not found'
+      });
+    }
+    
+    // Set proper headers
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    
+    console.log(`[GET-TEMPLATE-PREVIEW] Serving preview: ${previewPath}`);
+    
+    // Send file
+    const fileStream = fs.createReadStream(previewPath);
+    fileStream.pipe(res);
+    
+    fileStream.on('error', (error) => {
+      console.error(`[GET-TEMPLATE-PREVIEW] Error reading file:`, error);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'Error reading preview file' });
+      }
+    });
+    
+  } catch (error) {
+    console.error('[GET-TEMPLATE-PREVIEW] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 // Get available templates
 const getTemplates = async (req, res) => {
   try {
@@ -2147,6 +2196,7 @@ module.exports = {
   deleteHotspotServerProfile,
   // Template endpoints
   getTemplates,
+  getTemplatePreview,
   getTemplateDetails,
   getTemplateHtml,
   getTemplateFiles,

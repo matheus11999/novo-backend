@@ -52,6 +52,11 @@ router.get('/template/:filename', (req, res) => {
       if (fs.existsSync(previewPath)) {
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        console.log(`[TEMPLATE-ROUTE] Serving preview image: ${templateId} from ${previewPath}`);
         return fs.createReadStream(previewPath).pipe(res);
       } else {
         return res.status(404).json({
@@ -149,6 +154,7 @@ router.get('/template/:filename', (req, res) => {
 
 // Rotas para templates (sem autenticação para permitir acesso do frontend)
 router.get('/templates', mikrotikController.getTemplates);
+router.get('/templates/:templateId/preview', mikrotikController.getTemplatePreview);
 router.get('/templates/:templateId/html', mikrotikController.getTemplateHtml);
 router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
 router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
