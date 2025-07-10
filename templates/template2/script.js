@@ -93,26 +93,58 @@ function setupOtpAutoAdvance(){
             return;
         }
         
-        // Limpar listeners existentes e reset
+        // Aplicar estilos mobile-friendly aos inputs OTP
         inputs.forEach((input, idx) => {
+            // Reset
             input.value = '';
             input.classList.remove('filled', 'completed');
             
-            // Remover listeners existentes
-            // Verifica se handlers antigos existem antes de removê-los para evitar ReferenceError
-            if (typeof handleOtpInput === 'function') {
-                input.removeEventListener('input', handleOtpInput);
-            }
-            if (typeof handleOtpKeydown === 'function') {
-                input.removeEventListener('keydown', handleOtpKeydown);
-            }
+            // Mobile-optimized styling
+            input.style.width = '55px';
+            input.style.height = '55px';
+            input.style.fontSize = '20px';
+            input.style.fontWeight = '600';
+            input.style.textAlign = 'center';
+            input.style.border = '2px solid rgba(148, 163, 184, 0.3)';
+            input.style.borderRadius = '12px';
+            input.style.background = 'rgba(30, 41, 59, 0.8)';
+            input.style.color = '#f1f5f9';
+            input.style.outline = 'none';
+            input.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            input.style.margin = '0 6px';
+            input.style.touchAction = 'manipulation';
+            input.style.webkitTapHighlightColor = 'transparent';
+            
+            // Focus styles
+            input.addEventListener('focus', function() {
+                this.style.borderColor = '#3b82f6';
+                this.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.3)';
+                this.style.transform = 'scale(1.05)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.style.borderColor = this.value ? '#10b981' : 'rgba(148, 163, 184, 0.3)';
+                this.style.boxShadow = this.value ? '0 0 0 2px rgba(16, 185, 129, 0.2)' : 'none';
+                this.style.transform = 'scale(1)';
+            });
             
             debugLog(`📝 Configurando campo ${idx}`);
         });
         
+        // Container dos inputs OTP
+        const otpContainer = document.querySelector('.otp-inputs');
+        if (otpContainer) {
+            otpContainer.style.display = 'flex';
+            otpContainer.style.justifyContent = 'center';
+            otpContainer.style.alignItems = 'center';
+            otpContainer.style.gap = '8px';
+            otpContainer.style.marginBottom = '2rem';
+            otpContainer.style.padding = '1rem 0';
+        }
+        
         // Adicionar novos listeners
         inputs.forEach((input, idx) => {
-            // INPUT EVENT - MAIS SIMPLES POSSÍVEL
+            // INPUT EVENT - MOBILE OPTIMIZED
             input.addEventListener('input', function(e) {
                 debugLog(`🔢 INPUT no campo ${idx}:`, e.target.value);
                 
@@ -122,35 +154,72 @@ function setupOtpAutoAdvance(){
                 
                 if (val) {
                     e.target.classList.add('filled');
+                    e.target.style.borderColor = '#10b981';
+                    e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
                     debugLog(`✅ Campo ${idx} preenchido com: ${val}`);
                     
-                    // MOVER PARA PRÓXIMO CAMPO IMEDIATAMENTE
+                    // MOVER PARA PRÓXIMO CAMPO COM DELAY PARA MOBILE
                     if (idx < inputs.length - 1) {
                         debugLog(`🔄 MOVENDO para campo ${idx + 1}`);
-                        inputs[idx + 1].focus();
-                        inputs[idx + 1].click(); // Forçar foco
+                        setTimeout(() => {
+                            inputs[idx + 1].focus();
+                            inputs[idx + 1].click();
+                        }, 50);
                     }
                 } else {
                     e.target.classList.remove('filled');
+                    e.target.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+                    e.target.style.backgroundColor = 'rgba(30, 41, 59, 0.8)';
                 }
                 
                 // Verificar se todos estão preenchidos
                 checkAllFilled(inputs);
             });
             
-            // KEYDOWN EVENT - APENAS PARA VALIDAÇÃO
+            // KEYDOWN EVENT - MOBILE FRIENDLY
             input.addEventListener('keydown', function(e) {
                 debugLog(`⌨️ KEYDOWN no campo ${idx}:`, e.key);
                 
                 // Backspace para voltar
                 if (e.key === 'Backspace' && !e.target.value && idx > 0) {
                     debugLog(`⬅️ BACKSPACE - voltando para campo ${idx - 1}`);
+                    setTimeout(() => {
+                        inputs[idx - 1].focus();
+                    }, 50);
+                }
+                
+                // Setas para navegação
+                if (e.key === 'ArrowLeft' && idx > 0) {
+                    e.preventDefault();
                     inputs[idx - 1].focus();
+                }
+                if (e.key === 'ArrowRight' && idx < inputs.length - 1) {
+                    e.preventDefault();
+                    inputs[idx + 1].focus();
                 }
                 
                 // Permitir apenas números
-                if (!/[0-9]/.test(e.key) && !['Backspace', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                     e.preventDefault();
+                }
+            });
+            
+            // PASTE EVENT - Handle paste of full code
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text').replace(/\D/g, '');
+                debugLog(`📋 PASTE detectado: ${pastedData}`);
+                
+                if (pastedData.length >= inputs.length) {
+                    inputs.forEach((inp, i) => {
+                        if (pastedData[i]) {
+                            inp.value = pastedData[i];
+                            inp.classList.add('filled');
+                            inp.style.borderColor = '#10b981';
+                            inp.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+                        }
+                    });
+                    checkAllFilled(inputs);
                 }
             });
         });
@@ -335,7 +404,7 @@ function setupButtonTextAnimation(button) {
     let currentTextIndex = 0;
     let isAnimating = false;
     
-    // Enhanced button styling for premium effect
+    // Enhanced button styling for premium effect - Mobile optimized
     button.style.position = 'relative';
     button.style.overflow = 'hidden';
     button.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 50%, #28a745 100%)';
@@ -343,10 +412,18 @@ function setupButtonTextAnimation(button) {
     button.style.animation = 'buttonGradient 3s ease-in-out infinite';
     button.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3), 0 0 20px rgba(40, 167, 69, 0.1)';
     button.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-    button.style.minHeight = '56px';
-    button.style.padding = '14px 24px';
-    button.style.fontSize = '16px';
+    button.style.minHeight = '60px';
+    button.style.padding = '16px 28px';
+    button.style.fontSize = '18px';
     button.style.fontWeight = '600';
+    button.style.width = '100%';
+    button.style.border = 'none';
+    button.style.borderRadius = '16px';
+    button.style.color = 'white';
+    button.style.cursor = 'pointer';
+    button.style.userSelect = 'none';
+    button.style.touchAction = 'manipulation';
+    button.style.webkitTapHighlightColor = 'transparent';
     
     // Add keyframes for gradient animation
     if (!document.getElementById('buttonAnimationStyles')) {
