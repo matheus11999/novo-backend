@@ -568,25 +568,40 @@ class WebhookController {
                 timeout: 20000
             });
 
-            console.log(`📥 MikroTik API response:`, response.data);
+            console.log(`📥 MikroTik API response status:`, response.status);
+            console.log(`📥 MikroTik API response data:`, JSON.stringify(response.data, null, 2));
 
             if (response.data?.success) {
+                console.log(`✅ IP binding created successfully`);
                 return {
                     success: true,
                     binding_id: response.data.data?.result?.[0] || null,
                     data: response.data
                 };
             } else {
+                const errorMsg = response.data?.error || response.data?.message || 'Unknown error creating IP binding';
+                console.error(`❌ IP binding creation failed:`, errorMsg);
+                console.error(`❌ Full response data:`, response.data);
                 return {
                     success: false,
-                    error: response.data?.error || response.data?.message || 'Unknown error creating IP binding'
+                    error: errorMsg
                 };
             }
         } catch (error) {
-            console.error('❌ MikroTik API Error:', error.message);
+            console.error('❌ MikroTik API Error details:');
+            console.error('   - Error message:', error.message);
+            console.error('   - Error code:', error.code);
+            console.error('   - Request URL:', error.config?.url);
+            console.error('   - Request data:', error.config?.data);
+            
             if (error.response) {
-                console.error('❌ Error response:', error.response.data);
+                console.error('   - Response status:', error.response.status);
+                console.error('   - Response data:', JSON.stringify(error.response.data, null, 2));
+            } else if (error.request) {
+                console.error('   - No response received');
+                console.error('   - Request timeout or network error');
             }
+            
             return {
                 success: false,
                 error: error.response?.data?.error || error.response?.data?.message || error.message
