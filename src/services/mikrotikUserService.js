@@ -376,6 +376,81 @@ class MikroTikUserService {
         }
     }
 
+    /**
+     * Cria um IP binding no MikroTik a partir dos dados de um pagamento.
+     * Este método é utilizado pelo serviço de polling para garantir que o dispositivo
+     * tenha acesso logo após a aprovação do pagamento.
+     * @param {Object} vendaData Objeto da venda vindo do Supabase (inclui mikrotiks, planos, etc.)
+     * @param {number} attempt   Número da tentativa atual (para futuras estratégias de retry)
+     * @returns {Object} { success: boolean, details?: any, error?: string }
+     */
+    async createIpBindingFromPayment(vendaData, attempt = 1) {
+        const startTime = Date.now();
+        try {
+            console.log(`🔗 [MIKROTIK-USER-SERVICE] Tentativa ${attempt} - Criando IP binding para pagamento: ${vendaData.payment_id}`);
+
+            // === 1. Extrair credenciais do MikroTik ===
+            const mikrotik = vendaData.mikrotiks || {};
+            const credentials = {
+                ip: mikrotik.ip,
+                username: mikrotik.username || mikrotik.usuario,
+                password: mikrotik.password || mikrotik.senha,
+                port: mikrotik.port || mikrotik.porta || 8728
+            };
+
+            if (!credentials.ip || !credentials.username || !credentials.password) {
+                throw new Error(`Dados MikroTik incompletos para IP binding (ip=${credentials.ip}, user=${credentials.username})`);
+            }
+
+            // === 2. Construir objeto paymentData esperado pela API ===
+            const paymentData = {
+                payment_id: vendaData.payment_id,
+                mac_address: vendaData.mac_address,
+                plano_nome: vendaData.planos?.nome || vendaData.plano_nome,
+                plano_valor: vendaData.planos?.valor || vendaData.plano_valor,
+                plano_session_timeout: vendaData.planos?.session_timeout || vendaData.plano_session_timeout,
+                plano_rate_limit: vendaData.planos?.rate_limit || vendaData.plano_rate_limit
+            };
+
+            // === 3. Montar URL para chamada da API ===
+            const queryParams = new URLSearchParams({
+                ip: credentials.ip,
+                username: credentials.username,
+                password: credentials.password,
+                port: credentials.port.toString()
+            });
+
+            const url = `${this.mikrotikApiUrl}/ip-binding/create-from-payment?${queryParams.toString()}`;
+
+            // === 4. Executar chamada ===
+            const response = await axios.post(
+                url,
+                { credentials, paymentData },
+                {
+                    headers: {
+                        Authorization: `Bearer ${this.mikrotikApiToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 20000
+                }
+            );
+
+            const duration = Date.now() - startTime;
+            console.log(`📥 [MIKROTIK-USER-SERVICE] IP binding response (${duration}ms):`, response.data);
+
+            if (response.data?.success) {
+                return { success: true, details: response.data, duration };
+            }
+
+            const errorMsg = response.data?.error || response.data?.message || 'Falha desconhecida ao criar IP binding';
+            return { success: false, error: errorMsg, details: response.data, duration };
+        } catch (error) {
+            const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+            console.error('❌ [MIKROTIK-USER-SERVICE] Erro ao criar IP binding:', errorMessage);
+            return { success: false, error: errorMessage };
+        }
+    }
+
     sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
