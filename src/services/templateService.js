@@ -253,21 +253,47 @@ class TemplateService {
       // Para arquivos de texto, ler como string e processar variáveis
       let content = fs.readFileSync(filePath, 'utf8');
 
-      // Obter configuração do template para valores padrão
+      console.log(`[TEMPLATE-SERVICE] Processando arquivo: ${filePath}`);
+      console.log(`[TEMPLATE-SERVICE] Tamanho do conteúdo: ${content.length} caracteres`);
+
+      // PRIMEIRO: Substituir variáveis automáticas do sistema (mais importantes)
+      const systemVariables = {
+        'MIKROTIK_ID': mikrotikId || '',
+        'API_URL': process.env.BASE_URL || 'https://api.mikropix.online',
+        'TIMESTAMP': new Date().toISOString()
+      };
+
+      console.log(`[TEMPLATE-SERVICE] Substituindo variáveis do sistema:`, systemVariables);
+      
+      Object.entries(systemVariables).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        const matches = content.match(regex);
+        if (matches) {
+          console.log(`[TEMPLATE-SERVICE] Encontradas ${matches.length} ocorrências de {{${key}}}, substituindo por: ${value}`);
+          content = content.replace(regex, value);
+        }
+      });
+
+      // SEGUNDO: Obter configuração do template para valores padrão
       const templateConfig = templateId ? this.getTemplateConfig(templateId) : null;
       const templateVariables = templateConfig ? templateConfig.variables : [];
 
-      // Substituir variáveis do usuário
+      // TERCEIRO: Substituir variáveis do usuário
       if (variables && typeof variables === 'object') {
+        console.log(`[TEMPLATE-SERVICE] Substituindo variáveis do usuário:`, variables);
         Object.entries(variables).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
             const regex = new RegExp(`{{${key}}}`, 'g');
-            content = content.replace(regex, value);
+            const matches = content.match(regex);
+            if (matches) {
+              console.log(`[TEMPLATE-SERVICE] Encontradas ${matches.length} ocorrências de {{${key}}}, substituindo por: ${value}`);
+              content = content.replace(regex, value);
+            }
           }
         });
       }
 
-      // Aplicar valores padrão para variáveis não fornecidas pelo usuário
+      // QUARTO: Aplicar valores padrão para variáveis não fornecidas pelo usuário
       templateVariables.forEach(variable => {
         const regex = new RegExp(`{{${variable.key}}}`, 'g');
         const userValue = variables && variables[variable.key];
@@ -281,14 +307,21 @@ class TemplateService {
             defaultValue = placeholderOption ? placeholderOption.value : variable.options[0].value;
           }
           
-          content = content.replace(regex, defaultValue);
+          const matches = content.match(regex);
+          if (matches) {
+            console.log(`[TEMPLATE-SERVICE] Aplicando valor padrão para {{${variable.key}}}: ${defaultValue}`);
+            content = content.replace(regex, defaultValue);
+          }
         }
       });
 
-      // Substituir variáveis automáticas do sistema
-      content = content.replace(/{{MIKROTIK_ID}}/g, mikrotikId || '');
-      content = content.replace(/{{API_URL}}/g, process.env.BASE_URL || '');
-      content = content.replace(/{{TIMESTAMP}}/g, new Date().toISOString());
+      // VERIFICAÇÃO FINAL: Verificar se ainda há variáveis não substituídas
+      const remainingVariables = content.match(/{{[^}]+}}/g);
+      if (remainingVariables && remainingVariables.length > 0) {
+        console.warn(`[TEMPLATE-SERVICE] ⚠️ Variáveis não substituídas encontradas:`, remainingVariables);
+      } else {
+        console.log(`[TEMPLATE-SERVICE] ✅ Todas as variáveis foram substituídas com sucesso`);
+      }
 
       return content;
     } catch (error) {

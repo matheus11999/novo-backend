@@ -171,7 +171,13 @@ function checkAllFilled(inputs) {
     if (filled.length >= 5) {
         debugLog('🎉 TODOS OS CAMPOS PREENCHIDOS!');
         inputs.forEach(inp => inp.classList.add('completed'));
-        setTimeout(() => loginWithPassword(), 800);
+        
+        // Mostrar tela de verificação em vez de toast
+        showVerificationScreen('Verificando senha...');
+        
+        setTimeout(() => {
+            loginWithPassword();
+        }, 800);
     }
 }
 
