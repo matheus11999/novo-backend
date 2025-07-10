@@ -100,9 +100,9 @@ function setupOtpAutoAdvance(){
             input.classList.remove('filled', 'completed');
             
             // Mobile-optimized styling
-            input.style.width = '55px';
-            input.style.height = '55px';
-            input.style.fontSize = '20px';
+            input.style.width = '48px';
+            input.style.height = '48px';
+            input.style.fontSize = '18px';
             input.style.fontWeight = '600';
             input.style.textAlign = 'center';
             input.style.border = '2px solid rgba(148, 163, 184, 0.3)';
@@ -111,9 +111,10 @@ function setupOtpAutoAdvance(){
             input.style.color = '#f1f5f9';
             input.style.outline = 'none';
             input.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            input.style.margin = '0 6px';
+            input.style.margin = '0 4px';
             input.style.touchAction = 'manipulation';
             input.style.webkitTapHighlightColor = 'transparent';
+            input.style.boxSizing = 'border-box';
             
             // Focus styles
             input.addEventListener('focus', function() {
@@ -137,9 +138,11 @@ function setupOtpAutoAdvance(){
             otpContainer.style.display = 'flex';
             otpContainer.style.justifyContent = 'center';
             otpContainer.style.alignItems = 'center';
-            otpContainer.style.gap = '8px';
+            otpContainer.style.gap = '6px';
             otpContainer.style.marginBottom = '2rem';
             otpContainer.style.padding = '1rem 0';
+            otpContainer.style.maxWidth = '280px';
+            otpContainer.style.margin = '0 auto 2rem auto';
         }
         
         // Adicionar novos listeners
