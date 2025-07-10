@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#1e293b">
     <meta name="description" content="Portal de Acesso Wi-Fi">
-    <title>Portal Wi-Fi</title>
+    <title>{{PROVIDER_NAME}} - Portal Wi-Fi</title>
     <!-- Preload critical resources -->
     <link rel="preload" href="styles.css" as="style">
     <link rel="preload" href="script.js" as="script">
@@ -27,6 +27,55 @@
     </script>
     <!-- Critical CSS loaded synchronously -->
     <link rel="stylesheet" href="styles.css">
+    <!-- Custom CSS for variables -->
+    <style>
+        :root {
+            --primary-color: {{PRIMARY_COLOR}};
+        }
+        
+        .btn {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .btn:hover {
+            background-color: color-mix(in srgb, var(--primary-color) 80%, black) !important;
+        }
+        
+        .title {
+            color: var(--primary-color) !important;
+        }
+        
+        /* MikroPix Watermark */
+        .mikropix-watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            text-decoration: none;
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+        }
+        
+        .mikropix-watermark:hover {
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.2);
+            transform: scale(1.05);
+        }
+        
+        @media (max-width: 480px) {
+            .mikropix-watermark {
+                font-size: 10px;
+                bottom: 5px;
+                right: 5px;
+                padding: 3px 6px;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Debug Info -->
@@ -37,12 +86,12 @@
         <div class="screen active fade-in" id="welcomeScreen">
             <div class="header">
                 <div class="logo">
-                    <svg width="50" height="50" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="{{PRIMARY_COLOR}}">
                         <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
                     </svg>
                 </div>
-                <h1 class="title">Portal Wi-Fi</h1>
-                <p class="subtitle">Digite seu código de acesso</p>
+                <h1 class="title">{{PROVIDER_NAME}}</h1>
+                <p class="subtitle">{{WELCOME_MESSAGE}}</p>
             </div>
             
             <div class="form-group">
@@ -268,6 +317,11 @@
         <input type="password" name="password" id="directPassword" />
         <input type="hidden" name="dst" value="$(link-orig)" />
     </form>
+
+    <!-- MikroPix Watermark -->
+    <a href="https://mikropix.online" target="_blank" class="mikropix-watermark" title="Sistema de Gerenciamento MikroTik">
+        🚀 MikroPix - Sistema de Gerenciamento MikroTik
+    </a>
 
     <!-- Core template logic loaded asynchronously -->
     <script src="script.js" async></script>

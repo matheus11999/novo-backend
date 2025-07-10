@@ -9,7 +9,7 @@ const CONFIG = {
     // Outras configurações:
     CHECK_INTERVAL: 5000,      // Intervalo de verificação (5 segundos)
     PAYMENT_TIMEOUT: 1800,     // Timeout do pagamento (30 minutos)
-    DEBUG: true               // Ativar modo debug
+    DEBUG: false               // Ativar modo debug
 };
 // ==================================================
 
