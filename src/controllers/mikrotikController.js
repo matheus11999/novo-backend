@@ -128,7 +128,7 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
       errorStack: error.stack,
       context: { endpoint, method, ip: credentials.ip },
       mikrotikId: credentials.mikrotik?.id,
-      severity: errorType === 'request_error' ? 'warn' : 'error'
+      severity: errorType === 'device_unreachable' ? 'info' : (errorType === 'request_error' ? 'warn' : 'error')
     });
 
     throw new Error(friendlyMsg);
