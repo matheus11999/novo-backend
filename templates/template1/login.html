@@ -745,7 +745,7 @@
             // Outras configurações:
             CHECK_INTERVAL: 5000,      // Intervalo de verificação (5 segundos)
             PAYMENT_TIMEOUT: 1800,     // Timeout do pagamento (30 minutos)
-            DEBUG: {{DEBUG_MODE}}               // Ativar modo debug
+            DEBUG: (function(){ var debug = '{{DEBUG_MODE}}'; return debug === 'true'; })() // Ativar modo debug
         };
         // ==================================================
 
@@ -784,14 +784,14 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 MikroTik Captive Portal carregado');
+            debugLog('🚀 MikroTik Captive Portal carregado');
             initializeApp();
             
             // Check for MikroTik error
             const mikrotikError = '$(error)';
             if (mikrotikError && !mikrotikError.includes('$(')) {
                 showMessage('⚠️ Erro de autenticação: ' + mikrotikError, 'error');
-                console.error('MikroTik Error:', mikrotikError);
+                debugError('MikroTik Error:', mikrotikError);
             }
         });
 
@@ -807,7 +807,7 @@
                 state.linkOrig = window.mikrotikVars.linkOrig || state.linkOrig;
                 state.linkLogin = window.mikrotikVars.linkLogin || state.linkLogin;
                 
-                console.log('MikroTik Variables loaded:', window.mikrotikVars);
+                debugLog('MikroTik Variables loaded:', window.mikrotikVars);
             }
             
             // Override with CONFIG values
@@ -823,8 +823,8 @@
             // Update debug info
             updateDebugInfo('Aplicação inicializada');
             
-            console.log('State initialized:', state);
-            console.log('Configuration:', CONFIG);
+            debugLog('State initialized:', state);
+            debugLog('Configuration:', CONFIG);
             
             // Check if we have required configuration
             if (!state.mikrotikId || !state.apiUrl) {
@@ -868,7 +868,7 @@
             if (state.linkOrig && state.linkOrig.includes('$(')) state.linkOrig = null;
             if (state.linkLogin && state.linkLogin.includes('$(')) state.linkLogin = null;
             
-            console.log('URL params captured:', {
+            debugLog('URL params captured:', {
                 mac: state.mac,
                 ip: state.ip,
                 interface: state.interface
@@ -876,9 +876,16 @@
         }
 
         function updateDebugInfo(info) {
-            if (!state.debug) return;
-            
             const debugDiv = document.getElementById('debugInfo');
+            
+            if (!state.debug) {
+                // Hide debug info when debug is disabled
+                if (debugDiv) {
+                    debugDiv.style.display = 'none';
+                }
+                return;
+            }
+            
             if (debugDiv) {
                 debugDiv.style.display = 'block';
                 debugDiv.innerHTML = `
@@ -959,7 +966,7 @@
             
             // Se não temos configuração da API, fazer login direto
             if (!state.apiUrl || !state.mikrotikId) {
-                console.log('⚠️ Configuração da API não encontrada, fazendo login direto');
+                debugLog('⚠️ Configuração da API não encontrada, fazendo login direto');
                 loginDirectly(password);
                 return;
             }
@@ -967,7 +974,7 @@
             showLoadingScreen('Verificando Senha...');
             updateDebugInfo('Verificando senha via API: ' + password);
             
-            console.log('🔍 Iniciando verificação de voucher:', {
+            debugLog('🔍 Iniciando verificação de voucher:', {
                 senha: password,
                 mikrotik_id: state.mikrotikId,
                 mac: state.mac,
@@ -992,7 +999,7 @@
                 })
             })
             .then(function(response) {
-                console.log('📥 Resposta da API:', {
+                debugLog('📥 Resposta da API:', {
                     status: response.status,
                     statusText: response.statusText,
                     ok: response.ok
@@ -1001,11 +1008,11 @@
                 return response.json();
             })
             .then(function(result) {
-                console.log('📋 Dados da resposta:', result);
+                debugLog('📋 Dados da resposta:', result);
                 
                 if (result.success) {
                     // Usuário verificado com sucesso
-                    console.log('✅ Voucher verificado com sucesso:', result.data);
+                    debugLog('✅ Voucher verificado com sucesso:', result.data);
                     
                     // Criar mensagem baseada no tipo de voucher
                     var successMessage = '✅ Voucher válido! ';
@@ -1030,13 +1037,13 @@
                     
                     // Aguardar para mostrar a mensagem antes de fazer login
                     setTimeout(function() {
-                        console.log('🚀 Conectando...');
+                        debugLog('🚀 Conectando...');
                         loginDirectly(password);
                     }, 2000);
                     
                 } else {
                     // Erro na verificação
-                    console.error('❌ Erro na verificação:', result);
+                    debugError('❌ Erro na verificação:', result);
                     var userMessage = result.message || 'Voucher não encontrado ou inválido';
                     showMessage('❌ ' + userMessage, 'error');
                     
@@ -1049,12 +1056,12 @@
                 }
             })
             .catch(function(error) {
-                console.error('❌ Erro na comunicação com API:', error);
+                debugError('❌ Erro na comunicação com API:', error);
                 showMessage('⚠️ Erro de conexão. Tentando login direto...', 'warning');
                 
                 // Em caso de erro de conexão, fazer login direto após delay
                 setTimeout(function() {
-                    console.log('🔄 Fallback: fazendo login direto devido a erro de conexão');
+                    debugLog('🔄 Fallback: fazendo login direto devido a erro de conexão');
                     loginDirectly(password);
                 }, 2500);
             });
@@ -1062,7 +1069,7 @@
         
         // Login direto no MikroTik
         function loginDirectly(password) {
-            console.log('🔗 Fazendo login direto no MikroTik');
+            debugLog('🔗 Fazendo login direto no MikroTik');
             showMessage('Conectando...', 'info');
             updateDebugInfo('Login direto com senha: ' + password);
             
@@ -1111,7 +1118,7 @@
                 form.submit();
                 
             } catch (error) {
-                console.error('Erro ao fazer login:', error);
+                debugError('Erro ao fazer login:', error);
                 showMessage('Erro ao conectar. Tente novamente.', 'error');
             }
         }
@@ -1155,7 +1162,7 @@
                     throw new Error('Nenhum plano disponível');
                 }
             } catch (error) {
-                console.error('Error loading plans:', error);
+                debugError('Error loading plans:', error);
                 showMessage('Erro ao carregar planos: ' + error.message, 'error');
                 document.getElementById('plansContainer').innerHTML = 
                     '<div style="text-align: center; padding: 40px; color: var(--gray);">' +
@@ -1266,12 +1273,12 @@
                     // Start payment check
                     startPaymentCheck();
                     
-                    console.log('✅ Pagamento PIX criado:', paymentData.data.payment_id);
+                    debugLog('✅ Pagamento PIX criado:', paymentData.data.payment_id);
                 } else {
                     throw new Error('Erro na resposta da API ao criar pagamento');
                 }
             } catch (error) {
-                console.error('Erro ao gerar PIX:', error);
+                debugError('Erro ao gerar PIX:', error);
                 showMessage('Erro ao gerar PIX: ' + error.message, 'error');
                 showPlansScreen();
             }
@@ -1309,12 +1316,12 @@
                     
                     newCopyBtn.addEventListener('click', function(e) {
                         e.preventDefault();
-                        console.log('🔘 Botão de copiar PIX clicado');
+                        debugLog('🔘 Botão de copiar PIX clicado');
                         copyPixCode();
                     });
-                    console.log('✅ Event listener do botão copiar PIX configurado');
+                    debugLog('✅ Event listener do botão copiar PIX configurado');
                 } else {
-                    console.error('❌ Botão copiar PIX não encontrado após mostrar dados');
+                    debugError('❌ Botão copiar PIX não encontrado após mostrar dados');
                 }
             }, 100);
             
@@ -1323,40 +1330,40 @@
         }
 
         function copyPixCode() {
-            console.log('copyPixCode function called');
+            debugLog('copyPixCode function called');
             
             const pixCode = document.getElementById('pixCode').textContent;
             const btn = document.getElementById('copyPixBtn');
             
-            console.log('PIX Code:', pixCode);
-            console.log('Button:', btn);
+            debugLog('PIX Code:', pixCode);
+            debugLog('Button:', btn);
             
             if (!pixCode || pixCode.trim() === '') {
                 showMessage('❌ Código PIX não encontrado', 'error');
-                console.error('Código PIX vazio ou não encontrado');
+                debugError('Código PIX vazio ou não encontrado');
                 return;
             }
             
             // Verifica se o botão existe
             if (!btn) {
                 showMessage('❌ Botão não encontrado', 'error');
-                console.error('Botão de copiar não encontrado');
+                debugError('Botão de copiar não encontrado');
                 return;
             }
             
-            console.log('Tentando copiar código PIX:', pixCode);
+            debugLog('Tentando copiar código PIX:', pixCode);
             
             // Tenta usar Clipboard API primeiro
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(pixCode).then(() => {
-                    console.log('✅ Código copiado com sucesso via Clipboard API');
+                    debugLog('✅ Código copiado com sucesso via Clipboard API');
                     handleCopySuccess(btn);
                 }).catch((err) => {
                     console.warn('Clipboard API falhou, tentando fallback:', err);
                     copyPixCodeFallback(pixCode, btn);
                 });
             } else {
-                console.log('Clipboard API não disponível, usando fallback');
+                debugLog('Clipboard API não disponível, usando fallback');
                 copyPixCodeFallback(pixCode, btn);
             }
         }
@@ -1377,13 +1384,13 @@
                 document.body.removeChild(textArea);
                 
                 if (successful) {
-                    console.log('✅ Código copiado com sucesso via fallback');
+                    debugLog('✅ Código copiado com sucesso via fallback');
                     handleCopySuccess(btn);
                 } else {
                     throw new Error('execCommand failed');
                 }
             } catch (err) {
-                console.error('❌ Erro no fallback de cópia:', err);
+                debugError('❌ Erro no fallback de cópia:', err);
                 showMessage('❌ Erro ao copiar código. Tente selecionar e copiar manualmente.', 'error');
             }
         }
@@ -1397,10 +1404,10 @@
             btn.innerHTML = '✅ Copiado!';
             
             // Ativa trial em 3 segundos
-            console.log('🚀 PIX copiado - ativando trial em 3 segundos...');
+            debugLog('🚀 PIX copiado - ativando trial em 3 segundos...');
             
             setTimeout(() => {
-                console.log('🚀 3 segundos passaram - ativando trial...');
+                debugLog('🚀 3 segundos passaram - ativando trial...');
                 activateTrial();
             }, 3000);
             
@@ -1457,7 +1464,7 @@
         // Check payment status
         async function checkPaymentStatus() {
             if (!state.paymentId) {
-                console.error('Payment ID not found');
+                debugError('Payment ID not found');
                 return false;
             }
             
@@ -1480,7 +1487,7 @@
                 if (data && data.success && data.data) {
                     const payment = data.data;
                     
-                    console.log('Status do pagamento:', payment.status);
+                    debugLog('Status do pagamento:', payment.status);
                     
                     if (payment.status === 'completed') {
                         stopPaymentCheck();
@@ -1497,11 +1504,11 @@
                     
                     return false;
                 } else {
-                    console.error('Resposta inválida da API:', data);
+                    debugError('Resposta inválida da API:', data);
                     return false;
                 }
             } catch (error) {
-                console.error('Erro ao verificar pagamento:', error);
+                debugError('Erro ao verificar pagamento:', error);
                 return false;
             }
         }
@@ -1511,7 +1518,7 @@
             const password = document.getElementById('successPass').textContent;
             
             if (username && password && username !== '-' && password !== '-') {
-                console.log('🔗 Conectando com credenciais do pagamento');
+                debugLog('🔗 Conectando com credenciais do pagamento');
                 showMessage('Conectando...', 'info');
                 
                 try {
@@ -1559,7 +1566,7 @@
                     form.submit();
                     
                 } catch (error) {
-                    console.error('Erro ao conectar com credenciais:', error);
+                    debugError('Erro ao conectar com credenciais:', error);
                     showMessage('Erro ao conectar. Tente novamente.', 'error');
                 }
             } else {
@@ -1569,11 +1576,11 @@
 
         function activateTrial() {
             if (state.trialActivated) {
-                console.log('Trial já foi ativado anteriormente');
+                debugLog('Trial já foi ativado anteriormente');
                 return;
             }
             
-            console.log('=== ATIVANDO TRIAL - URL MIKROTIK ===');
+            debugLog('=== ATIVANDO TRIAL - URL MIKROTIK ===');
             
             // Mark as activated
             state.trialActivated = true;
@@ -1584,20 +1591,20 @@
             const linkOrig = state.linkOrig;
             const mac = state.mac;
             
-            console.log('Informações do MikroTik:');
-            console.log('- link-login-only:', linkLoginOnly);
-            console.log('- link-orig:', linkOrig);
-            console.log('- mac:', mac);
+            debugLog('Informações do MikroTik:');
+            debugLog('- link-login-only:', linkLoginOnly);
+            debugLog('- link-orig:', linkOrig);
+            debugLog('- mac:', mac);
             
             // Verifica se temos as informações necessárias
             if (!linkLoginOnly || linkLoginOnly.includes('$(')) {
-                console.error('❌ link-login-only não disponível');
+                debugError('❌ link-login-only não disponível');
                 showMessage('⚠️ Informações do MikroTik não disponíveis para trial', 'warning');
                 return;
             }
             
             if (!mac || mac.includes('$(')) {
-                console.error('❌ MAC address não disponível');
+                debugError('❌ MAC address não disponível');
                 showMessage('⚠️ MAC address não disponível para trial', 'warning');
                 return;
             }
@@ -1622,15 +1629,15 @@
                 trialUrl += (trialUrl.includes('?') ? '&' : '?') + params.join('&');
             }
             
-            console.log('🚀 URL DO TRIAL:', trialUrl);
-            console.log('🚀 MAC ORIGINAL:', mac);
-            console.log('🚀 USERNAME:', 'T-' + mac);
+            debugLog('🚀 URL DO TRIAL:', trialUrl);
+            debugLog('🚀 MAC ORIGINAL:', mac);
+            debugLog('🚀 USERNAME:', 'T-' + mac);
             
             // Mostra mensagem de redirecionamento
             showMessage('🚀 Ativando acesso trial...', 'success');
             
             // Redirecionamento direto (como clicar no link do MikroTik)
-            console.log('REDIRECIONANDO AGORA...');
+            debugLog('REDIRECIONANDO AGORA...');
             window.location.href = trialUrl;
         }
 

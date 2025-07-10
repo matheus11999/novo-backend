@@ -9,7 +9,7 @@ const CONFIG = {
     // Outras configurações:
     CHECK_INTERVAL: 5000,      // Intervalo de verificação (5 segundos)
     PAYMENT_TIMEOUT: 1800,     // Timeout do pagamento (30 minutos)
-    DEBUG: {{DEBUG_MODE}}               // Ativar modo debug
+    DEBUG: (function(){ var debug = '{{DEBUG_MODE}}'; return debug === 'true'; })() // Ativar modo debug
 };
 // ==================================================
 
@@ -249,6 +249,220 @@ function initializeApp() {
         }
         debugLog('🔧 Debug info adicionado à tela de boas-vindas');
     }
+    
+    // Setup event listeners
+    setupEventListeners();
+}
+
+function setupEventListeners() {
+    // Show Plans button with text animation
+    const showPlansBtn = document.getElementById('showPlansBtn');
+    if (showPlansBtn) {
+        // Setup text animation for the button
+        setupButtonTextAnimation(showPlansBtn);
+        
+        showPlansBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPlansScreen();
+        });
+    }
+    
+    // Back to Welcome buttons
+    const backToWelcomeBtn1 = document.getElementById('backToWelcomeBtn1');
+    if (backToWelcomeBtn1) {
+        backToWelcomeBtn1.addEventListener('click', function(e) {
+            e.preventDefault();
+            showWelcomeScreen();
+        });
+    }
+    
+    const backToWelcomeBtn2 = document.getElementById('backToWelcomeBtn2');
+    if (backToWelcomeBtn2) {
+        backToWelcomeBtn2.addEventListener('click', function(e) {
+            e.preventDefault();
+            showWelcomeScreen();
+        });
+    }
+    
+    // Generate PIX button
+    const generatePixBtn = document.getElementById('generatePixBtn');
+    if (generatePixBtn) {
+        generatePixBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            generatePix();
+        });
+    }
+    
+    // Back to Plans buttons
+    const backToPlansBtn1 = document.getElementById('backToPlansBtn1');
+    if (backToPlansBtn1) {
+        backToPlansBtn1.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPlansScreen();
+        });
+    }
+    
+    const backToPlansBtn2 = document.getElementById('backToPlansBtn2');
+    if (backToPlansBtn2) {
+        backToPlansBtn2.addEventListener('click', function(e) {
+            e.preventDefault();
+            showPlansScreen();
+        });
+    }
+    
+    // Connect with credentials button
+    const connectCredentialsBtn = document.getElementById('connectCredentialsBtn');
+    if (connectCredentialsBtn) {
+        connectCredentialsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            connectWithCredentials();
+        });
+    }
+    
+    // New purchase button
+    const newPurchaseBtn = document.getElementById('newPurchaseBtn');
+    if (newPurchaseBtn) {
+        newPurchaseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            location.reload();
+        });
+    }
+}
+
+// Setup button text animation for Comprar via PIX button
+function setupButtonTextAnimation(button) {
+    const texts = ['Comprar via PIX', 'Ativação Imediata'];
+    let currentTextIndex = 0;
+    let isAnimating = false;
+    
+    // Enhanced button styling for premium effect
+    button.style.position = 'relative';
+    button.style.overflow = 'hidden';
+    button.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 50%, #28a745 100%)';
+    button.style.backgroundSize = '200% 100%';
+    button.style.animation = 'buttonGradient 3s ease-in-out infinite';
+    button.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3), 0 0 20px rgba(40, 167, 69, 0.1)';
+    button.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    button.style.minHeight = '56px';
+    button.style.padding = '14px 24px';
+    button.style.fontSize = '16px';
+    button.style.fontWeight = '600';
+    
+    // Add keyframes for gradient animation
+    if (!document.getElementById('buttonAnimationStyles')) {
+        const style = document.createElement('style');
+        style.id = 'buttonAnimationStyles';
+        style.textContent = `
+            @keyframes buttonGradient {
+                0%, 100% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+            }
+            @keyframes shimmer {
+                0% { transform: translateX(-100%) skewX(-15deg); }
+                100% { transform: translateX(200%) skewX(-15deg); }
+            }
+            @keyframes textSlide {
+                0% { opacity: 1; transform: translateY(0px); }
+                50% { opacity: 0; transform: translateY(-10px); }
+                100% { opacity: 1; transform: translateY(0px); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Create multiple reflection layers for premium effect
+    const shimmerOverlay = document.createElement('div');
+    shimmerOverlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 30%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+        animation: shimmer 2.5s ease-in-out infinite;
+        z-index: 1;
+        pointer-events: none;
+        transform: skewX(-15deg);
+    `;
+    button.appendChild(shimmerOverlay);
+    
+    // Create text containers for smooth crossfade
+    const textContainer1 = document.createElement('span');
+    const textContainer2 = document.createElement('span');
+    
+    const textContainerStyles = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2;
+        transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        white-space: nowrap;
+        width: 100%;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: 600;
+    `;
+    
+    textContainer1.style.cssText = textContainerStyles + 'opacity: 1;';
+    textContainer2.style.cssText = textContainerStyles + 'opacity: 0;';
+    
+    // Set initial content
+    const iconSvg = `
+        <svg width="20" height="20" viewBox="0 0 512 512" style="fill: currentColor; margin-right: 8px;">
+            <path d="M242.4 292.5C247.8 287.1 257.1 287.1 262.5 292.5L339.5 369.5C353.7 383.7 372.6 391.5 392.6 391.5H407.7L310.6 488.6C280.3 518.1 231.1 518.1 200.8 488.6L103.3 391.2H112.6C132.6 391.2 151.5 383.4 165.7 369.2L242.4 292.5zM262.5 218.9C256.1 224.4 247.9 224.5 242.4 218.9L165.7 142.2C151.5 127.1 132.6 120.2 112.6 120.2H103.3L200.7 22.8C231.1-7.6 280.3-7.6 310.6 22.8L407.8 119.9H392.6C372.6 119.9 353.7 127.7 339.5 141.9L262.5 218.9zM112.6 142.7C126.4 142.7 139.1 148.3 149.7 158.1L226.4 234.8C233.6 241.1 243 245.6 252.5 245.6C261.9 245.6 271.3 241.1 278.5 234.8L355.5 157.8C365.3 148.1 378.8 142.5 392.6 142.5H430.3L488.6 200.8C518.9 231.1 518.9 280.3 488.6 310.6L430.3 368.9H392.6C378.8 368.9 365.3 363.3 355.5 353.5L278.5 276.5C264.6 262.6 240.3 262.6 226.4 276.6L149.7 353.2C139.1 363 126.4 368.6 112.6 368.6H80.8L22.8 310.6C-7.6 280.3-7.6 231.1 22.8 200.8L80.8 142.7H112.6z"/>
+        </svg>
+    `;
+    
+    textContainer1.innerHTML = iconSvg + texts[0];
+    textContainer2.innerHTML = iconSvg + texts[1];
+    
+    // Clear button and add text containers
+    button.innerHTML = '';
+    button.appendChild(shimmerOverlay);
+    button.appendChild(textContainer1);
+    button.appendChild(textContainer2);
+    
+    function animateText() {
+        if (isAnimating) return;
+        isAnimating = true;
+        
+        // Determine which container is currently visible
+        const currentContainer = textContainer1.style.opacity === '1' ? textContainer1 : textContainer2;
+        const nextContainer = currentContainer === textContainer1 ? textContainer2 : textContainer1;
+        
+        // Update next container content
+        currentTextIndex = (currentTextIndex + 1) % texts.length;
+        nextContainer.innerHTML = iconSvg + texts[currentTextIndex];
+        
+        // Smooth crossfade animation
+        currentContainer.style.opacity = '0';
+        currentContainer.style.transform = 'translate(-50%, -50%) translateY(8px)';
+        
+        nextContainer.style.opacity = '1';
+        nextContainer.style.transform = 'translate(-50%, -50%) translateY(0px)';
+        
+        setTimeout(() => {
+            isAnimating = false;
+        }, 800);
+    }
+    
+    // Enhanced hover effect
+    button.addEventListener('mouseenter', () => {
+        button.style.transform = 'translateY(-1px) scale(1.02)';
+        button.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4), 0 0 30px rgba(40, 167, 69, 0.2)';
+    });
+    
+    button.addEventListener('mouseleave', () => {
+        button.style.transform = 'translateY(0) scale(1)';
+        button.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3), 0 0 20px rgba(40, 167, 69, 0.1)';
+    });
+    
+    // Start animation cycle with longer interval for better readability
+    setInterval(animateText, 5000);
 }
 
 function getUrlParams() {

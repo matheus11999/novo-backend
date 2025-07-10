@@ -99,6 +99,17 @@ class TemplateService {
               { value: 'false', label: 'Desativado' }
             ],
             placeholder: 'false'
+          },
+          {
+            key: 'DEBUG_MODE',
+            label: 'Modo Debug',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'true', label: 'Ativado' },
+              { value: 'false', label: 'Desativado' }
+            ],
+            placeholder: 'false'
           }
         ]
       },
