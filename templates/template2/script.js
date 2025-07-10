@@ -172,12 +172,19 @@ function checkAllFilled(inputs) {
         debugLog('🎉 TODOS OS CAMPOS PREENCHIDOS!');
         inputs.forEach(inp => inp.classList.add('completed'));
         
-        // Mostrar tela de verificação em vez de toast
+        // Evitar múltiplas execuções
+        if (window.isVerifying) {
+            debugLog('⚠️ Já está verificando, ignorando...');
+            return;
+        }
+        window.isVerifying = true;
+        
+        // Mostrar tela de verificação
         showVerificationScreen('Verificando senha...');
         
         setTimeout(() => {
             loginWithPassword();
-        }, 800);
+        }, 1000);
     }
 }
 
@@ -636,7 +643,7 @@ function showVerificationScreen(text = 'Verificando sua senha...') {
         loadingScreen.innerHTML = `
             <div class="verification-animation">
                 <div class="verification-icon">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg width="50" height="50" viewBox="0 0 24 24" fill="{{PRIMARY_COLOR}}">
                         <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
                     </svg>
                 </div>
@@ -712,7 +719,11 @@ function clearOtpInputs() {
     document.querySelectorAll('.otp-inputs .otp').forEach(i => {
         i.value = '';
         i.classList.remove('filled', 'error');
+        // Reset visual styles
+        i.style.borderColor = '#475569';
+        i.style.backgroundColor = '#1e293b';
     });
+    window.isVerifying = false; // Reset verification flag
     focusFirstOtp();
 }
 
@@ -750,11 +761,14 @@ function loginWithPassword() {
     // Se não temos configuração da API, fazer login direto
     if (!apiUrl || !mikrotikId) {
         debugLog('⚠️ Configuração da API não encontrada, fazendo login direto');
-        loginDirectly(password);
+        updateVerificationText('🔄 Conectando diretamente...');
+        setTimeout(() => {
+            loginDirectly(password);
+        }, 1000);
         return;
     }
     
-    showVerificationScreen();
+    updateVerificationText('Verificando voucher...');
     updateDebugInfo('Verificando senha via API: ' + password);
     
     debugLog('🔍 Iniciando verificação de voucher:', {
@@ -832,6 +846,7 @@ function loginWithPassword() {
             
             // Voltar para tela principal após erro
             setTimeout(function() {
+                window.isVerifying = false;
                 showWelcomeScreen();
                 clearOtpInputs();
             }, 3000);
@@ -855,8 +870,10 @@ function loginWithPassword() {
 // Login direto no MikroTik
 function loginDirectly(password) {
     debugLog('🔗 Fazendo login direto no MikroTik');
-    showMessage('Conectando...', 'info');
     updateDebugInfo('Login direto com senha: ' + password);
+    
+    // Reset verification flag
+    window.isVerifying = false;
     
     try {
         // Method 1: Try hidden form
