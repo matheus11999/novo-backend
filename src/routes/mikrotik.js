@@ -159,6 +159,10 @@ router.get('/templates/:templateId/html', mikrotikController.getTemplateHtml);
 router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
 router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 
+// Rotas para gerar arquivos RSC (sem autenticação para permitir acesso do MikroTik)
+router.get('/rsc/install/:mikrotikId', mikrotikController.generateInstallRsc);
+router.get('/rsc/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
+
 // Apply authentication to all other routes
 router.use(authenticateUser);
 
@@ -199,13 +203,9 @@ router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikC
 // Rota para aplicar templates (com autenticação)
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
-// Rotas para gerar arquivos RSC
-router.get('/rsc/install/:mikrotikId', mikrotikController.generateInstallRsc);
-router.get('/rsc/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
-
 // Rotas para templates personalizados de senhas
-router.get('/password-template/:mikrotikId', mikrotikController.getCustomPasswordTemplate);
 router.post('/password-template/:mikrotikId', mikrotikController.saveCustomPasswordTemplate);
+router.get('/password-template/:mikrotikId', mikrotikController.getCustomPasswordTemplate);
 
 // Rotas para WireRest proxy (corrigir CORS)
 router.get('/wirerest/interface', mikrotikController.getWireRestInterface);

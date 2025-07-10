@@ -2172,22 +2172,16 @@ const getCustomPasswordTemplate = async (req, res) => {
 const generateInstallRsc = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' });
-    }
-
-    // Buscar dados do MikroTik
+    // Buscar dados do MikroTik (sem verificar user_id para permitir acesso público)
     const { data: mikrotik, error: mikrotikError } = await supabase
       .from('mikrotiks')
       .select('*')
       .eq('id', mikrotikId)
-      .eq('user_id', userId)
       .single();
 
     if (mikrotikError || !mikrotik) {
-      return res.status(404).json({ error: 'MikroTik não encontrado ou não autorizado' });
+      return res.status(404).json({ error: 'MikroTik não encontrado' });
     }
 
     // Verificar se tem dados do WireGuard
@@ -2249,22 +2243,16 @@ const generateInstallRsc = async (req, res) => {
 const generateUninstallRsc = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
-    const userId = req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Usuário não autenticado' });
-    }
-
-    // Buscar dados do MikroTik
+    // Buscar dados do MikroTik (sem verificar user_id para permitir acesso público)
     const { data: mikrotik, error: mikrotikError } = await supabase
       .from('mikrotiks')
       .select('nome')
       .eq('id', mikrotikId)
-      .eq('user_id', userId)
       .single();
 
     if (mikrotikError || !mikrotik) {
-      return res.status(404).json({ error: 'MikroTik não encontrado ou não autorizado' });
+      return res.status(404).json({ error: 'MikroTik não encontrado' });
     }
 
     // Gerar conteúdo do arquivo RSC de desinstalação
