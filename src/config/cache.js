@@ -270,3 +270,6 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 module.exports = cacheService;
+
+// Expor chaves utilitárias também no singleton para compatibilidade
+cacheService.keys = CacheService.keys;

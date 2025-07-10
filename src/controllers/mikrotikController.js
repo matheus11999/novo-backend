@@ -1733,16 +1733,27 @@ const getEssentialSystemInfo = async (req, res) => {
 
     console.log(`[ESSENTIAL-INFO] Getting essential info from ${credentials.ip} for user ${req.user.id}`);
 
-    // Create a timeout promise
+    // Create a timeout promise (10 s)
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000);
+      setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000);
     });
 
-    // Get only essential system information
-    const response = await Promise.race([
-      makeApiRequest('/system/essential-info', credentials),
-      timeoutPromise
-    ]);
+    let response;
+    try {
+      // Tenta rota otimizada
+      response = await Promise.race([
+        makeApiRequest('/system/essential-info', credentials),
+        timeoutPromise
+      ]);
+    } catch (essentialErr) {
+      console.warn('[ESSENTIAL-INFO] Optimised endpoint failed, falling back to /system/resource', essentialErr.message);
+
+      // Fallback: dados básicos de /system/resource (timeout compartilhado)
+      response = await Promise.race([
+        makeApiRequest('/system/resource', credentials),
+        timeoutPromise
+      ]);
+    }
 
     console.log('[ESSENTIAL-INFO] Raw API response:', JSON.stringify(response, null, 2));
 
