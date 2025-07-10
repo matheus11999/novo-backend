@@ -2257,7 +2257,7 @@ const generateInstallRsc = async (req, res) => {
 
     const rscCommands = [
       `/system clock set time-zone-name=America/Manaus`,
-      `/system ntp client set enabled=yes mode=unicast servers=200.189.40.8,200.221.11.100`,
+      `/system ntp client set enabled=yes mode=unicast servers=200.189.40.8`,
       `/ip hotspot walled-garden add dst-host=api.mikropix.online action=allow`,
       `/ip hotspot walled-garden add dst-host=mikropix.online action=allow`,
       `/ip hotspot walled-garden add dst-host=*.mikropix.online action=allow`,
