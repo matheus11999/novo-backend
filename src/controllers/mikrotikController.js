@@ -2257,7 +2257,6 @@ const generateInstallRsc = async (req, res) => {
 
     // Gerar conteúdo do arquivo RSC (inclui linhas de comentário que serão limpas em seguida)
     const rscContent = `/system/clock set time-zone-name="America/Manaus"
-/system ntp client set enabled=yes primary-ntp=200.160.0.8 secondary-ntp=200.20.186.76
 /ip/hotspot/walled-garden add dst-host=api.mikropix.online action=allow
 /ip/hotspot/walled-garden add dst-host=mikropix.online action=allow
 /ip/hotspot/walled-garden add dst-host=*.mikropix.online action=allow
