@@ -199,6 +199,10 @@ router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikC
 // Rota para aplicar templates (com autenticação)
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
+// Rotas para gerar arquivos RSC
+router.get('/rsc/install/:mikrotikId', mikrotikController.generateInstallRsc);
+router.get('/rsc/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
+
 // Rotas para templates personalizados de senhas
 router.get('/password-template/:mikrotikId', mikrotikController.getCustomPasswordTemplate);
 router.post('/password-template/:mikrotikId', mikrotikController.saveCustomPasswordTemplate);
