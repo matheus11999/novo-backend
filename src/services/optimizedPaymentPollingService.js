@@ -272,6 +272,28 @@ class OptimizedPaymentPollingService {
                 paymentId,
                 retryCount 
             });
+
+            // Atualizar no banco para não ser mais processado
+            try {
+                await supabase
+                    .from('vendas_pix')
+                    .update({
+                        mercadopago_status: 'not_found',
+                        status: venda.status === 'completed' ? 'completed' : 'failed',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', venda.id);
+            } catch (updateError) {
+                logger.error('Error updating payment after max retries', {
+                    component: 'PAYMENT_POLLING',
+                    paymentId,
+                    error: updateError.message
+                });
+            }
+
+            // Reset retry counter to avoid memory leak
+            this.retryCount.delete(paymentId);
+
             return { success: false, reason: 'max_retries_exceeded' };
         }
 
