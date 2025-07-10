@@ -9,7 +9,13 @@ const CONFIG = {
     // Outras configurações:
     CHECK_INTERVAL: 5000,      // Intervalo de verificação (5 segundos)
     PAYMENT_TIMEOUT: 1800,     // Timeout do pagamento (30 minutos)
-    DEBUG: (function(){ var debug = '{{DEBUG_MODE}}'; return debug === 'true'; })() // Ativar modo debug
+    DEBUG: (function(){ 
+        var debug = '{{DEBUG_MODE}}'; 
+        console.log('DEBUG_MODE raw value:', debug);
+        var result = debug === 'true' || debug === true;
+        console.log('DEBUG resolved to:', result);
+        return result;
+    })() // Ativar modo debug
 };
 // ==================================================
 
@@ -83,7 +89,6 @@ if(_mkErr && !_mkErr.includes('$(')){
 function setupOtpAutoAdvance(){
     debugLog('🎯 SETUP OTP AUTO-ADVANCE INICIADO');
     
-    // Aguardar um pouco mais para garantir que o DOM está pronto
     setTimeout(() => {
         const inputs = document.querySelectorAll('.otp-inputs .otp');
         debugLog('🎯 Encontrados', inputs.length, 'campos OTP');
@@ -93,142 +98,70 @@ function setupOtpAutoAdvance(){
             return;
         }
         
-        // Aplicar estilos mobile-friendly aos inputs OTP
-        inputs.forEach((input, idx) => {
-            // Reset
-            input.value = '';
-            input.classList.remove('filled', 'completed');
-            
-            // Mobile-optimized styling
-            input.style.width = '48px';
-            input.style.height = '48px';
-            input.style.fontSize = '18px';
-            input.style.fontWeight = '600';
-            input.style.textAlign = 'center';
-            input.style.border = '2px solid rgba(148, 163, 184, 0.3)';
-            input.style.borderRadius = '12px';
-            input.style.background = 'rgba(30, 41, 59, 0.8)';
-            input.style.color = '#f1f5f9';
-            input.style.outline = 'none';
-            input.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            input.style.margin = '0 4px';
-            input.style.touchAction = 'manipulation';
-            input.style.webkitTapHighlightColor = 'transparent';
-            input.style.boxSizing = 'border-box';
-            
-            // Focus styles
-            input.addEventListener('focus', function() {
-                this.style.borderColor = '#3b82f6';
-                this.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(59, 130, 246, 0.3)';
-                this.style.transform = 'scale(1.05)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.style.borderColor = this.value ? '#10b981' : 'rgba(148, 163, 184, 0.3)';
-                this.style.boxShadow = this.value ? '0 0 0 2px rgba(16, 185, 129, 0.2)' : 'none';
-                this.style.transform = 'scale(1)';
-            });
-            
-            debugLog(`📝 Configurando campo ${idx}`);
-        });
-        
-        // Container dos inputs OTP
+        // Container dos inputs OTP - MAIS SIMPLES
         const otpContainer = document.querySelector('.otp-inputs');
         if (otpContainer) {
-            otpContainer.style.display = 'flex';
-            otpContainer.style.justifyContent = 'center';
-            otpContainer.style.alignItems = 'center';
-            otpContainer.style.gap = '6px';
-            otpContainer.style.marginBottom = '2rem';
-            otpContainer.style.padding = '1rem 0';
-            otpContainer.style.maxWidth = '280px';
-            otpContainer.style.margin = '0 auto 2rem auto';
+            otpContainer.style.cssText = `
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 8px;
+                margin: 1.5rem auto;
+                max-width: 300px;
+                padding: 0;
+            `;
         }
         
-        // Adicionar novos listeners
+        // Configurar inputs - ESTILO SIMPLES E FUNCIONAL
         inputs.forEach((input, idx) => {
-            // INPUT EVENT - MOBILE OPTIMIZED
+            input.value = '';
+            input.className = 'otp';
+            
+            // Estilo simples e direto
+            input.style.cssText = `
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+                font-weight: 600;
+                text-align: center;
+                border: 2px solid #475569;
+                border-radius: 8px;
+                background: #1e293b;
+                color: #f1f5f9;
+                outline: none;
+                transition: border-color 0.2s ease;
+                box-sizing: border-box;
+            `;
+            
+            // Event listeners SIMPLES
             input.addEventListener('input', function(e) {
-                debugLog(`🔢 INPUT no campo ${idx}:`, e.target.value);
-                
-                // Filtrar apenas números
                 const val = e.target.value.replace(/\D/g, '').slice(0, 1);
                 e.target.value = val;
                 
-                if (val) {
-                    e.target.classList.add('filled');
-                    e.target.style.borderColor = '#10b981';
-                    e.target.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-                    debugLog(`✅ Campo ${idx} preenchido com: ${val}`);
-                    
-                    // MOVER PARA PRÓXIMO CAMPO COM DELAY PARA MOBILE
-                    if (idx < inputs.length - 1) {
-                        debugLog(`🔄 MOVENDO para campo ${idx + 1}`);
-                        setTimeout(() => {
-                            inputs[idx + 1].focus();
-                            inputs[idx + 1].click();
-                        }, 50);
-                    }
-                } else {
-                    e.target.classList.remove('filled');
-                    e.target.style.borderColor = 'rgba(148, 163, 184, 0.3)';
-                    e.target.style.backgroundColor = 'rgba(30, 41, 59, 0.8)';
-                }
-                
-                // Verificar se todos estão preenchidos
-                checkAllFilled(inputs);
-            });
-            
-            // KEYDOWN EVENT - MOBILE FRIENDLY
-            input.addEventListener('keydown', function(e) {
-                debugLog(`⌨️ KEYDOWN no campo ${idx}:`, e.key);
-                
-                // Backspace para voltar
-                if (e.key === 'Backspace' && !e.target.value && idx > 0) {
-                    debugLog(`⬅️ BACKSPACE - voltando para campo ${idx - 1}`);
-                    setTimeout(() => {
-                        inputs[idx - 1].focus();
-                    }, 50);
-                }
-                
-                // Setas para navegação
-                if (e.key === 'ArrowLeft' && idx > 0) {
-                    e.preventDefault();
-                    inputs[idx - 1].focus();
-                }
-                if (e.key === 'ArrowRight' && idx < inputs.length - 1) {
-                    e.preventDefault();
+                if (val && idx < inputs.length - 1) {
                     inputs[idx + 1].focus();
                 }
                 
-                // Permitir apenas números
-                if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                    e.preventDefault();
+                checkAllFilled(inputs);
+            });
+            
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                    inputs[idx - 1].focus();
                 }
             });
             
-            // PASTE EVENT - Handle paste of full code
-            input.addEventListener('paste', function(e) {
-                e.preventDefault();
-                const pastedData = e.clipboardData.getData('text').replace(/\D/g, '');
-                debugLog(`📋 PASTE detectado: ${pastedData}`);
-                
-                if (pastedData.length >= inputs.length) {
-                    inputs.forEach((inp, i) => {
-                        if (pastedData[i]) {
-                            inp.value = pastedData[i];
-                            inp.classList.add('filled');
-                            inp.style.borderColor = '#10b981';
-                            inp.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-                        }
-                    });
-                    checkAllFilled(inputs);
-                }
+            input.addEventListener('focus', function() {
+                this.style.borderColor = '#3b82f6';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.style.borderColor = this.value ? '#10b981' : '#475569';
             });
         });
         
-        debugLog('✅ OTP AUTO-ADVANCE CONFIGURADO COM SUCESSO!');
-    }, 200);
+        debugLog('✅ OTP SIMPLES CONFIGURADO!');
+    }, 100);
 }
 
 function checkAllFilled(inputs) {
@@ -249,6 +182,24 @@ function initializeApp() {
     // Set debug mode first
     state.debug = CONFIG.DEBUG;
     
+    // Log initial configuration
+    console.log('=== TEMPLATE CONFIGURATION ===');
+    console.log('MIKROTIK_ID:', CONFIG.MIKROTIK_ID);
+    console.log('API_URL:', CONFIG.API_URL);
+    console.log('DEBUG:', CONFIG.DEBUG);
+    console.log('============================');
+    
+    // Check if variables were properly substituted
+    const hasValidMikrotikId = CONFIG.MIKROTIK_ID && !CONFIG.MIKROTIK_ID.includes('{{');
+    const hasValidApiUrl = CONFIG.API_URL && !CONFIG.API_URL.includes('{{');
+    
+    console.log('Valid MIKROTIK_ID?', hasValidMikrotikId);
+    console.log('Valid API_URL?', hasValidApiUrl);
+    
+    // Initialize variables
+    state.mikrotikId = hasValidMikrotikId ? CONFIG.MIKROTIK_ID : null;
+    state.apiUrl = hasValidApiUrl ? CONFIG.API_URL : null;
+    
     // If debug mode is enabled, use mocked data
     if (state.debug) {
         debugLog('🔧 DEBUG MODE: Using mocked data');
@@ -257,8 +208,16 @@ function initializeApp() {
         state.interface = 'wlan1';        // Mock interface
         state.linkOrig = 'http://google.com';
         state.linkLogin = 'javascript:void(0)';
-        state.mikrotikId = CONFIG.MIKROTIK_ID;
-        state.apiUrl = CONFIG.API_URL;
+        
+        // Only use config values if they're properly substituted
+        if (!hasValidMikrotikId) {
+            state.mikrotikId = 'debug-mikrotik-id';
+            console.warn('⚠️ MIKROTIK_ID not substituted, using debug value');
+        }
+        if (!hasValidApiUrl) {
+            state.apiUrl = 'https://api.mikropix.online';
+            console.warn('⚠️ API_URL not substituted, using debug value');
+        }
         
         // Garantir que as variáveis mockadas sejam usadas
         debugLog('🔧 Dados mockados definidos:', {
@@ -299,7 +258,14 @@ function initializeApp() {
     // Check if we have required configuration
     if (!state.mikrotikId || !state.apiUrl) {
         console.warn('⚠️ Configuração incompleta. Modo offline ativado.');
-        showMessage('ℹ️ Modo offline - Login direto disponível', 'info');
+        console.warn('MIKROTIK_ID:', state.mikrotikId);
+        console.warn('API_URL:', state.apiUrl);
+        showMessage('⚠️ Configure MIKROTIK_ID e API_URL no template', 'error');
+    } else {
+        console.log('✅ Configuração completa:', {
+            mikrotikId: state.mikrotikId,
+            apiUrl: state.apiUrl
+        });
     }
     
     // Add debug info to welcome screen
@@ -415,9 +381,9 @@ function setupButtonTextAnimation(button) {
     button.style.animation = 'buttonGradient 3s ease-in-out infinite';
     button.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3), 0 0 20px rgba(40, 167, 69, 0.1)';
     button.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-    button.style.minHeight = '60px';
-    button.style.padding = '16px 28px';
-    button.style.fontSize = '18px';
+    button.style.minHeight = '64px';
+    button.style.padding = '18px 32px';
+    button.style.fontSize = '19px';
     button.style.fontWeight = '600';
     button.style.width = '100%';
     button.style.border = 'none';
