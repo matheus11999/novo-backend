@@ -45,7 +45,7 @@ class WebhookController {
                 .from('vendas_pix')
                 .select(`
                     *,
-                    mikrotiks!inner(*),
+                    mikrotiks!inner(id, user_id, ip, port, username, password, usuario, senha),
                     planos!inner(*)
                 `)
                 .eq('payment_id', externalReference)
@@ -408,6 +408,7 @@ class WebhookController {
                     .from('vendas_pix')
                     .update({
                         ip_binding_created: true,
+                        ip_binding_status: 'criado', // <-- Mudar status para 'criado'
                         ip_binding_mac: venda.mac_address,
                         ip_binding_comment: response.details?.data?.comment || null,
                         ip_binding_created_at: new Date().toISOString(),
@@ -418,11 +419,21 @@ class WebhookController {
             } else {
                 const errorMsg = `Falha na criação do IP binding: ${response.error}`;
                 console.error(`❌ [WEBHOOK] ${errorMsg}`);
+                // Atualiza o status da venda para indicar a falha
+                await supabase
+                    .from('vendas_pix')
+                    .update({ ip_binding_status: 'falha', error_message: errorMsg })
+                    .eq('id', venda.id);
                 throw new Error(errorMsg);
             }
 
         } catch (error) {
             console.error('❌ Erro ao criar IP binding:', error);
+            // Garante que o status seja atualizado em caso de exceção
+            await supabase
+                .from('vendas_pix')
+                .update({ ip_binding_status: 'falha', error_message: error.message })
+                .eq('id', venda.id);
             // Lançar o erro para que a transação principal possa tratá-lo
             throw error;
         }

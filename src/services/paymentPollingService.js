@@ -182,59 +182,54 @@ class PaymentPollingService {
         try {
             console.log(`🎉 [PAYMENT-POLLING] Processando pagamento aprovado: ${venda.payment_id}`);
 
-            // 1. Atualizar status da venda
-            const updateData = {
-                status: 'completed',
-                mercadopago_status: mpPayment.status,
-                paid_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
+            // 1. Atualizar status da venda para 'completed' se necessário
+            if (venda.status !== 'completed') {
+                await this.updateVendaStatus(venda.id, {
+                    status: 'completed',
+                    mercadopago_status: mpPayment.status,
+                    paid_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+            }
 
-            // 2. Criar IP binding no MikroTik se ainda não foi criado
-            if (!venda.ip_binding_created) {
-                console.log(`🔗 [PAYMENT-POLLING] Criando IP binding para MAC: ${venda.mac_address}`);
+            // 2. Criar comissões e atualizar saldos (se não foram processados)
+            const comissoesExistem = await this.checkComissionsExist(venda.id);
+            if (!comissoesExistem) {
+                await this.createTransactionHistory(venda);
+                await this.updateUserBalances(venda);
+            }
+
+            // 3. Criar IP binding no MikroTik se ainda não foi criado ou falhou
+            if (venda.ip_binding_status !== 'criado') {
+                console.log(`🔗 [PAYMENT-POLLING] Tentando criar/recriar IP binding para MAC: ${venda.mac_address}`);
                 
                 const bindingResult = await this.createIpBindingForPayment(venda);
                 
+                let updateData = { updated_at: new Date().toISOString() };
+
                 if (bindingResult.success) {
+                    console.log(`✅ [PAYMENT-POLLING] IP binding criado com sucesso para venda ${venda.id}`);
                     updateData.ip_binding_created = true;
-                    updateData.ip_binding_mac = bindingResult.mac_address;
+                    updateData.ip_binding_status = 'criado';
                     updateData.ip_binding_comment = bindingResult.comment;
-                    updateData.ip_binding_created_at = bindingResult.created_at;
-                    updateData.ip_binding_expires_at = bindingResult.expires_at;
-                    updateData.mikrotik_creation_status = 'success';
-                    
-                    console.log(`✅ [PAYMENT-POLLING] IP binding criado para MAC: ${bindingResult.mac_address}`);
-                    console.log(`📋 [PAYMENT-POLLING] Detalhes: Criado em ${bindingResult.created_at} | Expira em ${bindingResult.expires_at}`);
+                    updateData.ip_binding_created_at = new Date().toISOString();
                 } else {
-                    console.error(`❌ [PAYMENT-POLLING] Falha na criação do IP binding:`, bindingResult.error);
+                    console.error(`❌ [PAYMENT-POLLING] Falha ao criar IP binding para venda ${venda.id}: ${bindingResult.error}`);
+                    updateData.ip_binding_status = 'falha';
                     updateData.error_message = bindingResult.error;
-                    updateData.mikrotik_creation_status = 'failed';
                 }
+                
+                await this.updateVendaStatus(venda.id, updateData);
             } else {
-                console.log(`ℹ️ [PAYMENT-POLLING] IP binding já foi criado para venda: ${venda.payment_id}`);
+                 console.log(`ℹ️ [PAYMENT-POLLING] IP binding para ${venda.id} já está como 'criado'.`);
             }
 
-            // 3. Atualizar venda no banco
-            const { error: updateError } = await supabase
-                .from('vendas_pix')
-                .update(updateData)
-                .eq('id', venda.id);
-
-            if (updateError) {
-                console.error('❌ [PAYMENT-POLLING] Erro ao atualizar venda:', updateError);
-                return;
-            }
-
-            // 4. Criar histórico de transações se não existe
-            if (venda.status !== 'completed') {
-                await this.createTransactionHistory(venda);
-            }
-
-            console.log(`✅ [PAYMENT-POLLING] Pagamento processado com sucesso: ${venda.payment_id}`);
-
+            console.log(`✅ [PAYMENT-POLLING] Venda aprovada ${venda.payment_id} processada.`);
         } catch (error) {
-            console.error(`❌ [PAYMENT-POLLING] Erro ao processar pagamento aprovado:`, error);
+            console.error(`❌ [PAYMENT-POLLING] Erro ao manusear pagamento aprovado ${venda.payment_id}:`, error);
+            await this.updateVendaStatus(venda.id, {
+                error_message: `Erro no handleApprovedPayment: ${error.message}`
+            });
         }
     }
 
@@ -557,81 +552,61 @@ class PaymentPollingService {
         }
     }
 
-    // Método para criar IP binding para pagamento
+    async updateVendaStatus(vendaId, updates) {
+        try {
+            const { error } = await supabase
+                .from('vendas_pix')
+                .update(updates)
+                .eq('id', vendaId);
+
+            if (error) {
+                console.error('❌ [PAYMENT-POLLING] Erro ao atualizar status da venda:', error);
+            } else {
+                console.log(`✅ [PAYMENT-POLLING] Status da venda ${vendaId} atualizado com sucesso.`);
+            }
+        } catch (error) {
+            console.error('❌ [PAYMENT-POLLING] Erro ao atualizar status da venda:', error);
+        }
+    }
+    
+    async checkComissionsExist(vendaId) {
+        try {
+            const { data, error } = await supabase
+                .from('vendas_pix_comissoes')
+                .select('id')
+                .eq('venda_pix_id', vendaId)
+                .limit(1);
+
+            if (error) {
+                console.error('Erro ao checar comissões:', error);
+                return false;
+            }
+            return data && data.length > 0;
+        } catch (error) {
+            console.error('Erro ao checar comissões:', error);
+            return false;
+        }
+    }
+
     async createIpBindingForPayment(venda) {
         try {
-            console.log(`🔗 [PAYMENT-POLLING] Criando IP binding para pagamento: ${venda.payment_id}`);
-            
-            const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://localhost:3001';
-            const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
+            const bindingResult = await this.mikrotikUserService.createIpBindingFromPayment(venda);
 
-            if (!mikrotikApiToken) {
-                throw new Error('MIKROTIK_API_TOKEN not configured');
-            }
-
-            const credentials = {
-                ip: venda.mikrotiks.ip,
-                usuario: venda.mikrotiks.usuario,
-                senha: venda.mikrotiks.senha,
-                porta: venda.mikrotiks.porta || 8728
-            };
-
-            const macAddress = venda.mac_address;
-            const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
-            const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
-
-            const paymentData = {
-                payment_id: venda.payment_id,
-                mac_address: formattedMac,
-                plano_nome: venda.plano_nome,
-                plano_valor: venda.plano_valor,
-                plano_session_timeout: venda.plano_session_timeout,
-                plano_rate_limit: venda.plano_rate_limit
-            };
-
-            console.log(`📡 [PAYMENT-POLLING] Enviando request para MikroTik API:`, {
-                payment_id: paymentData.payment_id,
-                mac_address: paymentData.mac_address,
-                plano_nome: paymentData.plano_nome,
-                mikrotik_ip: credentials.ip
-            });
-            
-            const response = await axios.post(`${mikrotikApiUrl}/ip-binding/create-from-payment?ip=${credentials.ip}&username=${credentials.usuario}&password=${credentials.senha}&port=${credentials.porta}`, {
-                credentials: credentials,
-                paymentData: paymentData
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${mikrotikApiToken}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 20000
-            });
-
-            console.log(`📥 [PAYMENT-POLLING] MikroTik API response:`, response.data);
-
-            if (response.data?.success) {
+            if (bindingResult.success) {
                 return {
                     success: true,
-                    mac_address: response.data.data?.mac_address,
-                    comment: response.data.data?.comment,
-                    created_at: response.data.data?.created_at,
-                    expires_at: response.data.data?.expires_at,
-                    data: response.data
+                    comment: bindingResult.details?.data?.comment
                 };
             } else {
                 return {
                     success: false,
-                    error: response.data?.error || response.data?.message || 'Unknown error creating IP binding'
+                    error: bindingResult.error || 'Erro desconhecido no serviço de binding'
                 };
             }
         } catch (error) {
-            console.error('❌ [PAYMENT-POLLING] MikroTik API Error:', error.message);
-            if (error.response) {
-                console.error('❌ [PAYMENT-POLLING] Error response:', error.response.data);
-            }
             return {
                 success: false,
-                error: error.response?.data?.error || error.response?.data?.message || error.message
+                error: error.message
             };
         }
     }
