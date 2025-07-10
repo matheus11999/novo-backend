@@ -94,10 +94,44 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
       console.error('Failed to log API error:', logErr.message);
     }
 
-    if (error.response) {
-      throw new Error(error.response.data?.error || 'Erro na API do MikroTik');
+    if (!error.response) {
+      // Erro de rede: API VPS2 inacessível
+      await errorLogService.logError({
+        component: 'MIKROTIK_API',
+        errorType: 'api_unreachable',
+        errorMessage: error.message,
+        errorStack: error.stack,
+        context: { endpoint, method, ip: credentials.ip },
+        severity: 'error'
+      });
+      throw new Error('API Mikrotik indisponível');
     }
-    throw new Error('Erro de conexão com a API do MikroTik');
+
+    const apiError = error.response.data?.error || '';
+
+    // Classificar erros devolvidos pela API VPS2
+    let friendlyMsg = apiError || 'Erro na API do MikroTik';
+    let errorType = 'request_error';
+
+    if (apiError.toLowerCase().includes('timeout')) {
+      friendlyMsg = 'MikroTik offline ou IP inválido';
+      errorType = 'device_unreachable';
+    } else if (apiError.toLowerCase().includes('autenticação') || apiError.toLowerCase().includes('authentication')) {
+      friendlyMsg = 'Usuário ou senha do MikroTik incorretos';
+      errorType = 'auth_failure';
+    }
+
+    await errorLogService.logError({
+      component: 'MIKROTIK_API',
+      errorType,
+      errorMessage: apiError,
+      errorStack: error.stack,
+      context: { endpoint, method, ip: credentials.ip },
+      mikrotikId: credentials.mikrotik?.id,
+      severity: errorType === 'request_error' ? 'warn' : 'error'
+    });
+
+    throw new Error(friendlyMsg);
   }
 };
 
