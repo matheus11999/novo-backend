@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { supabase } = require('../config/database');
 const templateService = require('../services/templateService');
+const errorLogService = require('../services/errorLogService');
 
 const MIKROTIK_API_URL = process.env.MIKROTIK_API_URL;
 
@@ -70,6 +71,29 @@ const makeApiRequest = async (endpoint, credentials, method = 'GET', data = null
     return response.data;
   } catch (error) {
     console.error('API Request Error:', error.message);
+
+    // Log detalhado no banco
+    try {
+      const errorType = error.code === 'ECONNABORTED' || error.message?.includes('timeout') ? 'timeout' : 'request_error';
+      await errorLogService.logError({
+        component: 'MIKROTIK_API',
+        errorType,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        context: {
+          endpoint,
+          method,
+          ip: credentials.ip,
+          port: credentials.port,
+          username: credentials.username
+        },
+        mikrotikId: credentials.mikrotik?.id,
+        severity: 'warn'
+      });
+    } catch (logErr) {
+      console.error('Failed to log API error:', logErr.message);
+    }
+
     if (error.response) {
       throw new Error(error.response.data?.error || 'Erro na API do MikroTik');
     }
