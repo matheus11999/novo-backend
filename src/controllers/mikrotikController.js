@@ -2257,46 +2257,34 @@ const generateInstallRsc = async (req, res) => {
 
     // Gerar conteúdo do arquivo RSC (inclui linhas de comentário que serão limpas em seguida)
     const rscContent = `/system/clock set time-zone-name="America/Manaus"
-/system/ntp/client set enabled=yes primary-ntp="200.160.0.8" secondary-ntp="200.20.186.76"
-/ip/hotspot/walled-garden add dst-host="api.mikropix.online" action=allow comment="Mikropix - Setup"
-/ip/hotspot/walled-garden add dst-host="mikropix.online" action=allow comment="Mikropix - Setup"
-/ip/hotspot/walled-garden add dst-host="*.mikropix.online" action=allow comment="Mikropix - Setup"
-/interface/wireguard add name="wg-client" private-key="${mikrotik.wireguard_private_key}" listen-port=64326 comment="Mikropix - Setup"
-/interface/wireguard/peers add interface="wg-client" public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="${serverIp}" endpoint-port="${serverPort}" persistent-keepalive="${mikrotik.wireguard_keepalive || 25}s" comment="Mikropix - Setup"
-/ip/address add address="${mikrotik.ip}/24" interface="wg-client" comment="IP WireGuard tunnel - Criado automaticamente"
-/ip/dns
-set servers="1.1.1.1" allow-remote-requests=yes
-/ip/route
-add dst-address="0.0.0.0/0" gateway="wg-client" distance=1 comment="Rota padrão via WireGuard - Criado automaticamente"
-/ip/firewall/filter
-add chain="input" protocol="udp" port="64326" action="accept" comment="Permitir WireGuard UDP - Criado automaticamente"
-add chain="forward" out-interface="wg-client" action="accept" comment="Permitir forward para WireGuard - Criado automaticamente"
-add chain="forward" in-interface="wg-client" action="accept" comment="Permitir forward do WireGuard - Criado automaticamente"
-/ip/firewall/nat
-add chain="srcnat" out-interface="wg-client" action="masquerade" comment="NAT para WireGuard - Criado automaticamente"
-/ip/firewall/mangle
-add chain="prerouting" in-interface="wg-client" action="mark-connection" new-connection-mark="wireguard-conn" comment="Marcar conexões WireGuard - Criado automaticamente"
-add chain="prerouting" connection-mark="wireguard-conn" action="mark-packet" new-packet-mark="wireguard-packet" comment="Marcar pacotes WireGuard - Criado automaticamente"
-/interface/wireguard
-set [find name="wg-client"] disabled=no`;
+/system ntp client set enabled=yes primary-ntp=200.160.0.8 secondary-ntp=200.20.186.76
+/ip/hotspot/walled-garden add dst-host=api.mikropix.online action=allow
+/ip/hotspot/walled-garden add dst-host=mikropix.online action=allow
+/ip/hotspot/walled-garden add dst-host=*.mikropix.online action=allow
+/interface/wireguard add name=wg-client private-key="${mikrotik.wireguard_private_key}" listen-port=${serverPort}
+/interface/wireguard/peers add interface=wg-client public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="${serverIp}" endpoint-port="${serverPort}" persistent-keepalive="${mikrotik.wireguard_keepalive || 25}s"
+/ip/address add address="${mikrotik.ip}/24" interface=wg-client
+/ip/dns set servers=1.1.1.1 allow-remote-requests=yes
+/ip/firewall/filter add chain=input protocol=udp port=${serverPort} action=accept
+/ip/firewall/filter add chain=forward out-interface=wg-client action=accept
+/ip/firewall/filter add chain=forward in-interface=wg-client action=accept
+/ip/firewall/nat add chain=srcnat out-interface=wg-client action=masquerade
+/ip/firewall/mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn
+/ip/firewall/mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet
+/system/script add name=mikropix-cleanup-vars source=":global logPrefix \\"AutoRemover-v7\\"; :global totalUsers 0; :global totalBindings 0; :global removidosUsers 0; :global removidosBindings 0; :global ativosUsers 0; :global ativosBindings 0; :global meses {\\"jan\\"=1;\\"feb\\"=2;\\"mar\\"=3;\\"apr\\"=4;\\"may\\"=5;\\"jun\\"=6;\\"jul\\"=7;\\"aug\\"=8;\\"sep\\"=9;\\"oct\\"=10;\\"nov\\"=11;\\"dec\\"=12};"
+/system/script add name=mikropix-cleanup-users source=":global logPrefix; :global totalUsers; :global removidosUsers; :global ativosUsers; :global meses; :local tempoAtual [/system clock get time]; :local dataAtual [/system clock get date]; :local mesAtualNum; :local diaAtual; :local anoAtual; :if ([:pick \\$dataAtual 4 5] = \\"/\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :if ([:pick \\$dataAtual 4 5] = \\"-\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :set mesAtualNum (\\$meses->[:tolower [:pick \\$dataAtual 4 7]]); :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; }; }; :local horaAtualNum [:tonum [:pick \\$tempoAtual 0 2]]; :local minAtualNum [:tonum [:pick \\$tempoAtual 3 5]]; :foreach i in=[/ip hotspot user find where comment~\\"Expira:\\"] do={ :set totalUsers (\\$totalUsers + 1); :local userName [/ip hotspot user get \\$i name]; :local userComment [/ip hotspot user get \\$i comment]; :local posInicio ([:find \\$userComment \\"Expira: \\"] + 8); :if (\\$posInicio > 7) do={ :local dataExpCompleta [:pick \\$userComment \\$posInicio [:len \\$userComment]]; :if ([:len \\$dataExpCompleta] >= 16) do={ :local dataExp [:pick \\$dataExpCompleta 0 10]; :local horaExp [:pick \\$dataExpCompleta 11 16]; :local diaExp [:tonum [:pick \\$dataExp 0 2]]; :local mesExp [:tonum [:pick \\$dataExp 3 5]]; :local anoExp [:tonum [:pick \\$dataExp 6 10]]; :local horaExpNum [:tonum [:pick \\$horaExp 0 2]]; :local minExpNum [:tonum [:pick \\$horaExp 3 5]]; :if ([:typeof \\$diaExp] = \\"num\\" && [:typeof \\$mesExp] = \\"num\\" && [:typeof \\$anoExp] = \\"num\\" && [:typeof \\$horaExpNum] = \\"num\\" && [:typeof \\$minExpNum] = \\"num\\") do={ :local expirado false; :if (\\$anoExp < \\$anoAtual) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp < \\$mesAtualNum) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp < \\$diaAtual) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum < \\$horaAtualNum) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum = \\$horaAtualNum && \\$minExpNum <= \\$minAtualNum) do={ :set expirado true }; :if (\\$expirado) do={ :log warning \\"[\\$logPrefix] Hotspot User: '\\$userName' expirou. Removendo.\\"; /ip hotspot user remove \\$i; :set removidosUsers (\\$removidosUsers + 1); } else={ :set ativosUsers (\\$ativosUsers + 1); }; }; }; };"
+/system/script add name=mikropix-cleanup-bindings source=":global logPrefix; :global totalBindings; :global removidosBindings; :global ativosBindings; :global meses; :local tempoAtual [/system clock get time]; :local dataAtual [/system clock get date]; :local mesAtualNum; :local diaAtual; :local anoAtual; :if ([:pick \\$dataAtual 4 5] = \\"/\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :if ([:pick \\$dataAtual 4 5] = \\"-\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :set mesAtualNum (\\$meses->[:tolower [:pick \\$dataAtual 4 7]]); :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; }; }; :local horaAtualNum [:tonum [:pick \\$tempoAtual 0 2]]; :local minAtualNum [:tonum [:pick \\$tempoAtual 3 5]]; :foreach i in=[/ip hotspot ip-binding find where comment~\\"Expira:\\"] do={ :set totalBindings (\\$totalBindings + 1); :local bindingMac [/ip hotspot ip-binding get \\$i mac-address]; :local bindingComment [/ip hotspot ip-binding get \\$i comment]; :if ([:len \\$bindingMac] > 0) do={ :local posInicio ([:find \\$bindingComment \\"Expira: \\"] + 8); :if (\\$posInicio > 7) do={ :local dataExpCompleta [:pick \\$bindingComment \\$posInicio [:len \\$bindingComment]]; :local dataExp \\"\\"; :local horaExp \\"\\"; :if ([:find \\$dataExpCompleta \\"-\\"] != -1) do={ :local ano [:pick \\$dataExpCompleta 0 4]; :local mes [:pick \\$dataExpCompleta 5 7]; :local dia [:pick \\$dataExpCompleta 8 10]; :local hora [:pick \\$dataExpCompleta 11 16]; :set dataExp \\"\\$dia/\\$mes/\\$ano\\"; :set horaExp \\$hora; } else={ :if ([:len \\$dataExpCompleta] >= 16) do={ :set dataExp [:pick \\$dataExpCompleta 0 10]; :set horaExp [:pick \\$dataExpCompleta 11 16]; }; }; :if ([:len \\$dataExp] = 10 && [:len \\$horaExp] = 5) do={ :local diaExp [:tonum [:pick \\$dataExp 0 2]]; :local mesExp [:tonum [:pick \\$dataExp 3 5]]; :local anoExp [:tonum [:pick \\$dataExp 6 10]]; :local horaExpNum [:tonum [:pick \\$horaExp 0 2]]; :local minExpNum [:tonum [:pick \\$horaExp 3 5]]; :if ([:typeof \\$diaExp] = \\"num\\" && [:typeof \\$mesExp] = \\"num\\" && [:typeof \\$anoExp] = \\"num\\" && [:typeof \\$horaExpNum] = \\"num\\" && [:typeof \\$minExpNum] = \\"num\\") do={ :local expirado false; :if (\\$anoExp < \\$anoAtual) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp < \\$mesAtualNum) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp < \\$diaAtual) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum < \\$horaAtualNum) do={ :set expirado true }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum = \\$horaAtualNum && \\$minExpNum <= \\$minAtualNum) do={ :set expirado true }; :if (\\$expirado) do={ :log warning \\"[\\$logPrefix] IP Binding MAC: '\\$bindingMac' expirou. Removendo.\\"; /ip hotspot ip-binding remove \\$i; :set removidosBindings (\\$removidosBindings + 1); } else={ :set ativosBindings (\\$ativosBindings + 1); }; }; }; }; };"
+/system/script add name=mikropix-cleanup source=":global logPrefix; :global totalUsers; :global totalBindings; :global removidosUsers; :global removidosBindings; :global ativosUsers; :global ativosBindings; :local tempoAtual [/system clock get time]; :local dataAtual [/system clock get date]; :log info \\"[\\$logPrefix] Iniciando verificação. Data/Hora atual: \\$dataAtual \\$tempoAtual\\"; :set totalUsers 0; :set totalBindings 0; :set removidosUsers 0; :set removidosBindings 0; :set ativosUsers 0; :set ativosBindings 0; :do { /system script run mikropix-cleanup-vars; /system script run mikropix-cleanup-users; /system script run mikropix-cleanup-bindings; :log info \\"[\\$logPrefix] ========== RELATÓRIO FINAL ==========\\"; :log info \\"[\\$logPrefix] HOTSPOT USERS: Total=\\$totalUsers | Ativos=\\$ativosUsers | Removidos=\\$removidosUsers\\"; :log info \\"[\\$logPrefix] IP BINDINGS: Total=\\$totalBindings | Ativos=\\$ativosBindings | Removidos=\\$removidosBindings\\"; :log info \\"[\\$logPrefix] TOTAL REMOVIDOS: \\$(\\$removidosUsers + \\$removidosBindings)\\"; :log info \\"[\\$logPrefix] Verificação concluída.\\"; } on-error={ :log error \\"[\\$logPrefix] Erro durante a execução do script.\\"; };"
+/system/scheduler add name=mikropix-cleanup-scheduler interval=2m on-event="mikropix-cleanup"
+/interface/wireguard set [find name=wg-client] disabled=no
+:log info "Configuração Mikropix instalada com sucesso"`;
 
-    // =================== Pós-processamento ===================
-    // 1. Remover linhas que começam com '#'
-    // 2. Ajustar caminho do NTP e remover aspas em IPs
-    // 3. Converter quebras de linha para CRLF
-    let cleanedRsc = rscContent
+    // Converte LF para CRLF e remove comentários/aspas desnecessárias
+    const cleanedRsc = rscContent
       .split('\n')
-      .filter(line => !line.trim().startsWith('#'))
-      .join('\n');
-
-    cleanedRsc = cleanedRsc
-      .replace(/\/system\/ntp\/client/g, '/system ntp client')
-      .replace(/primary-ntp="([0-9.]+)"/g, 'primary-ntp=$1')
-      .replace(/secondary-ntp="([0-9.]+)"/g, 'secondary-ntp=$1')
-      .replace(/dst-host="([^"]+)"/g, 'dst-host=$1');
-
-    // Converte LF para CRLF para maior compatibilidade
-    cleanedRsc = cleanedRsc.replace(/\n/g, '\r\n');
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'))
+      .join('\r\n');
 
     // Retornar o arquivo RSC limpo
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
