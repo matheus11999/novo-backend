@@ -1559,15 +1559,37 @@ const generateWireGuardConfig = async (req, res) => {
       });
     }
     
-    // Buscar chave pública do servidor WireRest
-    let serverPublicKey = 'pKTynf0wxJpeuPtqiOoYMN3a44qQTYFKYwSETKhXinw='; // fallback
-    try {
-      const serverInfo = await getWireRestInterface();
-      if (serverInfo.success && serverInfo.data.publicKey) {
-        serverPublicKey = serverInfo.data.publicKey;
+    // ------------------------------------------------------------------
+    // Obter chave pública do servidor WireRest
+    // Tentativa 1: variável de ambiente (mais rápida e evita I/O extra)
+    let serverPublicKey = process.env.WIREGUARD_SERVER_PUBLIC_KEY || process.env.WIREGUARD_PUBLIC_KEY || null;
+
+    // Tentativa 2: buscar diretamente no WireRest se não vier via env
+    if (!serverPublicKey) {
+      try {
+        const WIREREST_URL = process.env.WIREREST_URL || 'http://193.181.208.141:8081';
+        const WIREREST_TOKEN = process.env.WIREREST_TOKEN || 'aMFQqLmGkY3qBuxvUDRMsFJ2KlR4fQeN5UUBLk5tpY9Izt29gLDFRqTWbkBuADne';
+
+        const response = await axios.get(`${WIREREST_URL}/v1/interface`, {
+          headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${WIREREST_TOKEN}`
+          },
+          timeout: 10000
+        });
+
+        if (response.data && response.data.publicKey) {
+          serverPublicKey = response.data.publicKey;
+        }
+      } catch (error) {
+        console.warn('Não foi possível obter chave pública do servidor WireRest:', error.message);
       }
-    } catch (error) {
-      console.warn('Usando chave pública padrão do servidor');
+    }
+
+    if (!serverPublicKey) {
+      return res.status(500).json({
+        error: 'Não foi possível obter chave pública do servidor WireRest. Verifique a configuração WIREGUARD_SERVER_PUBLIC_KEY ou o endpoint WireRest.'
+      });
     }
     
     // Extrair IP do cliente
