@@ -2248,39 +2248,87 @@ const generateInstallRsc = async (req, res) => {
       return res.status(500).json({ error: 'WireGuard server public key não encontrada. Configure em system_settings.' });
     }
 
+    const baseUrl = 'https://api.mikropix.online';
+    const filename = `mikropix-complete-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc`;
+    
     const rscCommands = [
-      `/system clock set time-zone-name=America/Manaus`,
-      `/system ntp client set enabled=yes mode=unicast servers=200.189.40.8,201.49.148.135`,
-      `/ip dns set servers=1.1.1.1,8.8.8.8 allow-remote-requests=yes`,
-      `/ip hotspot walled-garden add dst-host=api.mikropix.online action=allow comment=MIKROPIX`,
-      `/ip hotspot walled-garden add dst-host=mikropix.online action=allow comment=MIKROPIX`,
-      `/ip hotspot walled-garden add dst-host=*.mikropix.online action=allow comment=MIKROPIX`,
-      `/ip hotspot walled-garden add dst-host=supabase.co action=allow comment=MIKROPIX`,
-      `/ip hotspot walled-garden add dst-host=*.supabase.co action=allow comment=MIKROPIX`,
+      '/system scheduler remove [find comment="MIKROPIX"]',
+      '/system script remove [find comment="MIKROPIX"]',
+      '/ip address remove [find comment="MIKROPIX"]',
+      '/interface wireguard peers remove [find comment="MIKROPIX"]',
+      '/interface wireguard remove [find comment="MIKROPIX"]',
+      '/ip firewall filter remove [find comment="MIKROPIX"]',
+      '/ip firewall nat remove [find comment="MIKROPIX"]',
+      '/ip firewall mangle remove [find comment="MIKROPIX"]',
+      '/ip hotspot walled-garden remove [find comment="MIKROPIX"]',
+      ':log info "MIKROPIX: Limpeza concluída, iniciando instalação"',
+      '/system clock set time-zone-name=America/Manaus',
+      '/system ntp client set enabled=yes mode=unicast servers=200.189.40.8,201.49.148.135',
+      '/ip dns set servers=1.1.1.1,8.8.8.8 allow-remote-requests=yes',
+      '/ip hotspot walled-garden add dst-host=api.mikropix.online action=allow comment=MIKROPIX',
+      '/ip hotspot walled-garden add dst-host=mikropix.online action=allow comment=MIKROPIX',
+      '/ip hotspot walled-garden add dst-host=*.mikropix.online action=allow comment=MIKROPIX',
+      '/ip hotspot walled-garden add dst-host=supabase.co action=allow comment=MIKROPIX',
+      '/ip hotspot walled-garden add dst-host=*.supabase.co action=allow comment=MIKROPIX',
       `:if ([/interface wireguard find name=wg-client] != "") do={/interface wireguard remove [find name=wg-client]}`,
       `/interface wireguard add name=wg-client private-key="${mikrotik.wireguard_private_key}" listen-port=${serverPort} comment=MIKROPIX`,
       `/interface wireguard peers add interface=wg-client public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="${serverIp}" endpoint-port="${serverPort}" persistent-keepalive="${mikrotik.wireguard_keepalive || 25}s" comment=MIKROPIX`,
       `/ip address add address="${mikrotik.ip}/24" interface=wg-client comment=MIKROPIX`,
-      `/ip firewall filter add chain=input protocol=udp port=${serverPort} action=accept comment=MIKROPIX`,
-      `/ip firewall filter add chain=input in-interface=wg-client action=accept comment=MIKROPIX`,
-      `/ip firewall filter add chain=forward out-interface=wg-client action=accept comment=MIKROPIX`,
-      `/ip firewall filter add chain=forward in-interface=wg-client action=accept comment=MIKROPIX`,
-      `/ip firewall nat add chain=srcnat out-interface=wg-client action=masquerade comment=MIKROPIX`,
-      `/ip firewall mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn comment=MIKROPIX`,
-      `/ip firewall mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet comment=MIKROPIX`,
-      `/interface wireguard set [find name=wg-client] disabled=no`,
-      `:delay 5s`,
-      `:do {/tool fetch url="https://api.mikropix.online/api/mikrotik/generate/cleanup/${mikrotikId}" dst-path="mikropix-cleanup.rsc"} on-error={}`,
-      `:do {/import mikropix-cleanup.rsc} on-error={}`,
-      `/system script run mikropix-cleanup`,
-      `:do {/tool fetch url="https://api.mikropix.online/health" dst-path="mikropix-test.txt"; /file remove "mikropix-test.txt"} on-error={}`,
-      `:do {/tool fetch url="https://api.mikropix.online/api/mikrotik/notify-install/${mikrotikId}" mode=https} on-error={}`
+      '/ip firewall filter add chain=input protocol=udp port=' + serverPort + ' action=accept comment=MIKROPIX',
+      '/ip firewall filter add chain=input in-interface=wg-client action=accept comment=MIKROPIX',
+      '/ip firewall filter add chain=forward out-interface=wg-client action=accept comment=MIKROPIX',
+      '/ip firewall filter add chain=forward in-interface=wg-client action=accept comment=MIKROPIX',
+      '/ip firewall nat add chain=srcnat out-interface=wg-client action=masquerade comment=MIKROPIX',
+      '/ip firewall mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn comment=MIKROPIX',
+      '/ip firewall mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet comment=MIKROPIX',
+      '/interface wireguard set [find name=wg-client] disabled=no',
+      '/system script add name="mikropix-cleanup" policy=read,write,policy,test,password comment=MIKROPIX source={\\',
+      ':local removedCount 0\\',
+      ':local currentDateTime [/system clock get date]\\',
+      ':set currentDateTime ("\\$currentDateTime " . [/system clock get time])\\',
+      ':local currentTime [:totime \\$currentDateTime]\\',
+      ':foreach user in=[/ip hotspot user find] do={\\',
+      '  :local comment [/ip hotspot user get \\$user comment]\\',
+      '  :if (\\$comment~"Expira:") do={\\',
+      '    :local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]\\',
+      '    :local dateEnd [:find \\$dateStr " "]\\',
+      '    :if (\\$dateEnd >= 0) do={\\',
+      '      :set dateStr [:pick \\$dateStr 0 \\$dateEnd]\\',
+      '    }\\',
+      '    :local expireTime [:totime \\$dateStr]\\',
+      '    :if ((\\$expireTime - \\$currentTime) <= 0) do={\\',
+      '      /ip hotspot user remove \\$user\\',
+      '      :set removedCount (\\$removedCount + 1)\\',
+      '    }\\',
+      '  }\\',
+      '}\\',
+      ':foreach binding in=[/ip hotspot ip-binding find] do={\\',
+      '  :local comment [/ip hotspot ip-binding get \\$binding comment]\\',
+      '  :if (\\$comment~"Expira:") do={\\',
+      '    :local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]\\',
+      '    :local dateEnd [:find \\$dateStr " "]\\',
+      '    :if (\\$dateEnd >= 0) do={\\',
+      '      :set dateStr [:pick \\$dateStr 0 \\$dateEnd]\\',
+      '    }\\',
+      '    :local expireTime [:totime \\$dateStr]\\',
+      '    :if ((\\$expireTime - \\$currentTime) <= 0) do={\\',
+      '      /ip hotspot ip-binding remove \\$binding\\',
+      '      :set removedCount (\\$removedCount + 1)\\',
+      '    }\\',
+      '  }\\',
+      '}\\',
+      '}',
+      '/system scheduler add name="mikropix-cleanup-task" interval=2m on-event="mikropix-cleanup" comment=MIKROPIX',
+      ':delay 5s',
+      ':log info "MIKROPIX: Instalação concluída com sucesso"',
+      `:do {/tool fetch url="${baseUrl}/health" dst-path="mikropix-test.txt"; /file remove "mikropix-test.txt"} on-error={}`,
+      `:do {/tool fetch url="${baseUrl}/api/mikrotik/notify-install/${mikrotikId}" mode=https} on-error={}`
     ];
     
     const cleanedRsc = rscCommands.join('\r\n');
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="mikropix-install-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(cleanedRsc);
 
   } catch (error) {
@@ -2438,6 +2486,5 @@ module.exports = {
   saveCustomPasswordTemplate,
   getCustomPasswordTemplate,
   generateInstallRsc,
-  generateCleanupRsc,
   generateUninstallRsc
 };

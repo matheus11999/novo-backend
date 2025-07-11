@@ -161,7 +161,6 @@ router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 
 // Rotas para geração de scripts RSC (sem autenticação para download direto)
 router.get('/generate/install/:mikrotikId', mikrotikController.generateInstallRsc);
-router.get('/generate/cleanup/:mikrotikId', mikrotikController.generateCleanupRsc);
 router.get('/generate/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
 
 // Rota para notificação de instalação (sem autenticação para MikroTik)
