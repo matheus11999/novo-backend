@@ -2304,8 +2304,43 @@ const generateCleanupRsc = async (req, res) => {
     }
 
     const rscCommands = [
-      `/system script add name="mikropix-cleanup" policy=read,write,policy,test,password source={:local removedCount 0; :local currentDateTime [:tostr [:totime [/system clock get date]]]; :set currentDateTime (\\$currentDateTime . " " . [:tostr [:totime [/system clock get time]]]); :local currentTime [:totime \\$currentDateTime]; :foreach user in=[/ip hotspot user find] do={:local comment [/ip hotspot user get \\$user comment]; :if (\\$comment~"Expira:") do={:local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]; :local dateEnd [:find \\$dateStr " "]; :if (\\$dateEnd >= 0) do={:set dateStr [:pick \\$dateStr 0 \\$dateEnd]}; :local expireTime [:totime \\$dateStr]; :if ((\\$expireTime - \\$currentTime) <= 0) do={/ip hotspot user remove \\$user; :set removedCount (\\$removedCount + 1)}}}; :foreach binding in=[/ip hotspot ip-binding find] do={:local comment [/ip hotspot ip-binding get \\$binding comment]; :if (\\$comment~"Expira:") do={:local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]; :local dateEnd [:find \\$dateStr " "]; :if (\\$dateEnd >= 0) do={:set dateStr [:pick \\$dateStr 0 \\$dateEnd]}; :local expireTime [:totime \\$dateStr]; :if ((\\$expireTime - \\$currentTime) <= 0) do={/ip hotspot ip-binding remove \\$binding; :set removedCount (\\$removedCount + 1)}}}} comment=MIKROPIX`,
-      `/system scheduler add name="mikropix-cleanup-task" interval=2m on-event="mikropix-cleanup" comment=MIKROPIX`
+      '/system script add name="mikropix-cleanup" policy=read,write,policy,test,password comment=MIKROPIX source={\\',
+      ':local removedCount 0\\',
+      ':local currentDateTime [/system clock get date]\\',
+      ':set currentDateTime ("\\$currentDateTime " . [/system clock get time])\\',
+      ':local currentTime [:totime \\$currentDateTime]\\',
+      ':foreach user in=[/ip hotspot user find] do={\\',
+      '  :local comment [/ip hotspot user get \\$user comment]\\',
+      '  :if (\\$comment~"Expira:") do={\\',
+      '    :local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]\\',
+      '    :local dateEnd [:find \\$dateStr " "]\\',
+      '    :if (\\$dateEnd >= 0) do={\\',
+      '      :set dateStr [:pick \\$dateStr 0 \\$dateEnd]\\',
+      '    }\\',
+      '    :local expireTime [:totime \\$dateStr]\\',
+      '    :if ((\\$expireTime - \\$currentTime) <= 0) do={\\',
+      '      /ip hotspot user remove \\$user\\',
+      '      :set removedCount (\\$removedCount + 1)\\',
+      '    }\\',
+      '  }\\',
+      '}\\',
+      ':foreach binding in=[/ip hotspot ip-binding find] do={\\',
+      '  :local comment [/ip hotspot ip-binding get \\$binding comment]\\',
+      '  :if (\\$comment~"Expira:") do={\\',
+      '    :local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]\\',
+      '    :local dateEnd [:find \\$dateStr " "]\\',
+      '    :if (\\$dateEnd >= 0) do={\\',
+      '      :set dateStr [:pick \\$dateStr 0 \\$dateEnd]\\',
+      '    }\\',
+      '    :local expireTime [:totime \\$dateStr]\\',
+      '    :if ((\\$expireTime - \\$currentTime) <= 0) do={\\',
+      '      /ip hotspot ip-binding remove \\$binding\\',
+      '      :set removedCount (\\$removedCount + 1)\\',
+      '    }\\',
+      '  }\\',
+      '}\\',
+      '}',
+      '/system scheduler add name="mikropix-cleanup-task" interval=2m on-event="mikropix-cleanup" comment=MIKROPIX'
     ];
     
     const cleanedRsc = rscCommands.join('\r\n');
