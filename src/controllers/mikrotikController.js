@@ -2248,159 +2248,33 @@ const generateInstallRsc = async (req, res) => {
       return res.status(500).json({ error: 'WireGuard server public key não encontrada. Configure em system_settings.' });
     }
 
-    // Gerar código RSC completo de instalação do MikroPix
     const rscCommands = [
-      `# MikroPix Installation Script v2.0`,
-      `# Generated for: ${mikrotik.nome}`,
-      `# MikroTik ID: ${mikrotikId}`,
-      `# IP WireGuard: ${mikrotik.ip}`,
-      `# Generated at: \${:timestamp}`,
-      ``,
-      `# --- LOGGING ---`,
-      `:log info "MIKROPIX: Iniciando instalação do sistema MikroPix"`,
-      ``,
-      `# --- SYSTEM CONFIGURATION ---`,
-      `# Configurar timezone para Brasil`,
       `/system clock set time-zone-name=America/Manaus`,
-      ``,
-      `# Configurar NTP com servidores brasileiros`,
       `/system ntp client set enabled=yes mode=unicast servers=200.189.40.8,201.49.148.135`,
-      `:log info "MIKROPIX: Timezone e NTP configurados"`,
-      ``,
-      `# --- DNS CONFIGURATION ---`,
-      `# Configurar DNS seguro e rápido`,
       `/ip dns set servers=1.1.1.1,8.8.8.8 allow-remote-requests=yes`,
-      `:log info "MIKROPIX: DNS configurado"`,
-      ``,
-      `# --- WALLED GARDEN CONFIGURATION ---`,
-      `# Permitir acesso aos domínios MikroPix sem autenticação`,
       `/ip hotspot walled-garden add dst-host=api.mikropix.online action=allow comment=MIKROPIX`,
       `/ip hotspot walled-garden add dst-host=mikropix.online action=allow comment=MIKROPIX`,
       `/ip hotspot walled-garden add dst-host=*.mikropix.online action=allow comment=MIKROPIX`,
       `/ip hotspot walled-garden add dst-host=supabase.co action=allow comment=MIKROPIX`,
       `/ip hotspot walled-garden add dst-host=*.supabase.co action=allow comment=MIKROPIX`,
-      `:log info "MIKROPIX: Walled Garden configurado"`,
-      ``,
-      `# --- WIREGUARD CONFIGURATION ---`,
-      `# Remover interface WireGuard existente se houver`,
-      `:if ([/interface wireguard find name=wg-client] != "") do={`,
-      `  /interface wireguard remove [find name=wg-client]`,
-      `  :log warning "MIKROPIX: Interface WireGuard existente removida"`,
-      `}`,
-      ``,
-      `# Criar interface WireGuard`,
+      `:if ([/interface wireguard find name=wg-client] != "") do={/interface wireguard remove [find name=wg-client]}`,
       `/interface wireguard add name=wg-client private-key="${mikrotik.wireguard_private_key}" listen-port=${serverPort} comment=MIKROPIX`,
-      ``,
-      `# Configurar peer WireGuard`,
       `/interface wireguard peers add interface=wg-client public-key="${serverPublicKey}" preshared-key="${mikrotik.wireguard_preshared_key || ''}" allowed-address="0.0.0.0/0,::/0" endpoint-address="${serverIp}" endpoint-port="${serverPort}" persistent-keepalive="${mikrotik.wireguard_keepalive || 25}s" comment=MIKROPIX`,
-      ``,
-      `# Adicionar endereço IP à interface`,
       `/ip address add address="${mikrotik.ip}/24" interface=wg-client comment=MIKROPIX`,
-      `:log info "MIKROPIX: Interface WireGuard configurada"`,
-      ``,
-      `# --- FIREWALL CONFIGURATION ---`,
-      `# Regras de INPUT`,
-      `/ip firewall filter add chain=input protocol=udp port=${serverPort} action=accept comment="MIKROPIX: Allow WireGuard"`,
-      `/ip firewall filter add chain=input in-interface=wg-client action=accept comment="MIKROPIX: Allow from WireGuard"`,
-      ``,
-      `# Regras de FORWARD`,
-      `/ip firewall filter add chain=forward out-interface=wg-client action=accept comment="MIKROPIX: Forward to WireGuard"`,
-      `/ip firewall filter add chain=forward in-interface=wg-client action=accept comment="MIKROPIX: Forward from WireGuard"`,
-      ``,
-      `# Regras de NAT`,
-      `/ip firewall nat add chain=srcnat out-interface=wg-client action=masquerade comment="MIKROPIX: Masquerade WireGuard"`,
-      ``,
-      `# Regras de MANGLE`,
-      `/ip firewall mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn comment="MIKROPIX: Mark WireGuard connections"`,
-      `/ip firewall mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet comment="MIKROPIX: Mark WireGuard packets"`,
-      `:log info "MIKROPIX: Firewall configurado"`,
-      ``,
-      `# --- SYSTEM SCRIPTS ---`,
-      `# Script de monitoramento MikroPix`,
-      `/system script add name="mikropix-monitor" policy=read,write,policy,test,password source={`,
-      `  # Script de monitoramento do sistema MikroPix`,
-      `  :local apiUrl "https://api.mikropix.online/api/mikrotik"`,
-      `  :local mikrotikId "${mikrotikId}"`,
-      `  `,
-      `  # Verificar conexão WireGuard`,
-      `  :local wgInterface [/interface wireguard find name=wg-client]`,
-      `  :if (\$wgInterface != "") do={`,
-      `    :local wgRunning [/interface wireguard get \$wgInterface running]`,
-      `    :if (\$wgRunning) do={`,
-      `      :log info "MIKROPIX: WireGuard conexão ativa"`,
-      `    } else={`,
-      `      :log warning "MIKROPIX: WireGuard desconectado"`,
-      `      /interface wireguard set \$wgInterface disabled=no`,
-      `    }`,
-      `  }`,
-      `} comment=MIKROPIX`,
-      ``,
-      `# Script de auto-atualização`,
-      `/system script add name="mikropix-update" policy=read,write,policy,test,password,ftp,reboot source={`,
-      `  # Auto-atualização do sistema MikroPix`,
-      `  :local apiUrl "https://api.mikropix.online/api/mikrotik/generate"`,
-      `  :local mikrotikId "${mikrotikId}"`,
-      `  `,
-      `  :log info "MIKROPIX: Verificando atualizações..."`,
-      `  `,
-      `  # Tentar download do script de limpeza`,
-      `  :do {`,
-      `    /tool fetch url=("\$apiUrl/cleanup/\$mikrotikId") dst-path="mikropix-cleanup.rsc"`,
-      `    :log info "MIKROPIX: Script de limpeza baixado"`,
-      `  } on-error={`,
-      `    :log error "MIKROPIX: Falha ao baixar script de limpeza"`,
-      `  }`,
-      `} comment=MIKROPIX`,
-      ``,
-      `# Script de backup automático`,
-      `/system script add name="mikropix-backup" policy=read,write,policy,test,password,ftp source={`,
-      `  # Backup automático das configurações`,
-      `  :local backupName ("mikropix-backup-" . [/system clock get date])`,
-      `  /system backup save name=\$backupName`,
-      `  :log info ("MIKROPIX: Backup criado: " . \$backupName)`,
-      `} comment=MIKROPIX`,
-      ``,
-      `# --- SCHEDULERS ---`,
-      `# Agendar monitoramento a cada 5 minutos`,
-      `/system scheduler add name="mikropix-monitor-task" interval=5m on-event="mikropix-monitor" comment=MIKROPIX`,
-      ``,
-      `# Agendar auto-atualização diária`,
-      `/system scheduler add name="mikropix-update-task" interval=1d start-time=03:00:00 on-event="mikropix-update" comment=MIKROPIX`,
-      ``,
-      `# Agendar backup semanal`,
-      `/system scheduler add name="mikropix-backup-task" interval=7d start-time=02:00:00 on-event="mikropix-backup" comment=MIKROPIX`,
-      ``,
-      `# --- FINAL STEPS ---`,
-      `# Ativar interface WireGuard`,
+      `/ip firewall filter add chain=input protocol=udp port=${serverPort} action=accept comment=MIKROPIX`,
+      `/ip firewall filter add chain=input in-interface=wg-client action=accept comment=MIKROPIX`,
+      `/ip firewall filter add chain=forward out-interface=wg-client action=accept comment=MIKROPIX`,
+      `/ip firewall filter add chain=forward in-interface=wg-client action=accept comment=MIKROPIX`,
+      `/ip firewall nat add chain=srcnat out-interface=wg-client action=masquerade comment=MIKROPIX`,
+      `/ip firewall mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn comment=MIKROPIX`,
+      `/ip firewall mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet comment=MIKROPIX`,
       `/interface wireguard set [find name=wg-client] disabled=no`,
-      ``,
-      `# Aguardar conexão`,
       `:delay 5s`,
-      ``,
-      `# Teste de conectividade`,
-      `:do {`,
-      `  /tool fetch url="https://api.mikropix.online/health" dst-path="mikropix-test.txt"`,
-      `  :log info "MIKROPIX: Conectividade confirmada!"`,
-      `  /file remove "mikropix-test.txt"`,
-      `} on-error={`,
-      `  :log error "MIKROPIX: Falha no teste de conectividade"`,
-      `}`,
-      ``,
-      `# Log final`,
-      `:log info "MIKROPIX: Instalação concluída com sucesso!"`,
-      `:log info "MIKROPIX: Sistema MikroPix ativo no MikroTik ${mikrotik.nome}"`,
-      `:log info "MIKROPIX: IP WireGuard: ${mikrotik.ip}"`,
-      `:log info "MIKROPIX: ID do dispositivo: ${mikrotikId}"`,
-      ``,
-      `# Notificação via API (opcional)`,
-      `:do {`,
-      `  /tool fetch url="https://api.mikropix.online/api/mikrotik/notify-install/${mikrotikId}" mode=https`,
-      `  :log info "MIKROPIX: Instalação notificada ao servidor"`,
-      `} on-error={`,
-      `  :log warning "MIKROPIX: Falha ao notificar instalação"`,
-      `}`,
-      ``,
-      `# Fim do script de instalação MikroPix`
+      `:do {/tool fetch url="https://api.mikropix.online/api/mikrotik/generate/cleanup/${mikrotikId}" dst-path="mikropix-cleanup.rsc"} on-error={}`,
+      `:do {/import mikropix-cleanup.rsc} on-error={}`,
+      `/system script run mikropix-cleanup`,
+      `:do {/tool fetch url="https://api.mikropix.online/health" dst-path="mikropix-test.txt"; /file remove "mikropix-test.txt"} on-error={}`,
+      `:do {/tool fetch url="https://api.mikropix.online/api/mikrotik/notify-install/${mikrotikId}" mode=https} on-error={}`
     ];
     
     const cleanedRsc = rscCommands.join('\r\n');
@@ -2429,170 +2303,9 @@ const generateCleanupRsc = async (req, res) => {
       return res.status(404).json({ error: 'MikroTik não encontrado' });
     }
 
-    const cleanupScriptSource = `:local logPrefix "AutoRemover-v7"
-:local tempoAtual [/system clock get time]
-:local dataAtual [/system clock get date]
-:log info "[$logPrefix] Iniciando verificação. Data/Hora atual: $dataAtual $tempoAtual"
-
-:local totalUsers 0
-:local totalBindings 0
-:local removidosUsers 0
-:local removidosBindings 0
-:local ativosUsers 0
-:local ativosBindings 0
-
-:local meses {"jan"=1;"feb"=2;"mar"=3;"apr"=4;"may"=5;"jun"=6;"jul"=7;"aug"=8;"sep"=9;"oct"=10;"nov"=11;"dec"=12}
-
-:local mesAtualNum
-:local diaAtual
-:local anoAtual
-:if ([:pick $dataAtual 4 5] = "/") do={
-    :set mesAtualNum [:tonum [:pick $dataAtual 5 7]]
-    :set diaAtual [:tonum [:pick $dataAtual 8 10]]
-    :set anoAtual [:tonum [:pick $dataAtual 0 4]]
-} else={
-    :if ([:pick $dataAtual 4 5] = "-") do={
-        :set mesAtualNum [:tonum [:pick $dataAtual 5 7]]
-        :set diaAtual [:tonum [:pick $dataAtual 8 10]]
-        :set anoAtual [:tonum [:pick $dataAtual 0 4]]
-    } else={
-        :set mesAtualNum ($meses->[:tolower [:pick $dataAtual 4 7]])
-        :set diaAtual [:tonum [:pick $dataAtual 8 10]]
-        :set anoAtual [:tonum [:pick $dataAtual 0 4]]
-    }
-}
-:local horaAtualNum [:tonum [:pick $tempoAtual 0 2]]
-:local minAtualNum [:tonum [:pick $tempoAtual 3 5]]
-:log debug "[$logPrefix] Data atual parsed: $anoAtual-$mesAtualNum-$diaAtual $horaAtualNum:$minAtualNum"
-
-:do {
-    :foreach i in=[/ip hotspot user find where comment~"Expira:"] do={
-        :set totalUsers ($totalUsers + 1)
-        :local userName [/ip hotspot user get $i name]
-        :local userComment [/ip hotspot user get $i comment]
-        
-        :local posInicio ([:find $userComment "Expira: "] + 8)
-        :if ($posInicio > 7) do={
-            :local dataExpCompleta [:pick $userComment $posInicio [:len $userComment]]
-            :if ([:len $dataExpCompleta] >= 16) do={
-                :local dataExp [:pick $dataExpCompleta 0 10]
-                :local horaExp [:pick $dataExpCompleta 11 16]
-                
-                :local diaExp [:tonum [:pick $dataExp 0 2]]
-                :local mesExp [:tonum [:pick $dataExp 3 5]]
-                :local anoExp [:tonum [:pick $dataExp 6 10]]
-                :local horaExpNum [:tonum [:pick $horaExp 0 2]]
-                :local minExpNum [:tonum [:pick $horaExp 3 5]]
-                
-                :log debug "[$logPrefix] User: $userName | Exp: $diaExp/$mesExp/$anoExp $horaExpNum:$minExpNum"
-                
-                :if ([:typeof $diaExp] = "num" && [:typeof $mesExp] = "num" && [:typeof $anoExp] = "num" && [:typeof $horaExpNum] = "num" && [:typeof $minExpNum] = "num") do={
-                    :local expirado false
-                    :if ($anoExp < $anoAtual) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp < $mesAtualNum) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp = $mesAtualNum && $diaExp < $diaAtual) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp = $mesAtualNum && $diaExp = $diaAtual && $horaExpNum < $horaAtualNum) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp = $mesAtualNum && $diaExp = $diaAtual && $horaExpNum = $horaAtualNum && $minExpNum <= $minAtualNum) do={ :set expirado true }
-                    
-                    :if ($expirado) do={
-                        :log warning "[$logPrefix] Hotspot User: '$userName' expirou em $dataExp $horaExp. Removendo."
-                        /ip hotspot user remove $i
-                        :set removidosUsers ($removidosUsers + 1)
-                    } else={
-                        :log info "[$logPrefix] User: '$userName' expira em $dataExp $horaExp"
-                        :set ativosUsers ($ativosUsers + 1)
-                    }
-                } else={
-                    :log error "[$logPrefix] Formato de data inválido para usuário: $userName | Comment: $userComment"
-                }
-            } else={
-                :log error "[$logPrefix] Comentário inválido para usuário: $userName | Comment: $userComment"
-            }
-        }
-    }
-
-    :foreach i in=[/ip hotspot ip-binding find where comment~"Expira:"] do={
-        :set totalBindings ($totalBindings + 1)
-        :local bindingMac [/ip hotspot ip-binding get $i mac-address]
-        :local bindingComment [/ip hotspot ip-binding get $i comment]
-        
-        :if ([:len $bindingMac] = 0) do={
-            :log error "[$logPrefix] IP Binding com MAC vazio. Ignorando."
-            :set totalBindings ($totalBindings - 1)
-            :next
-        }
-        
-        :local posInicio ([:find $bindingComment "Expira: "] + 8)
-        :if ($posInicio > 7) do={
-            :local dataExpCompleta [:pick $bindingComment $posInicio [:len $bindingComment]]
-            :local dataExp ""
-            :local horaExp ""
-            
-            :if ([:find $dataExpCompleta "-"] != -1) do={
-                :local ano [:pick $dataExpCompleta 0 4]
-                :local mes [:pick $dataExpCompleta 5 7]
-                :local dia [:pick $dataExpCompleta 8 10]
-                :local hora [:pick $dataExpCompleta 11 16]
-                :set dataExp "$dia/$mes/$ano"
-                :set horaExp $hora
-            } else={
-                :if ([:len $dataExpCompleta] >= 16) do={
-                    :set dataExp [:pick $dataExpCompleta 0 10]
-                    :set horaExp [:pick $dataExpCompleta 11 16]
-                }
-            }
-            
-            :if ([:len $dataExp] = 10 && [:len $horaExp] = 5) do={
-                :local diaExp [:tonum [:pick $dataExp 0 2]]
-                :local mesExp [:tonum [:pick $dataExp 3 5]]
-                :local anoExp [:tonum [:pick $dataExp 6 10]]
-                :local horaExpNum [:tonum [:pick $horaExp 0 2]]
-                :local minExpNum [:tonum [:pick $horaExp 3 5]]
-                
-                :log debug "[$logPrefix] IP Binding MAC: $bindingMac | Exp: $diaExp/$mesExp/$anoExp $horaExpNum:$minExpNum"
-                
-                :if ([:typeof $diaExp] = "num" && [:typeof $mesExp] = "num" && [:typeof $anoExp] = "num" && [:typeof $horaExpNum] = "num" && [:typeof $minExpNum] = "num") do={
-                    :local expirado false
-                    :if ($anoExp < $anoAtual) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp < $mesAtualNum) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp = $mesAtualNum && $diaExp < $diaAtual) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp = $mesAtualNum && $diaExp = $diaAtual && $horaExpNum < $horaAtualNum) do={ :set expirado true }
-                    :if ($anoExp = $anoAtual && $mesExp = $mesAtualNum && $diaExp = $diaAtual && $horaExpNum = $horaAtualNum && $minExpNum <= $minAtualNum) do={ :set expirado true }
-                    
-                    :if ($expirado) do={
-                        :log warning "[$logPrefix] IP Binding MAC: '$bindingMac' expirou em $dataExp $horaExp. Removendo."
-                        /ip hotspot ip-binding remove $i
-                        :set removidosBindings ($removidosBindings + 1)
-                    } else={
-                        :log info "[$logPrefix] IP Binding MAC: '$bindingMac' expira em $dataExp $horaExp"
-                        :set ativosBindings ($ativosBindings + 1)
-                    }
-                } else={
-                    :log error "[$logPrefix] Formato de data inválido para MAC: $bindingMac | Comment: $bindingComment"
-                }
-            } else={
-                :log error "[$logPrefix] Comentário inválido para MAC: $bindingMac | Comment: $bindingComment"
-            }
-        }
-    }
-
-    :log info "[$logPrefix] ========== RELATÓRIO FINAL =========="
-    :log info "[$logPrefix] HOTSPOT USERS: Total=$totalUsers | Ativos=$ativosUsers | Removidos=$removidosUsers"
-    :log info "[$logPrefix] IP BINDINGS: Total=$totalBindings | Ativos=$ativosBindings | Removidos=$removidosBindings"
-    :log info "[$logPrefix] TOTAL REMOVIDOS: $($removidosUsers + $removidosBindings)"
-    :log info "[$logPrefix] Verificação concluída."
-} on-error={
-    :log error "[$logPrefix] Erro durante a execução do script."
-    :log info "[$logPrefix] ========== RELATÓRIO FINAL =========="
-    :log info "[$logPrefix] HOTSPOT USERS: Total=$totalUsers | Ativos=$ativosUsers | Removidos=$removidosUsers"
-    :log info "[$logPrefix] IP BINDINGS: Total=$totalBindings | Ativos=$ativosBindings | Removidos=$removidosBindings"
-    :log info "[$logPrefix] TOTAL REMOVIDOS: $($removidosUsers + $removidosBindings)"
-    :log info "[$logPrefix] Verificação concluída com erro."
-}`;
-
     const rscCommands = [
-      `/system script add name="mikropix-auto-remover" source={\r\n${cleanupScriptSource}\r\n} comment=MIKROPIX`,
-      `/system scheduler add name="mikropix-auto-remover-scheduler" interval=2m on-event="mikropix-auto-remover" comment=MIKROPIX`
+      `/system script add name="mikropix-cleanup" policy=read,write,policy,test,password source={:local removedCount 0; :local currentDateTime [:tostr [:totime [/system clock get date]]]; :set currentDateTime (\\$currentDateTime . " " . [:tostr [:totime [/system clock get time]]]); :local currentTime [:totime \\$currentDateTime]; :foreach user in=[/ip hotspot user find] do={:local comment [/ip hotspot user get \\$user comment]; :if (\\$comment~"Expira:") do={:local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]; :local dateEnd [:find \\$dateStr " "]; :if (\\$dateEnd >= 0) do={:set dateStr [:pick \\$dateStr 0 \\$dateEnd]}; :local expireTime [:totime \\$dateStr]; :if ((\\$expireTime - \\$currentTime) <= 0) do={/ip hotspot user remove \\$user; :set removedCount (\\$removedCount + 1)}}}; :foreach binding in=[/ip hotspot ip-binding find] do={:local comment [/ip hotspot ip-binding get \\$binding comment]; :if (\\$comment~"Expira:") do={:local dateStr [:pick \\$comment ([:find \\$comment "Expira:"]+7) [:len \\$comment]]; :local dateEnd [:find \\$dateStr " "]; :if (\\$dateEnd >= 0) do={:set dateStr [:pick \\$dateStr 0 \\$dateEnd]}; :local expireTime [:totime \\$dateStr]; :if ((\\$expireTime - \\$currentTime) <= 0) do={/ip hotspot ip-binding remove \\$binding; :set removedCount (\\$removedCount + 1)}}}} comment=MIKROPIX`,
+      `/system scheduler add name="mikropix-cleanup-task" interval=2m on-event="mikropix-cleanup" comment=MIKROPIX`
     ];
     
     const cleanedRsc = rscCommands.join('\r\n');
@@ -2621,15 +2334,15 @@ const generateUninstallRsc = async (req, res) => {
     }
 
     const rscCommands = [
-      `/system scheduler remove [find where comment="MIKROPIX"]`,
-      `/system script remove [find where comment="MIKROPIX"]`,
-      `/ip address remove [find where comment="MIKROPIX"]`,
-      `/interface wireguard peers remove [find where comment="MIKROPIX"]`,
-      `/interface wireguard remove [find where comment="MIKROPIX"]`,
-      `/ip firewall filter remove [find where comment="MIKROPIX"]`,
-      `/ip firewall nat remove [find where comment="MIKROPIX"]`,
-      `/ip firewall mangle remove [find where comment="MIKROPIX"]`,
-      `/ip hotspot walled-garden remove [find where comment="MIKROPIX"]`
+      `/system scheduler remove [find comment="MIKROPIX"]`,
+      `/system script remove [find comment="MIKROPIX"]`,
+      `/ip address remove [find comment="MIKROPIX"]`,
+      `/interface wireguard peers remove [find comment="MIKROPIX"]`,
+      `/interface wireguard remove [find comment="MIKROPIX"]`,
+      `/ip firewall filter remove [find comment="MIKROPIX"]`,
+      `/ip firewall nat remove [find comment="MIKROPIX"]`,
+      `/ip firewall mangle remove [find comment="MIKROPIX"]`,
+      `/ip hotspot walled-garden remove [find comment="MIKROPIX"]`
     ];
     
     const cleanedRsc = rscCommands.join('\r\n');
