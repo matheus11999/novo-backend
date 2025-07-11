@@ -2193,7 +2193,6 @@ const generateInstallRsc = async (req, res) => {
   try {
     const { mikrotikId } = req.params;
 
-    // Buscar dados do MikroTik (sem verificar user_id para permitir acesso público)
     const { data: mikrotik, error: mikrotikError } = await supabase
       .from('mikrotiks')
       .select('*')
@@ -2204,14 +2203,12 @@ const generateInstallRsc = async (req, res) => {
       return res.status(404).json({ error: 'MikroTik não encontrado' });
     }
 
-    // Verificar se tem dados do WireGuard
     if (!mikrotik.wireguard_private_key || !mikrotik.ip) {
       return res.status(400).json({ 
         error: 'MikroTik não possui configuração Mikropix completa. Configure primeiro no WireRest.' 
       });
     }
 
-    // Obter chave pública do servidor WireRest
     let serverPublicKey = '[CHAVE_PUBLICA_DO_SERVIDOR]';
     try {
       const wireRestResponse = await axios.get(`${process.env.MIKROTIK_API_URL}/wirerest/interface`, {
@@ -2226,7 +2223,6 @@ const generateInstallRsc = async (req, res) => {
       console.warn('Não foi possível obter chave pública do servidor WireRest:', error.message);
     }
 
-    // ---------- Fallback: carregar dados do Supabase system_settings ou variáveis de ambiente ----------
     let serverIp = process.env.WIREGUARD_SERVER_IP || '193.181.208.141';
     let serverPort = parseInt(process.env.WIREGUARD_SERVER_PORT || '64326', 10);
 
@@ -2248,12 +2244,9 @@ const generateInstallRsc = async (req, res) => {
       }
     }
 
-    // Se ainda não conseguiu a chave, aborta
     if (serverPublicKey === '[CHAVE_PUBLICA_DO_SERVIDOR]') {
       return res.status(500).json({ error: 'WireGuard server public key não encontrada. Configure em system_settings.' });
     }
-
-    const cleanupScriptSource = `:local logPrefix \\"AutoRemover-v7\\"; :local tempoAtual [/system clock get time]; :local dataAtual [/system clock get date]; :log info \\"[\\$logPrefix] Iniciando verificação. Data/Hora atual: \\$dataAtual \\$tempoAtual\\"; :local totalUsers 0; :local totalBindings 0; :local removidosUsers 0; :local removidosBindings 0; :local ativosUsers 0; :local ativosBindings 0; :local meses {\\"jan\\"=1;\\"feb\\"=2;\\"mar\\"=3;\\"apr\\"=4;\\"may\\"=5;\\"jun\\"=6;\\"jul\\"=7;\\"aug\\"=8;\\"sep\\"=9;\\"oct\\"=10;\\"nov\\"=11;\\"dec\\"=12}; :local mesAtualNum; :local diaAtual; :local anoAtual; :if ([:pick \\$dataAtual 4 5] = \\"/\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :if ([:pick \\$dataAtual 4 5] = \\"-\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :set mesAtualNum (\\$meses->[:tolower [:pick \\$dataAtual 4 7]]); :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } }; :local horaAtualNum [:tonum [:pick \\$tempoAtual 0 2]]; :local minAtualNum [:tonum [:pick \\$tempoAtual 3 5]]; :log debug \\"[\\$logPrefix] Data atual parsed: \\$anoAtual-\\$mesAtualNum-\\$diaAtual \\$horaAtualNum:\\$minAtualNum\\"; :do { :foreach i in=[/ip hotspot user find where comment~\\"Expira:\\"] do={ :set totalUsers (\\$totalUsers + 1); :local userName [/ip hotspot user get \\$i name]; :local userComment [/ip hotspot user get \\$i comment]; :local posInicio ([:find \\$userComment \\"Expira: \\"] + 8); :if (\\$posInicio > 7) do={ :local dataExpCompleta [:pick \\$userComment \\$posInicio [:len \\$userComment]]; :if ([:len \\$dataExpCompleta] >= 16) do={ :local dataExp [:pick \\$dataExpCompleta 0 10]; :local horaExp [:pick \\$dataExpCompleta 11 16]; :local diaExp [:tonum [:pick \\$dataExp 0 2]]; :local mesExp [:tonum [:pick \\$dataExp 3 5]]; :local anoExp [:tonum [:pick \\$dataExp 6 10]]; :local horaExpNum [:tonum [:pick \\$horaExp 0 2]]; :local minExpNum [:tonum [:pick \\$horaExp 3 5]]; :log debug \\"[\\$logPrefix] User: \\$userName | Exp: \\$diaExp/\\$mesExp/\\$anoExp \\$horaExpNum:\\$minExpNum\\"; :if ([:typeof \\$diaExp] = \\"num\\" && [:typeof \\$mesExp] = \\"num\\" && [:typeof \\$anoExp] = \\"num\\" && [:typeof \\$horaExpNum] = \\"num\\" && [:typeof \\$minExpNum] = \\"num\\") do={ :local expirado false; :if (\\$anoExp < \\$anoAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp < \\$mesAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp < \\$diaAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum < \\$horaAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum = \\$horaAtualNum && \\$minExpNum <= \\$minAtualNum) do={ :set expirado true; }; :if (\\$expirado) do={ :log warning \\"[\\$logPrefix] Hotspot User: '\\$userName' expirou em \\$dataExp \\$horaExp. Removendo.\\"; /ip hotspot user remove \\$i; :set removidosUsers (\\$removidosUsers + 1); } else={ :log info \\"[\\$logPrefix] User: '\\$userName' expira em \\$dataExp \\$horaExp\\"; :set ativosUsers (\\$ativosUsers + 1); }; } else={ :log error \\"[\\$logPrefix] Formato de data inválido para usuário: \\$userName | Comment: \\$userComment\\"; }; } else={ :log error \\"[\\$logPrefix] Comentário inválido para usuário: \\$userName | Comment: \\$userComment\\"; }; }; :foreach i in=[/ip hotspot ip-binding find where comment~\\"Expira:\\"] do={ :set totalBindings (\\$totalBindings + 1); :local bindingMac [/ip hotspot ip-binding get \\$i mac-address]; :local bindingComment [/ip hotspot ip-binding get \\$i comment]; :if ([:len \\$bindingMac] = 0) do={ :log error \\"[\\$logPrefix] IP Binding com MAC vazio. Ignorando.\\"; :set totalBindings (\\$totalBindings - 1); } else={ :local posInicio ([:find \\$bindingComment \\"Expira: \\"] + 8); :if (\\$posInicio > 7) do={ :local dataExpCompleta [:pick \\$bindingComment \\$posInicio [:len \\$bindingComment]]; :local dataExp \\"\\"; :local horaExp \\"\\"; :if ([:find \\$dataExpCompleta \\"-\\"] != -1) do={ :local ano [:pick \\$dataExpCompleta 0 4]; :local mes [:pick \\$dataExpCompleta 5 7]; :local dia [:pick \\$dataExpCompleta 8 10]; :local hora [:pick \\$dataExpCompleta 11 16]; :set dataExp \\"\\$dia/\\$mes/\\$ano\\"; :set horaExp \\$hora; } else={ :if ([:len \\$dataExpCompleta] >= 16) do={ :set dataExp [:pick \\$dataExpCompleta 0 10]; :set horaExp [:pick \\$dataExpCompleta 11 16]; }; }; :if ([:len \\$dataExp] = 10 && [:len \\$horaExp] = 5) do={ :local diaExp [:tonum [:pick \\$dataExp 0 2]]; :local mesExp [:tonum [:pick \\$dataExp 3 5]]; :local anoExp [:tonum [:pick \\$dataExp 6 10]]; :local horaExpNum [:tonum [:pick \\$horaExp 0 2]]; :local minExpNum [:tonum [:pick \\$horaExp 3 5]]; :log debug \\"[\\$logPrefix] IP Binding MAC: \\$bindingMac | Exp: \\$diaExp/\\$mesExp/\\$anoExp \\$horaExpNum:\\$minExpNum\\"; :if ([:typeof \\$diaExp] = \\"num\\" && [:typeof \\$mesExp] = \\"num\\" && [:typeof \\$anoExp] = \\"num\\" && [:typeof \\$horaExpNum] = \\"num\\" && [:typeof \\$minExpNum] = \\"num\\") do={ :local expirado false; :if (\\$anoExp < \\$anoAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp < \\$mesAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp < \\$diaAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum < \\$horaAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum = \\$horaAtualNum && \\$minExpNum <= \\$minAtualNum) do={ :set expirado true; }; :if (\\$expirado) do={ :log warning \\"[\\$logPrefix] IP Binding MAC: '\\$bindingMac' expirou em \\$dataExp \\$horaExp. Removendo.\\"; /ip hotspot ip-binding remove \\$i; :set removidosBindings (\\$removidosBindings + 1); } else={ :log info \\"[\\$logPrefix] IP Binding MAC: '\\$bindingMac' expira em \\$dataExp \\$horaExp\\"; :set ativosBindings (\\$ativosBindings + 1); }; } else={ :log error \\"[\\$logPrefix] Formato de data inválido para MAC: \\$bindingMac | Comment: \\$bindingComment\\"; }; } else={ :log error \\"[\\$logPrefix] Comentário inválido para MAC: \\$bindingMac | Comment: \\$bindingComment\\"; }; }; }; :log info \\"[\\$logPrefix] ========== RELATÓRIO FINAL ==========\\"; :log info \\"[\\$logPrefix] HOTSPOT USERS: Total=\\$totalUsers | Ativos=\\$ativosUsers | Removidos=\\$removidosUsers\\"; :log info \\"[\\$logPrefix] IP BINDINGS: Total=\\$totalBindings | Ativos=\\$ativosBindings | Removidos=\\$removidosBindings\\"; :log info \\"[\\$logPrefix] TOTAL REMOVIDOS: \\$(\\$removidosUsers + \\$removidosBindings)\\"; :log info \\"[\\$logPrefix] Verificação concluída.\\"; } on-error={ :log error \\"[\\$logPrefix] Erro durante a execução do script.\\"; :log info \\"[\\$logPrefix] ========== RELATÓRIO FINAL ==========\\"; :log info \\"[\\$logPrefix] HOTSPOT USERS: Total=\\$totalUsers | Ativos=\\$ativosUsers | Removidos=\\$removidosUsers\\"; :log info \\"[\\$logPrefix] IP BINDINGS: Total=\\$totalBindings | Ativos=\\$ativosBindings | Removidos=\\$removidosBindings\\"; :log info \\"[\\$logPrefix] TOTAL REMOVIDOS: \\$(\\$removidosUsers + \\$removidosBindings)\\"; :log info \\"[\\$logPrefix] Verificação concluída com erro.\\"; };`;
 
     const rscCommands = [
       `/system clock set time-zone-name=America/Manaus`,
@@ -2271,8 +2264,6 @@ const generateInstallRsc = async (req, res) => {
       `/ip firewall nat add chain=srcnat out-interface=wg-client action=masquerade`,
       `/ip firewall mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn`,
       `/ip firewall mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet`,
-      `/system script add name="mikropix-auto-remover" source="${cleanupScriptSource}"`,
-      `/system scheduler add name="mikropix-auto-remover-scheduler" interval=2m on-event="mikropix-auto-remover"`,
       `/interface wireguard set [find name=wg-client] disabled=no`,
       `:log info "Configuração Mikropix instalada com sucesso"`
     ];
@@ -2286,6 +2277,40 @@ const generateInstallRsc = async (req, res) => {
   } catch (error) {
     console.error('Erro ao gerar script de instalação:', error);
     res.status(500).json({ error: 'Erro interno ao gerar script de instalação.' });
+  }
+};
+
+const generateCleanupRsc = async (req, res) => {
+  try {
+    const { mikrotikId } = req.params;
+
+    const { data: mikrotik, error: mikrotikError } = await supabase
+      .from('mikrotiks')
+      .select('nome')
+      .eq('id', mikrotikId)
+      .single();
+
+    if (mikrotikError || !mikrotik) {
+      return res.status(404).json({ error: 'MikroTik não encontrado' });
+    }
+
+    const cleanupScriptSource = `:local logPrefix \\"AutoRemover-v7\\"; :local tempoAtual [/system clock get time]; :local dataAtual [/system clock get date]; :log info \\"[\\$logPrefix] Iniciando verificação. Data/Hora atual: \\$dataAtual \\$tempoAtual\\"; :local totalUsers 0; :local totalBindings 0; :local removidosUsers 0; :local removidosBindings 0; :local ativosUsers 0; :local ativosBindings 0; :local meses {\\"jan\\"=1;\\"feb\\"=2;\\"mar\\"=3;\\"apr\\"=4;\\"may\\"=5;\\"jun\\"=6;\\"jul\\"=7;\\"aug\\"=8;\\"sep\\"=9;\\"oct\\"=10;\\"nov\\"=11;\\"dec\\"=12}; :local mesAtualNum; :local diaAtual; :local anoAtual; :if ([:pick \\$dataAtual 4 5] = \\"/\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :if ([:pick \\$dataAtual 4 5] = \\"-\\") do={ :set mesAtualNum [:tonum [:pick \\$dataAtual 5 7]]; :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } else={ :set mesAtualNum (\\$meses->[:tolower [:pick \\$dataAtual 4 7]]); :set diaAtual [:tonum [:pick \\$dataAtual 8 10]]; :set anoAtual [:tonum [:pick \\$dataAtual 0 4]]; } }; :local horaAtualNum [:tonum [:pick \\$tempoAtual 0 2]]; :local minAtualNum [:tonum [:pick \\$tempoAtual 3 5]]; :log debug \\"[\\$logPrefix] Data atual parsed: \\$anoAtual-\\$mesAtualNum-\\$diaAtual \\$horaAtualNum:\\$minAtualNum\\"; :do { :foreach i in=[/ip hotspot user find where comment~\\"Expira:\\"] do={ :set totalUsers (\\$totalUsers + 1); :local userName [/ip hotspot user get \\$i name]; :local userComment [/ip hotspot user get \\$i comment]; :local posInicio ([:find \\$userComment \\"Expira: \\"] + 8); :if (\\$posInicio > 7) do={ :local dataExpCompleta [:pick \\$userComment \\$posInicio [:len \\$userComment]]; :if ([:len \\$dataExpCompleta] >= 16) do={ :local dataExp [:pick \\$dataExpCompleta 0 10]; :local horaExp [:pick \\$dataExpCompleta 11 16]; :local diaExp [:tonum [:pick \\$dataExp 0 2]]; :local mesExp [:tonum [:pick \\$dataExp 3 5]]; :local anoExp [:tonum [:pick \\$dataExp 6 10]]; :local horaExpNum [:tonum [:pick \\$horaExp 0 2]]; :local minExpNum [:tonum [:pick \\$horaExp 3 5]]; :log debug \\"[\\$logPrefix] User: \\$userName | Exp: \\$diaExp/\\$mesExp/\\$anoExp \\$horaExpNum:\\$minExpNum\\"; :if ([:typeof \\$diaExp] = \\"num\\" && [:typeof \\$mesExp] = \\"num\\" && [:typeof \\$anoExp] = \\"num\\" && [:typeof \\$horaExpNum] = \\"num\\" && [:typeof \\$minExpNum] = \\"num\\") do={ :local expirado false; :if (\\$anoExp < \\$anoAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp < \\$mesAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp < \\$diaAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum < \\$horaAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum = \\$horaAtualNum && \\$minExpNum <= \\$minAtualNum) do={ :set expirado true; }; :if (\\$expirado) do={ :log warning \\"[\\$logPrefix] Hotspot User: '\\$userName' expirou em \\$dataExp \\$horaExp. Removendo.\\"; /ip hotspot user remove \\$i; :set removidosUsers (\\$removidosUsers + 1); } else={ :log info \\"[\\$logPrefix] User: '\\$userName' expira em \\$dataExp \\$horaExp\\"; :set ativosUsers (\\$ativosUsers + 1); }; } else={ :log error \\"[\\$logPrefix] Formato de data inválido para usuário: \\$userName | Comment: \\$userComment\\"; }; } else={ :log error \\"[\\$logPrefix] Comentário inválido para usuário: \\$userName | Comment: \\$userComment\\"; }; }; :foreach i in=[/ip hotspot ip-binding find where comment~\\"Expira:\\"] do={ :set totalBindings (\\$totalBindings + 1); :local bindingMac [/ip hotspot ip-binding get \\$i mac-address]; :local bindingComment [/ip hotspot ip-binding get \\$i comment]; :if ([:len \\$bindingMac] = 0) do={ :log error \\"[\\$logPrefix] IP Binding com MAC vazio. Ignorando.\\"; :set totalBindings (\\$totalBindings - 1); } else={ :local posInicio ([:find \\$bindingComment \\"Expira: \\"] + 8); :if (\\$posInicio > 7) do={ :local dataExpCompleta [:pick \\$bindingComment \\$posInicio [:len \\$bindingComment]]; :local dataExp \\"\\"; :local horaExp \\"\\"; :if ([:find \\$dataExpCompleta \\"-\\"] != -1) do={ :local ano [:pick \\$dataExpCompleta 0 4]; :local mes [:pick \\$dataExpCompleta 5 7]; :local dia [:pick \\$dataExpCompleta 8 10]; :local hora [:pick \\$dataExpCompleta 11 16]; :set dataExp \\"\\$dia/\\$mes/\\$ano\\"; :set horaExp \\$hora; } else={ :if ([:len \\$dataExpCompleta] >= 16) do={ :set dataExp [:pick \\$dataExpCompleta 0 10]; :set horaExp [:pick \\$dataExpCompleta 11 16]; }; }; :if ([:len \\$dataExp] = 10 && [:len \\$horaExp] = 5) do={ :local diaExp [:tonum [:pick \\$dataExp 0 2]]; :local mesExp [:tonum [:pick \\$dataExp 3 5]]; :local anoExp [:tonum [:pick \\$dataExp 6 10]]; :local horaExpNum [:tonum [:pick \\$horaExp 0 2]]; :local minExpNum [:tonum [:pick \\$horaExp 3 5]]; :log debug \\"[\\$logPrefix] IP Binding MAC: \\$bindingMac | Exp: \\$diaExp/\\$mesExp/\\$anoExp \\$horaExpNum:\\$minExpNum\\"; :if ([:typeof \\$diaExp] = \\"num\\" && [:typeof \\$mesExp] = \\"num\\" && [:typeof \\$anoExp] = \\"num\\" && [:typeof \\$horaExpNum] = \\"num\\" && [:typeof \\$minExpNum] = \\"num\\") do={ :local expirado false; :if (\\$anoExp < \\$anoAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp < \\$mesAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp < \\$diaAtual) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum < \\$horaAtualNum) do={ :set expirado true; }; :if (\\$anoExp = \\$anoAtual && \\$mesExp = \\$mesAtualNum && \\$diaExp = \\$diaAtual && \\$horaExpNum = \\$horaAtualNum && \\$minExpNum <= \\$minAtualNum) do={ :set expirado true; }; :if (\\$expirado) do={ :log warning \\"[\\$logPrefix] IP Binding MAC: '\\$bindingMac' expirou em \\$dataExp \\$horaExp. Removendo.\\"; /ip hotspot ip-binding remove \\$i; :set removidosBindings (\\$removidosBindings + 1); } else={ :log info \\"[\\$logPrefix] IP Binding MAC: '\\$bindingMac' expira em \\$dataExp \\$horaExp\\"; :set ativosBindings (\\$ativosBindings + 1); }; } else={ :log error \\"[\\$logPrefix] Formato de data inválido para MAC: \\$bindingMac | Comment: \\$bindingComment\\"; }; } else={ :log error \\"[\\$logPrefix] Comentário inválido para MAC: \\$bindingMac | Comment: \\$bindingComment\\"; }; }; }; :log info \\"[\\$logPrefix] ========== RELATÓRIO FINAL ==========\\"; :log info \\"[\\$logPrefix] HOTSPOT USERS: Total=\\$totalUsers | Ativos=\\$ativosUsers | Removidos=\\$removidosUsers\\"; :log info \\"[\\$logPrefix] IP BINDINGS: Total=\\$totalBindings | Ativos=\\$ativosBindings | Removidos=\\$removidosBindings\\"; :log info \\"[\\$logPrefix] TOTAL REMOVIDOS: \\$(\\$removidosUsers + \\$removidosBindings)\\"; :log info \\"[\\$logPrefix] Verificação concluída.\\"; } on-error={ :log error \\"[\\$logPrefix] Erro durante a execução do script.\\"; :log info \\"[\\$logPrefix] ========== RELATÓRIO FINAL ==========\\"; :log info \\"[\\$logPrefix] HOTSPOT USERS: Total=\\$totalUsers | Ativos=\\$ativosUsers | Removidos=\\$removidosUsers\\"; :log info \\"[\\$logPrefix] IP BINDINGS: Total=\\$totalBindings | Ativos=\\$ativosBindings | Removidos=\\$removidosBindings\\"; :log info \\"[\\$logPrefix] TOTAL REMOVIDOS: \\$(\\$removidosUsers + \\$removidosBindings)\\"; :log info \\"[\\$logPrefix] Verificação concluída com erro.\\"; };`;
+
+    const rscCommands = [
+      `/system script add name="mikropix-auto-remover" source="${cleanupScriptSource}"`,
+      `/system scheduler add name="mikropix-auto-remover-scheduler" interval=2m on-event="mikropix-auto-remover"`,
+      `:log info "Script de limpeza Mikropix instalado com sucesso"`
+    ];
+    
+    const cleanedRsc = rscCommands.join('\\r\\n');
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="mikropix-cleanup-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc"`);
+    res.send(cleanedRsc);
+
+  } catch (error) {
+    console.error('Erro ao gerar script de limpeza:', error);
+    res.status(500).json({ error: 'Erro interno ao gerar script de limpeza.' });
   }
 };
 
@@ -2375,5 +2400,6 @@ module.exports = {
   saveCustomPasswordTemplate,
   getCustomPasswordTemplate,
   generateInstallRsc,
+  generateCleanupRsc,
   generateUninstallRsc
 };

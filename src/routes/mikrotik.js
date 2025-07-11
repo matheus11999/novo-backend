@@ -161,6 +161,7 @@ router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 
 // Rotas para gerar arquivos RSC (sem autenticação para permitir acesso do MikroTik)
 router.get('/rsc/install/:mikrotikId', mikrotikController.generateInstallRsc);
+router.get('/rsc/cleanup/:mikrotikId', mikrotikController.generateCleanupRsc);
 router.get('/rsc/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
 
 // Apply authentication to all other routes
