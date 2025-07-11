@@ -2264,11 +2264,10 @@ const generateInstallRsc = async (req, res) => {
       `/ip firewall nat add chain=srcnat out-interface=wg-client action=masquerade`,
       `/ip firewall mangle add chain=prerouting in-interface=wg-client action=mark-connection new-connection-mark=wireguard-conn`,
       `/ip firewall mangle add chain=prerouting connection-mark=wireguard-conn action=mark-packet new-packet-mark=wireguard-packet`,
-      `/interface wireguard set [find name=wg-client] disabled=no`,
-      `:log info "Configuração Mikropix instalada com sucesso"`
+      `/interface wireguard set [find name=wg-client] disabled=no`
     ];
     
-    const cleanedRsc = rscCommands.join('\\r\\n');
+    const cleanedRsc = rscCommands.join('\r\n');
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="mikropix-install-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc"`);
@@ -2298,11 +2297,10 @@ const generateCleanupRsc = async (req, res) => {
 
     const rscCommands = [
       `/system script add name="mikropix-auto-remover" source="${cleanupScriptSource}"`,
-      `/system scheduler add name="mikropix-auto-remover-scheduler" interval=2m on-event="mikropix-auto-remover"`,
-      `:log info "Script de limpeza Mikropix instalado com sucesso"`
+      `/system scheduler add name="mikropix-auto-remover-scheduler" interval=2m on-event="mikropix-auto-remover"`
     ];
     
-    const cleanedRsc = rscCommands.join('\\r\\n');
+    const cleanedRsc = rscCommands.join('\r\n');
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="mikropix-cleanup-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc"`);
@@ -2328,7 +2326,6 @@ const generateUninstallRsc = async (req, res) => {
     }
 
     const rscCommands = [
-      `:log info "Iniciando desinstalação da configuração Mikropix..."`,
       `/system scheduler remove [find name="mikropix-auto-remover-scheduler"]`,
       `/system script remove [find name="mikropix-auto-remover"]`,
       `/interface wireguard remove [find name="wg-client"]`,
@@ -2338,11 +2335,10 @@ const generateUninstallRsc = async (req, res) => {
       `/ip firewall nat remove [find where out-interface="wg-client"]`,
       `/ip firewall mangle remove [find where in-interface="wg-client"]`,
       `/ip firewall mangle remove [find where connection-mark="wireguard-conn"]`,
-      `/ip hotspot walled-garden remove [find where dst-host~"mikropix.online"]`,
-      `:log info "Configuração Mikropix desinstalada com sucesso."`
+      `/ip hotspot walled-garden remove [find where dst-host~"mikropix.online"]`
     ];
     
-    const cleanedRsc = rscCommands.join('\\r\\n');
+    const cleanedRsc = rscCommands.join('\r\n');
 
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="mikropix-uninstall-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc"`);
