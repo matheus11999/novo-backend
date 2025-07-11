@@ -83,6 +83,10 @@ app.use(cors(corsConfig));
 // Handle preflight requests explicitly
 app.options('*', cors(corsConfig));
 
+// Servir arquivos estáticos (para cleanup-script.rsc)
+const path = require('path');
+app.use(express.static(path.join(__dirname, '..')));
+
 // Additional CORS headers for problematic requests
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
