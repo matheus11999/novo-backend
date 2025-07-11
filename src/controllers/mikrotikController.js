@@ -2455,7 +2455,7 @@ const generateCleanupRsc = async (req, res) => {
 }`;
 
     const rscCommands = [
-      `/system script add name="mikropix-auto-remover" source="${cleanupScriptSource}"`,
+      `/system script add name="mikropix-auto-remover" source={${cleanupScriptSource}}`,
       `/system scheduler add name="mikropix-auto-remover-scheduler" interval=2m on-event="mikropix-auto-remover"`
     ];
     
