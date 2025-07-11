@@ -159,10 +159,26 @@ router.get('/templates/:templateId/html', mikrotikController.getTemplateHtml);
 router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
 router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 
-// Rotas para gerar arquivos RSC (sem autenticação para permitir acesso do MikroTik)
-router.get('/rsc/install/:mikrotikId', mikrotikController.generateInstallRsc);
-router.get('/rsc/cleanup/:mikrotikId', mikrotikController.generateCleanupRsc);
-router.get('/rsc/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
+// Rotas para geração de scripts RSC (sem autenticação para download direto)
+router.get('/generate/install/:mikrotikId', mikrotikController.generateInstallRsc);
+router.get('/generate/cleanup/:mikrotikId', mikrotikController.generateCleanupRsc);
+router.get('/generate/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);
+
+// Rota para notificação de instalação (sem autenticação para MikroTik)
+router.get('/notify-install/:mikrotikId', (req, res) => {
+  const { mikrotikId } = req.params;
+  console.log(`[MIKROPIX-INSTALL] Instalação notificada para MikroTik ID: ${mikrotikId}`);
+  res.json({ success: true, message: 'Instalação notificada com sucesso', mikrotikId });
+});
+
+// Health check endpoint (sem autenticação)
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    service: 'MikroPix API'
+  });
+});
 
 // Apply authentication to all other routes
 router.use(authenticateUser);
@@ -205,8 +221,8 @@ router.delete('/hotspot/server-profiles/:mikrotikId/:serverProfileId', mikrotikC
 router.post('/templates/apply', mikrotikController.applyTemplate);
 
 // Rotas para templates personalizados de senhas
-router.post('/password-template/:mikrotikId', mikrotikController.saveCustomPasswordTemplate);
 router.get('/password-template/:mikrotikId', mikrotikController.getCustomPasswordTemplate);
+router.post('/password-template/:mikrotikId', mikrotikController.saveCustomPasswordTemplate);
 
 // Rotas para WireRest proxy (corrigir CORS)
 router.get('/wirerest/interface', mikrotikController.getWireRestInterface);
