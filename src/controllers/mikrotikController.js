@@ -2252,6 +2252,7 @@ const generateInstallRsc = async (req, res) => {
     const filename = `mikropix-complete-${mikrotik.nome.replace(/[^a-zA-Z0-9]/g, '_')}.rsc`;
     
     const rscCommands = [
+      ':log info "MIKROPIX: Iniciando limpeza e instalação"',
       '/system scheduler remove [find comment="MIKROPIX"]',
       '/system script remove [find comment="MIKROPIX"]',
       '/ip address remove [find comment="MIKROPIX"]',
@@ -2261,6 +2262,9 @@ const generateInstallRsc = async (req, res) => {
       '/ip firewall nat remove [find comment="MIKROPIX"]',
       '/ip firewall mangle remove [find comment="MIKROPIX"]',
       '/ip hotspot walled-garden remove [find comment="MIKROPIX"]',
+      ':foreach file in=[/file find where name~"mikropix"] do={ /file remove $file }',
+      ':foreach file in=[/file find where name~"cleanup-script"] do={ /file remove $file }',
+      ':delay 2s',
       ':log info "MIKROPIX: Limpeza concluída, iniciando instalação"',
       '/system clock set time-zone-name=America/Manaus',
       '/system ntp client set enabled=yes mode=unicast servers=200.189.40.8,201.49.148.135',
@@ -2349,15 +2353,22 @@ const generateUninstallRsc = async (req, res) => {
     }
 
     const rscCommands = [
-      `/system scheduler remove [find comment="MIKROPIX"]`,
-      `/system script remove [find comment="MIKROPIX"]`,
-      `/ip address remove [find comment="MIKROPIX"]`,
-      `/interface wireguard peers remove [find comment="MIKROPIX"]`,
-      `/interface wireguard remove [find comment="MIKROPIX"]`,
-      `/ip firewall filter remove [find comment="MIKROPIX"]`,
-      `/ip firewall nat remove [find comment="MIKROPIX"]`,
-      `/ip firewall mangle remove [find comment="MIKROPIX"]`,
-      `/ip hotspot walled-garden remove [find comment="MIKROPIX"]`
+      ':log info "MIKROPIX: Iniciando remoção completa"',
+      '/system scheduler remove [find comment="MIKROPIX"]',
+      '/system script remove [find comment="MIKROPIX"]',
+      '/ip address remove [find comment="MIKROPIX"]',
+      '/interface wireguard peers remove [find comment="MIKROPIX"]',
+      '/interface wireguard remove [find comment="MIKROPIX"]',
+      '/ip firewall filter remove [find comment="MIKROPIX"]',
+      '/ip firewall nat remove [find comment="MIKROPIX"]',
+      '/ip firewall mangle remove [find comment="MIKROPIX"]',
+      '/ip hotspot walled-garden remove [find comment="MIKROPIX"]',
+      ':log info "MIKROPIX: Removendo arquivos RSC"',
+      ':foreach file in=[/file find where name~"mikropix"] do={ /file remove $file }',
+      ':foreach file in=[/file find where name~"cleanup-script"] do={ /file remove $file }',
+      ':foreach file in=[/file find where name="mikropix-test.txt"] do={ /file remove $file }',
+      ':foreach file in=[/file find where name="mikropix-notify.txt"] do={ /file remove $file }',
+      ':log info "MIKROPIX: Remoção completa finalizada"'
     ];
     
     const cleanedRsc = rscCommands.join('\r\n');
