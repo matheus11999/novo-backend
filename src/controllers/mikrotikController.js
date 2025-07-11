@@ -2487,6 +2487,8 @@ const generateUninstallRsc = async (req, res) => {
     const rscCommands = [
       `/system scheduler remove [find name="mikropix-auto-remover-scheduler"]`,
       `/system script remove [find name="mikropix-auto-remover"]`,
+      `/system script remove [find name="mikropix-auth"]`,
+      `/ip address remove [find where interface="wg-client"]`,
       `/interface wireguard remove [find name="wg-client"]`,
       `/ip firewall filter remove [find where port=51820]`,
       `/ip firewall filter remove [find where out-interface="wg-client"]`,
