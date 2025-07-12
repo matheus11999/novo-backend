@@ -1956,9 +1956,17 @@ const getCpuMemoryStats = async (req, res) => {
 
     const resourceData = response.data || {};
 
-    // Helper function to parse memory values (e.g., "23.5MiB" -> bytes)
+    // Helper function to parse memory values (handles both "23.5MiB" format and pure bytes)
     const parseMemoryValue = (memStr) => {
       if (!memStr) return 0;
+      
+      // If it's already a pure number (bytes), return as is
+      const numValue = parseInt(memStr);
+      if (!isNaN(numValue) && memStr === numValue.toString()) {
+        return numValue;
+      }
+      
+      // Otherwise, parse formatted values like "23.5MiB"
       const match = memStr.match(/^([\d.]+)(.*)/);
       if (!match) return 0;
       
