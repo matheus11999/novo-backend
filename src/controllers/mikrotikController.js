@@ -1956,17 +1956,55 @@ const getCpuMemoryStats = async (req, res) => {
 
     const resourceData = response.data || {};
 
+    // Helper function to parse memory values (e.g., "23.5MiB" -> bytes)
+    const parseMemoryValue = (memStr) => {
+      if (!memStr) return 0;
+      const match = memStr.match(/^([\d.]+)(.*)/);
+      if (!match) return 0;
+      
+      const value = parseFloat(match[1]);
+      const unit = match[2].toLowerCase();
+      
+      switch (unit) {
+        case 'mib':
+        case 'mb':
+          return Math.round(value * 1024 * 1024);
+        case 'gib':
+        case 'gb':
+          return Math.round(value * 1024 * 1024 * 1024);
+        case 'kib':
+        case 'kb':
+          return Math.round(value * 1024);
+        default:
+          return Math.round(value);
+      }
+    };
+
     // Calculate memory usage percentage
-    const totalMemory = parseInt(resourceData['total-memory'] || '0');
-    const freeMemory = parseInt(resourceData['free-memory'] || '0');
+    const totalMemory = parseMemoryValue(resourceData['total-memory']);
+    const freeMemory = parseMemoryValue(resourceData['free-memory']);
     const usedMemory = totalMemory - freeMemory;
     const memoryUsagePercent = totalMemory > 0 ? Math.round((usedMemory / totalMemory) * 100) : 0;
 
-    // Extract CPU percentage
+    // Calculate storage usage percentage
+    const totalStorage = parseMemoryValue(resourceData['total-hdd-space']);
+    const freeStorage = parseMemoryValue(resourceData['free-hdd-space']);
+    const usedStorage = totalStorage - freeStorage;
+    const storageUsagePercent = totalStorage > 0 ? Math.round((usedStorage / totalStorage) * 100) : 0;
+
+    // Extract CPU percentage (e.g., "12%" -> 12)
     const cpuLoad = resourceData['cpu-load'] || '0%';
     const cpuPercent = parseInt(cpuLoad.replace('%', '')) || 0;
 
-    console.log(`[CPU-MEMORY] CPU: ${cpuPercent}%, Memory: ${memoryUsagePercent}%`);
+    console.log(`[CPU-MEMORY-STORAGE] Raw data:`, {
+      'total-memory': resourceData['total-memory'],
+      'free-memory': resourceData['free-memory'],
+      'cpu-load': resourceData['cpu-load'],
+      'total-hdd-space': resourceData['total-hdd-space'],
+      'free-hdd-space': resourceData['free-hdd-space']
+    });
+    console.log(`[CPU-MEMORY-STORAGE] Parsed storage - Total: ${totalStorage}, Free: ${freeStorage}, Used: ${usedStorage}`);
+    console.log(`[CPU-MEMORY-STORAGE] Processed - CPU: ${cpuPercent}%, Memory: ${memoryUsagePercent}%, Storage: ${storageUsagePercent}%`);
 
     res.json({
       success: true,
@@ -1985,6 +2023,16 @@ const getCpuMemoryStats = async (req, res) => {
           totalFormatted: formatBytes(totalMemory),
           freeFormatted: formatBytes(freeMemory),
           usedFormatted: formatBytes(usedMemory)
+        },
+        storage: {
+          percentage: storageUsagePercent,
+          total: totalStorage,
+          free: freeStorage,
+          used: usedStorage,
+          totalFormatted: formatBytes(totalStorage),
+          freeFormatted: formatBytes(freeStorage),
+          usedFormatted: formatBytes(usedStorage),
+          available: !!(resourceData['total-hdd-space'] && resourceData['free-hdd-space'])
         },
         timestamp: new Date().toISOString()
       }
