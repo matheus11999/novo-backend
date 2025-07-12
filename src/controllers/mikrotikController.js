@@ -1860,9 +1860,9 @@ const getEssentialSystemInfo = async (req, res) => {
 
     console.log(`[ESSENTIAL-INFO] Getting essential info from ${credentials.ip} for user ${req.user.id}`);
 
-    // Create a timeout promise (10 s)
+    // Create a timeout promise (5s para rapidez)
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000);
+      setTimeout(() => reject(new Error('Connection timeout after 5 seconds')), 5000);
     });
 
     let response;
@@ -1893,9 +1893,31 @@ const getEssentialSystemInfo = async (req, res) => {
     res.json(finalResponse);
   } catch (error) {
     console.error('[ESSENTIAL-INFO] Error:', error);
-    res.status(500).json({
+    
+    // Melhor diferenciação de tipos de erro
+    let statusCode = 500;
+    let errorType = 'unknown';
+    const errorMessage = error.message || 'Erro desconhecido';
+    
+    if (errorMessage.includes('timeout') || errorMessage.includes('Connection timeout')) {
+      statusCode = 408; // Request Timeout
+      errorType = 'timeout';
+    } else if (errorMessage.includes('incorretos') || errorMessage.includes('authentication') || errorMessage.includes('login failed')) {
+      statusCode = 401; // Unauthorized
+      errorType = 'auth_failed';
+    } else if (errorMessage.includes('offline') || errorMessage.includes('unreachable') || errorMessage.includes('refused')) {
+      statusCode = 503; // Service Unavailable
+      errorType = 'device_offline';
+    } else if (errorMessage.includes('incompletas') || errorMessage.includes('não encontrado')) {
+      statusCode = 400; // Bad Request
+      errorType = 'invalid_config';
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: error.message
+      error: errorMessage,
+      errorType,
+      timestamp: new Date().toISOString()
     });
   }
 };
