@@ -313,10 +313,7 @@ router.put('/:id', async (req, res) => {
         });
         
         // Use the profile ID for the API call
-        await makeApiRequest(`/hotspot/profiles`, credentials, 'PUT', {
-          ...mikrotikProfileData,
-          id: planoExistente.mikrotik_profile_id
-        });
+        await makeApiRequest(`/ip/hotspot/user/profile/${planoExistente.mikrotik_profile_id}`, credentials, 'PATCH', mikrotikProfileData);
         
         console.log('MikroTik profile updated successfully with session-timeout:', finalSessionTimeout);
       } catch (mikrotikError) {
@@ -468,7 +465,7 @@ router.delete('/:id', async (req, res) => {
       try {
         const credentials = await getMikrotikCredentials(plano.mikrotik_id, req.user.id);
         // Para deletar, precisamos passar o ID via query parameter
-        await makeApiRequest(`/hotspot/profiles?id=${plano.mikrotik_profile_id}`, credentials, 'DELETE');
+        await makeApiRequest(`/ip/hotspot/user/profile/${plano.mikrotik_profile_id}`, credentials, 'DELETE');
       } catch (mikrotikError) {
         console.warn('Erro ao deletar profile do MikroTik:', mikrotikError.message);
         // Continua mesmo se falhar no MikroTik
