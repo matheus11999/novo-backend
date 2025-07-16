@@ -2463,6 +2463,116 @@ const generateUninstallRsc = async (req, res) => {
   }
 };
 
+// Serve template files with variable substitution
+const getTemplateFile = async (req, res) => {
+  try {
+    const { templateId, filename, folder } = req.params;
+    const { mikrotikId, apiUrl } = req.query;
+    
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Construct file path
+    let filePath;
+    if (folder) {
+      // Handle subfolder files: /templates/:templateId/files/:folder/:filename
+      filePath = path.join(__dirname, '../../templates', templateId, folder, filename);
+    } else {
+      // Handle root files: /templates/:templateId/files/:filename
+      filePath = path.join(__dirname, '../../templates', templateId, filename);
+    }
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Arquivo não encontrado',
+        path: filePath
+      });
+    }
+    
+    // Read file content
+    let content = fs.readFileSync(filePath, 'utf-8');
+    
+    // Perform variable substitution if mikrotikId and apiUrl are provided
+    if (mikrotikId && apiUrl) {
+      // Replace {{MIKROTIK_ID}} with mikrotikId
+      content = content.replace(/\{\{MIKROTIK_ID\}\}/g, mikrotikId);
+      
+      // Replace {{API_URL}} with apiUrl
+      content = content.replace(/\{\{API_URL\}\}/g, apiUrl);
+    }
+    
+    // Set appropriate Content-Type based on file extension
+    const extension = path.extname(filename).toLowerCase();
+    let contentType = 'text/plain';
+    
+    switch (extension) {
+      case '.html':
+        contentType = 'text/html; charset=utf-8';
+        break;
+      case '.css':
+        contentType = 'text/css; charset=utf-8';
+        break;
+      case '.js':
+        contentType = 'application/javascript; charset=utf-8';
+        break;
+      case '.json':
+        contentType = 'application/json; charset=utf-8';
+        break;
+      case '.xml':
+      case '.xsd':
+        contentType = 'application/xml; charset=utf-8';
+        break;
+      case '.png':
+        contentType = 'image/png';
+        break;
+      case '.jpg':
+      case '.jpeg':
+        contentType = 'image/jpeg';
+        break;
+      case '.ico':
+        contentType = 'image/x-icon';
+        break;
+      case '.gif':
+        contentType = 'image/gif';
+        break;
+      case '.svg':
+        contentType = 'image/svg+xml';
+        break;
+      case '.txt':
+        contentType = 'text/plain; charset=utf-8';
+        break;
+    }
+    
+    // Set headers
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // For binary files, don't perform text substitution
+    if (extension === '.png' || extension === '.jpg' || extension === '.jpeg' || 
+        extension === '.ico' || extension === '.gif') {
+      // Send binary file directly
+      res.sendFile(filePath);
+    } else {
+      // Send processed text content
+      res.send(content);
+    }
+    
+    console.log(`[TEMPLATE-FILE] Served: ${templateId}/${folder ? folder + '/' : ''}${filename}, with substitution: ${!!(mikrotikId && apiUrl)}`);
+    
+  } catch (error) {
+    console.error('[TEMPLATE-FILE] Error serving template file:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro interno do servidor',
+      details: error.message
+    });
+  }
+};
+
 module.exports = {
   getStats,
   getHotspotUsers,
@@ -2495,6 +2605,7 @@ module.exports = {
   getTemplateDetails,
   getTemplateHtml,
   getTemplateFiles,
+  getTemplateFile,
   applyTemplate,
   getWireRestInterface,
   createWireRestPeer,

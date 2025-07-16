@@ -1,0 +1,49 @@
+/* CSS Test File for Template Variable Substitution */
+
+:root {
+    --primary-color: {{PRIMARY_COLOR}};
+    --api-url: '{{API_URL}}';
+    --mikrotik-id: '{{MIKROTIK_ID}}';
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: var(--primary-color);
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.mikrotik-info::before {
+    content: "MikroTik ID: {{MIKROTIK_ID}}";
+    display: block;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.api-info::before {
+    content: "API URL: {{API_URL}}";
+    display: block;
+    font-style: italic;
+    color: #666;
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+    .container {
+        padding: 10px;
+    }
+}

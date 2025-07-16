@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Substituição de Variáveis</title>
+</head>
+<body>
+    <h1>Template de Teste</h1>
+    <p>MikroTik ID: {{MIKROTIK_ID}}</p>
+    <p>API URL: {{API_URL}}</p>
+    <p>Outras variáveis:</p>
+    <ul>
+        <li>Provider: {{PROVIDER_NAME}}</li>
+        <li>Logo: {{LOGO_URL}}</li>
+        <li>Cor Primária: {{PRIMARY_COLOR}}</li>
+    </ul>
+    
+    <script>
+        // Exemplo de uso das variáveis em JavaScript
+        window.mikrotikConfig = {
+            mikrotikId: '{{MIKROTIK_ID}}',
+            apiUrl: '{{API_URL}}',
+            provider: '{{PROVIDER_NAME}}'
+        };
+        
+        console.log('MikroTik Config:', window.mikrotikConfig);
+    </script>
+</body>
+</html>

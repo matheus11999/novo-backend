@@ -159,6 +159,10 @@ router.get('/templates/:templateId/html', mikrotikController.getTemplateHtml);
 router.get('/templates/:templateId', mikrotikController.getTemplateDetails);
 router.get('/templates/:templateId/files', mikrotikController.getTemplateFiles);
 
+// Rotas para servir arquivos de templates com substituição de variáveis (sem autenticação)
+router.get('/templates/:templateId/files/:filename', mikrotikController.getTemplateFile);
+router.get('/templates/:templateId/files/:folder/:filename', mikrotikController.getTemplateFile);
+
 // Rotas para geração de scripts RSC (sem autenticação para download direto)
 router.get('/generate/install/:mikrotikId', mikrotikController.generateInstallRsc);
 router.get('/generate/uninstall/:mikrotikId', mikrotikController.generateUninstallRsc);

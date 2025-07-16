@@ -1,0 +1,26 @@
+{
+  "templateInfo": {
+    "name": "Template 1",
+    "version": "1.0.0",
+    "description": "Template básico com substituição de variáveis"
+  },
+  "mikrotikConfig": {
+    "mikrotikId": "{{MIKROTIK_ID}}",
+    "apiUrl": "{{API_URL}}"
+  },
+  "branding": {
+    "provider": "{{PROVIDER_NAME}}",
+    "logoUrl": "{{LOGO_URL}}",
+    "primaryColor": "{{PRIMARY_COLOR}}"
+  },
+  "endpoints": {
+    "login": "{{API_URL}}/api/mikrotik/{{MIKROTIK_ID}}/login",
+    "status": "{{API_URL}}/api/mikrotik/{{MIKROTIK_ID}}/status",
+    "logout": "{{API_URL}}/api/mikrotik/{{MIKROTIK_ID}}/logout"
+  },
+  "settings": {
+    "timeout": 30000,
+    "retryAttempts": 3,
+    "enableDebug": false
+  }
+}
