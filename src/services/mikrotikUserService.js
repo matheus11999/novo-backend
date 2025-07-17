@@ -404,10 +404,29 @@ class MikroTikUserService {
             const ipBindingComment = `C:${formattedDate} V:${paymentData.plano_valor || 0} ${paymentData.payment_id}`;
 
             // === 4. Montar dados do IP binding ===
-            // Calcular expiration_minutes baseado na duração do plano
-            const planMinutos = vendaData.planos?.minutos || 
-                              vendaData.plano_minutos || 
-                              60; // fallback para 60 minutos se não encontrar
+            // Calcular expiration_minutes baseado no session_timeout do plano
+            let planMinutos = 60; // fallback padrão
+            
+            const sessionTimeout = vendaData.planos?.session_timeout || vendaData.plano_session_timeout;
+            if (sessionTimeout) {
+                const timeout = sessionTimeout.toString().toLowerCase();
+                if (timeout.includes(':')) {
+                    // Formato HH:MM:SS
+                    const parts = timeout.split(':');
+                    planMinutos = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                } else if (timeout.endsWith('h')) {
+                    // Formato "1h", "2h", etc.
+                    const hours = parseInt(timeout.replace('h', ''));
+                    planMinutos = hours * 60;
+                } else if (timeout.endsWith('m')) {
+                    // Formato "30m", "45m", etc.
+                    planMinutos = parseInt(timeout.replace('m', ''));
+                } else {
+                    // Formato em segundos
+                    const seconds = parseInt(timeout);
+                    planMinutos = Math.floor(seconds / 60);
+                }
+            }
             
             const bindingData = {
                 address: '192.168.1.100', // IP fixo - deve ser configurado conforme necessário
@@ -417,13 +436,13 @@ class MikroTikUserService {
             };
 
             console.log(`🔗 [MIKROTIK-USER-SERVICE] Criando IP binding via proxy para MAC: ${vendaData.mac_address}`);
-            console.log(`⏰ [MIKROTIK-USER-SERVICE] Duração do plano: ${planMinutos} minutos (${planMinutos/60} horas)`);
+            console.log(`⏰ [MIKROTIK-USER-SERVICE] Duração do plano: ${planMinutos} minutos (${(planMinutos/60).toFixed(1)} horas)`);
             console.log(`📊 [MIKROTIK-USER-SERVICE] Dados do plano:`, {
                 plano_nome: vendaData.planos?.nome,
                 plano_valor: vendaData.planos?.valor,
-                plano_minutos: vendaData.planos?.minutos,
                 plano_session_timeout: vendaData.planos?.session_timeout,
-                expiration_minutes_usado: planMinutos
+                session_timeout_original: sessionTimeout,
+                expiration_minutes_calculado: planMinutos
             });
 
             // === 5. Executar chamada via nova API proxy ===
