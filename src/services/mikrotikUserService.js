@@ -429,7 +429,6 @@ class MikroTikUserService {
             }
             
             const bindingData = {
-                address: '192.168.1.100', // IP fixo - deve ser configurado conforme necessário
                 mac_address: vendaData.mac_address,
                 comment: ipBindingComment,
                 expiration_minutes: planMinutos // Usar duração do plano em minutos
