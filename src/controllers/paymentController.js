@@ -4,38 +4,99 @@ const { payment } = require('../config/mercadopago');
 const axios = require('axios');
 
 /**
- * Atualizar comentário do usuário com data de expiração
+ * Atualizar comentário do usuário com data de expiração usando timezone de Manaus
  */
-async function updateCommentWithExpiration(credentials, username, password) {
+async function updateCommentWithExpiration(credentials, username, password, sessionTimeout) {
     try {
-        const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000';
-        const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
+        const mikrotikProxyUrl = 'http://router.mikropix.online:3001';
         
-        const queryParams = new URLSearchParams({
-            ip: credentials.ip,
-            username: credentials.username,
-            password: credentials.password,
-            port: credentials.port.toString()
-        });
-
-        const updateUrl = `${mikrotikApiUrl}/user-auth/check?${queryParams}`;
-        
-        const response = await axios.post(updateUrl, {
-            username: username,
-            password: password
+        // Buscar informações do usuário primeiro
+        const userResponse = await axios.post(`${mikrotikProxyUrl}/api/mikrotik/public/check-voucher/${credentials.mikrotik_id}`, {
+            username: username
         }, {
             headers: {
-                'Authorization': `Bearer ${mikrotikApiToken}`,
                 'Content-Type': 'application/json'
             },
-            timeout: 10000
+            timeout: 15000
         });
 
-        if (response.data?.success) {
-            console.log(`⏰ [UPDATE-COMMENT] Comentário atualizado com sucesso para usuário: ${username}`);
-            return response.data;
+        if (!userResponse.data?.success || !userResponse.data?.exists) {
+            throw new Error(`Usuário ${username} não encontrado no MikroTik`);
+        }
+
+        const mikrotikUser = userResponse.data.user;
+        let originalComment = mikrotikUser.comment || '';
+        
+        // Calcular data de expiração usando timezone de Manaus
+        const now = new Date();
+        let durationInSeconds = 0;
+        
+        if (sessionTimeout) {
+            const timeout = sessionTimeout.toString().toLowerCase();
+            if (timeout.includes(':')) {
+                // Formato HH:MM:SS
+                const parts = timeout.split(':');
+                durationInSeconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+            } else if (timeout.endsWith('h')) {
+                // Formato "1h", "2h", etc.
+                const hours = parseInt(timeout.replace('h', ''));
+                durationInSeconds = hours * 3600;
+            } else if (timeout.endsWith('m')) {
+                // Formato "30m", "45m", etc.
+                const minutes = parseInt(timeout.replace('m', ''));
+                durationInSeconds = minutes * 60;
+            } else {
+                // Formato em segundos
+                durationInSeconds = parseInt(timeout) || 3600;
+            }
         } else {
-            throw new Error(`Falha ao atualizar comentário: ${response.data?.error || 'Erro desconhecido'}`);
+            // Padrão: 1 hora se não especificado
+            durationInSeconds = 3600;
+        }
+        
+        const expirationDate = new Date(now.getTime() + (durationInSeconds * 1000));
+        
+        // Converter para timezone America/Manaus
+        const manausTimeStr = expirationDate.toLocaleString("sv-SE", {
+            timeZone: "America/Manaus",
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        const expirationStr = manausTimeStr.replace(',', '');
+        
+        // Atualizar comentário adicionando ou substituindo data de expiração
+        let updatedComment = originalComment;
+        
+        // Se já tem "e:" no comentário, substituir
+        if (originalComment.includes(' e:')) {
+            updatedComment = originalComment.replace(/ e:[^\s]+/, ` e:${expirationStr}`);
+        } else {
+            // Adicionar data de expiração
+            updatedComment = originalComment ? `${originalComment} e:${expirationStr}` : `e:${expirationStr}`;
+        }
+        
+        // Atualizar comentário via mikrotik-proxy-api
+        const updateResponse = await axios.put(`${mikrotikProxyUrl}/api/mikrotik/public/update-hotspot-user/${credentials.mikrotik_id}`, {
+            username: username,
+            comment: updatedComment
+        }, {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            timeout: 15000
+        });
+
+        if (updateResponse.data?.success) {
+            console.log(`⏰ [UPDATE-COMMENT] Comentário atualizado com sucesso para usuário: ${username}`);
+            console.log(`⏰ [UPDATE-COMMENT] Expiração adicionada: ${expirationStr} (Timezone: America/Manaus)`);
+            return updateResponse.data;
+        } else {
+            throw new Error(`Falha ao atualizar comentário: ${updateResponse.data?.error || 'Erro desconhecido'}`);
         }
     } catch (error) {
         console.error(`❌ [UPDATE-COMMENT] Erro ao atualizar comentário para ${username}:`, error.message);
@@ -882,7 +943,16 @@ class PaymentController {
                 // Só atualizar comentário se contém "Valor"
                 if (temComentario && mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                     try {
-                        await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        // Buscar duração do plano no banco
+                        const { data: planoInfo } = await supabase
+                            .from('planos')
+                            .select('session_timeout')
+                            .eq('mikrotik_id', mikrotik_id)
+                            .eq('nome', mikrotikUser.profile)
+                            .single();
+                        
+                        const sessionTimeout = planoInfo?.session_timeout || '1h';
+                        await updateCommentWithExpiration({ mikrotik_id }, mikrotikUser.name, mikrotikUser.password, sessionTimeout);
                         console.log(`⏰ [CAPTIVE-CHECK] Comentário genérico atualizado com data de expiração`);
                     } catch (expError) {
                         console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário genérico com expiração:`, expError.message);
@@ -962,7 +1032,16 @@ class PaymentController {
                 // Atualizar comentário com data de expiração (só se contém "Valor:")
                 if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                     try {
-                        await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        // Buscar duração do plano no banco
+                        const { data: planoInfo } = await supabase
+                            .from('planos')
+                            .select('session_timeout')
+                            .eq('mikrotik_id', mikrotik_id)
+                            .eq('nome', mikrotikUser.profile)
+                            .single();
+                        
+                        const sessionTimeout = planoInfo?.session_timeout || '1h';
+                        await updateCommentWithExpiration({ mikrotik_id }, mikrotikUser.name, mikrotikUser.password, sessionTimeout);
                         console.log(`⏰ [CAPTIVE-CHECK] Comentário físico atualizado com data de expiração`);
                     } catch (expError) {
                         console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico com expiração:`, expError.message);
@@ -1100,7 +1179,16 @@ class PaymentController {
                 // Atualizar comentário com data de expiração (só se contém "Valor:")
                 if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                     try {
-                        await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                        // Buscar duração do plano no banco
+                        const { data: planoInfo } = await supabase
+                            .from('planos')
+                            .select('session_timeout')
+                            .eq('mikrotik_id', mikrotik_id)
+                            .eq('nome', mikrotikUser.profile)
+                            .single();
+                        
+                        const sessionTimeout = planoInfo?.session_timeout || '1h';
+                        await updateCommentWithExpiration({ mikrotik_id }, mikrotikUser.name, mikrotikUser.password, sessionTimeout);
                         console.log(`⏰ [CAPTIVE-CHECK] Comentário PIX atualizado com data de expiração`);
                     } catch (expError) {
                         console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário PIX com expiração:`, expError.message);
@@ -1229,7 +1317,16 @@ class PaymentController {
             // Atualizar comentário com data de expiração (só se contém "Valor:")
             if (mikrotikUser.comment && mikrotikUser.comment.includes('Valor:')) {
                 try {
-                    await updateCommentWithExpiration(credentials, mikrotikUser.name, mikrotikUser.password);
+                    // Buscar duração do plano no banco
+                    const { data: planoInfo } = await supabase
+                        .from('planos')
+                        .select('session_timeout')
+                        .eq('mikrotik_id', mikrotik_id)
+                        .eq('nome', mikrotikUser.profile)
+                        .single();
+                    
+                    const sessionTimeout = planoInfo?.session_timeout || '1h';
+                    await updateCommentWithExpiration({ mikrotik_id }, mikrotikUser.name, mikrotikUser.password, sessionTimeout);
                     console.log(`⏰ [CAPTIVE-CHECK] Comentário físico final atualizado com data de expiração`);
                 } catch (expError) {
                     console.warn(`⚠️ [CAPTIVE-CHECK] Erro ao atualizar comentário físico final com expiração:`, expError.message);
