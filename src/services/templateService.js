@@ -221,7 +221,7 @@ class TemplateService {
         processedFiles.push({
           name: file.relativePath,
           content: content,
-          path: `/flash/mikropix/${file.relativePath}`,
+          path: `/flash/mikropix2/${file.relativePath}`,
           originalPath: file.fullPath
         });
       }

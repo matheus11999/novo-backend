@@ -716,42 +716,23 @@ class PaymentController {
                 });
             }
 
-            // Verificar se usuário existe no MikroTik
-            const mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000';
-            const mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
-
-            const credentials = {
-                ip: mikrotik.ip,
-                username: mikrotik.username || mikrotik.usuario,
-                password: mikrotik.password || mikrotik.senha,
-                port: mikrotik.port || mikrotik.porta || 8728
-            };
-
-            console.log(`🔗 [CAPTIVE-CHECK] Conectando em: ${credentials.ip}:${credentials.port}`);
-
-            // Montar query params para autenticação
-            const queryParams = new URLSearchParams({
-                ip: credentials.ip,
-                username: credentials.username,
-                password: credentials.password,
-                port: credentials.port.toString()
-            });
-
-            // Buscar usuário no MikroTik
-            const checkUserUrl = `${mikrotikApiUrl}/hotspot/users/find?${queryParams}&search_username=${encodeURIComponent(username)}`;
+            // Verificar se usuário existe no MikroTik usando a nova API proxy
+            const mikrotikProxyUrl = 'http://router.mikropix.online:3001';
             
+            console.log(`🔗 [CAPTIVE-CHECK] Conectando no MikroTik: ${mikrotik.ip} via proxy`);
             console.log(`📤 [CAPTIVE-CHECK] Buscando usuário: ${username}`);
 
             const axios = require('axios');
-            const userResponse = await axios.get(checkUserUrl, {
+            const userResponse = await axios.post(`${mikrotikProxyUrl}/api/mikrotik/public/check-voucher/${mikrotik_id}`, {
+                username: username
+            }, {
                 headers: {
-                    'Authorization': `Bearer ${mikrotikApiToken}`,
                     'Content-Type': 'application/json'
                 },
                 timeout: 15000
             });
 
-            if (!userResponse.data?.success || !userResponse.data?.data || userResponse.data.data.length === 0) {
+            if (!userResponse.data?.success || !userResponse.data?.exists) {
                 console.log(`❌ [CAPTIVE-CHECK] Usuário não encontrado no MikroTik: ${username}`);
                 return res.status(404).json({
                     success: false,
@@ -760,17 +741,17 @@ class PaymentController {
                 });
             }
 
-            const mikrotikUser = userResponse.data.data[0];
+            const mikrotikUser = userResponse.data.user;
             console.log(`✅ [CAPTIVE-CHECK] Usuário encontrado:`, {
                 name: mikrotikUser.name,
                 profile: mikrotikUser.profile,
                 comment: mikrotikUser.comment,
                 uptime: mikrotikUser.uptime,
-                isActive: mikrotikUser.isActive
+                disabled: mikrotikUser.disabled
             });
 
             // Verificar se o uptime está zerado (usuário nunca se conectou)
-            const uptimeZerado = mikrotikUser.uptime === "00:00:00" || !mikrotikUser.isActive;
+            const uptimeZerado = !userResponse.data.used;
             
             if (!uptimeZerado) {
                 console.log(`⏰ [CAPTIVE-CHECK] Usuário já utilizou o voucher - Uptime: ${mikrotikUser.uptime}`);

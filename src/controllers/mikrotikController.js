@@ -1180,6 +1180,7 @@ const applyTemplate = async (req, res) => {
         // Executar comando fetch via RouterOS API para cada arquivo
         const fetchResponse = await axios.post(`${MIKROTIK_API_URL}/tools/fetch`, {
           url: downloadUrl,
+          mode: 'http',
           'dst-path': file.path // Manter o path completo flash/mikropix/arquivo
         }, {
           params: {
@@ -1255,7 +1256,7 @@ const applyTemplate = async (req, res) => {
           try {
             // Usar endpoint que funciona com /ip/hotspot/profile
             const updateServerProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
-              'html_directory': '/flash/mikropix'
+              'html_directory': '/flash/mikropix2'
             }, {
               params: {
                 ip: credentials.ip,
@@ -1282,7 +1283,7 @@ const applyTemplate = async (req, res) => {
             
             try {
               const updateServerProfileResponse = await axios.put(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
-                'html_directory': '/flash/mikropix'
+                'html_directory': '/flash/mikropix2'
               }, {
                 params: {
                   ip: credentials.ip,
@@ -1307,7 +1308,7 @@ const applyTemplate = async (req, res) => {
               // Criar um profile padrão para templates com html-directory correto
               const createProfileResponse = await axios.post(`${MIKROTIK_API_URL}/hotspot/server-profiles`, {
                 name: 'mikropix-templates',
-                html_directory: '/flash/mikropix',
+                html_directory: '/flash/mikropix2',
                 login_by: 'http-chap,http-pap'
               }, {
                 params: {

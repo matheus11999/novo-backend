@@ -5,8 +5,7 @@ class MikroTikUserService {
     constructor() {
         this.maxRetries = 3;
         this.retryDelay = 2000; // 2 segundos
-        this.mikrotikApiUrl = process.env.MIKROTIK_API_URL || 'http://193.181.208.141:3000';
-        this.mikrotikApiToken = process.env.MIKROTIK_API_TOKEN;
+        this.mikrotikProxyUrl = 'http://router.mikropix.online:3001';
     }
 
     async createUserWithRetry(vendaData, attempt = 1) {
@@ -88,41 +87,23 @@ class MikroTikUserService {
                 throw new Error(errorMsg);
             }
             
-            // 4. Preparar request com credenciais corretas
-            // A API MikroTik espera credenciais como query params e user data no body
-            const queryParams = new URLSearchParams({
-                ip: credentials.ip,
-                username: credentials.username,
-                password: credentials.password,
-                port: credentials.port.toString()
-            });
+            // 4. Criar comentário no formato abreviado
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('pt-BR');
+            const comment = `C:${formattedDate} V:${vendaData.planos?.valor || vendaData.plano_valor || 0} D:${vendaData.planos?.session_timeout || vendaData.plano_session_timeout || '1d'}`;
             
-            const apiUrl = `${this.mikrotikApiUrl}/hotspot/users/create-directly?${queryParams}`;
+            // Adicionar comentário aos dados do usuário
+            userData.comment = comment;
             
-            console.log(`🔗 [MIKROTIK-USER-SERVICE] Conectando em: ${credentials.ip}:${credentials.port}`);
+            console.log(`🔗 [MIKROTIK-USER-SERVICE] Conectando em: ${credentials.ip} via proxy`);
             console.log(`📤 [MIKROTIK-USER-SERVICE] User data payload:`, {
                 ...userData,
                 password: userData.password ? '[REDACTED]' : null // Ocultar senhas nos logs
             });
-            console.log(`🔑 [MIKROTIK-USER-SERVICE] Credenciais enviadas como query params:`, {
-                ip: credentials.ip,
-                username: credentials.username,
-                hasPassword: !!credentials.password,
-                port: credentials.port
-            });
-            console.log(`📡 [MIKROTIK-USER-SERVICE] API URL completa: ${apiUrl.replace(credentials.password, '[REDACTED]')}`);
-            console.log(`🔐 [MIKROTIK-USER-SERVICE] API Token configurado: ${!!this.mikrotikApiToken}`);
             
-            // 5. Fazer requisição para API MikroTik (gerenciar usuário: deletar + criar)
-            // Usar o endpoint que deleta usuário existente e cria novo
-            const managementApiUrl = `${this.mikrotikApiUrl}/hotspot/users/manage-with-mac?${queryParams}`;
-            
-            console.log(`🔄 [MIKROTIK-USER-SERVICE] Usando endpoint de gerenciamento (deletar + criar)`);
-            console.log(`📡 [MIKROTIK-USER-SERVICE] Management API URL: ${managementApiUrl.replace(credentials.password, '[REDACTED]')}`);
-            
-            const response = await axios.post(managementApiUrl, userData, {
+            // 5. Criar usuário usando a nova API proxy
+            const response = await axios.post(`${this.mikrotikProxyUrl}/api/mikrotik/public/create-hotspot-user/${vendaData.mikrotiks.id}`, userData, {
                 headers: {
-                    'Authorization': `Bearer ${this.mikrotikApiToken}`,
                     'Content-Type': 'application/json'
                 },
                 timeout: 20000
@@ -132,7 +113,6 @@ class MikroTikUserService {
             
             console.log(`📥 [MIKROTIK-USER-SERVICE] Response recebida em ${duration}ms:`, {
                 success: response.data?.success,
-                hasData: !!response.data?.data,
                 statusCode: response.status,
                 errorMessage: response.data?.error || response.data?.message
             });
@@ -143,11 +123,10 @@ class MikroTikUserService {
                     password: formattedMac,
                     mac: formattedMac,
                     duration: `${duration}ms`,
-                    mikrotikUserId: response.data.data?.createResult?.[0]?.ret || 'N/A',
                     attempt: attempt
                 });
                 
-                // Extrair ID do usuário criado da resposta do endpoint manage-with-mac
+                // Retornar sucesso da nova API proxy
                 const mikrotikUserId = response.data.data?.create_result?.response?.data?.['.id'] || 
                                      response.data.data?.createResult?.[0]?.ret || 
                                      response.data.data?.user_id || 
@@ -419,23 +398,26 @@ class MikroTikUserService {
                 plano_rate_limit: vendaData.planos?.rate_limit || vendaData.plano_rate_limit
             };
 
-            // === 3. Montar URL para chamada da API ===
-            const queryParams = new URLSearchParams({
-                ip: credentials.ip,
-                username: credentials.username,
-                password: credentials.password,
-                port: credentials.port.toString()
-            });
+            // === 3. Criar comentário no formato abreviado ===
+            const now = new Date();
+            const formattedDate = now.toLocaleDateString('pt-BR');
+            const comment = `C:${formattedDate} V:${paymentData.plano_valor || 0} ${paymentData.payment_id}`;
 
-            const url = `${this.mikrotikApiUrl}/ip-binding/create-from-payment?${queryParams.toString()}`;
+            // === 4. Montar dados do IP binding ===
+            const bindingData = {
+                address: '192.168.1.100', // IP fixo - deve ser configurado conforme necessário
+                mac_address: vendaData.mac_address,
+                comment: comment
+            };
 
-            // === 4. Executar chamada ===
+            console.log(`🔗 [MIKROTIK-USER-SERVICE] Criando IP binding via proxy para MAC: ${vendaData.mac_address}`);
+
+            // === 5. Executar chamada via nova API proxy ===
             const response = await axios.post(
-                url,
-                { credentials, paymentData },
+                `${this.mikrotikProxyUrl}/api/mikrotik/public/create-ip-binding/${vendaData.mikrotiks.id}`,
+                bindingData,
                 {
                     headers: {
-                        Authorization: `Bearer ${this.mikrotikApiToken}`,
                         'Content-Type': 'application/json'
                     },
                     timeout: 20000
