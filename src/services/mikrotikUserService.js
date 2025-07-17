@@ -90,10 +90,10 @@ class MikroTikUserService {
             // 4. Criar comentário no formato abreviado
             const now = new Date();
             const formattedDate = now.toLocaleDateString('pt-BR');
-            const comment = `C:${formattedDate} V:${vendaData.planos?.valor || vendaData.plano_valor || 0} D:${vendaData.planos?.session_timeout || vendaData.plano_session_timeout || '1d'}`;
+            const abbreviatedComment = `C:${formattedDate} V:${vendaData.planos?.valor || vendaData.plano_valor || 0} D:${vendaData.planos?.session_timeout || vendaData.plano_session_timeout || '1d'}`;
             
             // Adicionar comentário aos dados do usuário
-            userData.comment = comment;
+            userData.comment = abbreviatedComment;
             
             console.log(`🔗 [MIKROTIK-USER-SERVICE] Conectando em: ${credentials.ip} via proxy`);
             console.log(`📤 [MIKROTIK-USER-SERVICE] User data payload:`, {
@@ -401,13 +401,13 @@ class MikroTikUserService {
             // === 3. Criar comentário no formato abreviado ===
             const now = new Date();
             const formattedDate = now.toLocaleDateString('pt-BR');
-            const comment = `C:${formattedDate} V:${paymentData.plano_valor || 0} ${paymentData.payment_id}`;
+            const ipBindingComment = `C:${formattedDate} V:${paymentData.plano_valor || 0} ${paymentData.payment_id}`;
 
             // === 4. Montar dados do IP binding ===
             const bindingData = {
                 address: '192.168.1.100', // IP fixo - deve ser configurado conforme necessário
                 mac_address: vendaData.mac_address,
-                comment: comment
+                comment: ipBindingComment
             };
 
             console.log(`🔗 [MIKROTIK-USER-SERVICE] Criando IP binding via proxy para MAC: ${vendaData.mac_address}`);
