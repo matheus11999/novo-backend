@@ -8,7 +8,7 @@ const axios = require('axios');
  */
 async function updateCommentWithExpiration(credentials, username, password, sessionTimeout) {
     try {
-        const mikrotikProxyUrl = 'http://router.mikropix.online:3001';
+        const mikrotikProxyUrl = 'http://router.mikropix.online';
         
         // Buscar informações do usuário primeiro
         const userResponse = await axios.post(`${mikrotikProxyUrl}/api/mikrotik/public/check-voucher/${credentials.mikrotik_id}`, {
@@ -778,7 +778,7 @@ class PaymentController {
             }
 
             // Verificar se usuário existe no MikroTik usando a nova API proxy
-            const mikrotikProxyUrl = 'http://router.mikropix.online:3001';
+            const mikrotikProxyUrl = 'http://router.mikropix.online';
             
             console.log(`🔗 [CAPTIVE-CHECK] Conectando no MikroTik: ${mikrotik.ip} via proxy`);
             console.log(`📤 [CAPTIVE-CHECK] Buscando usuário: ${username}`);

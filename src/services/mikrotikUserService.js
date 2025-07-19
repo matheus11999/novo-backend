@@ -5,7 +5,7 @@ class MikroTikUserService {
     constructor() {
         this.maxRetries = 3;
         this.retryDelay = 2000; // 2 segundos
-        this.mikrotikProxyUrl = 'http://router.mikropix.online:3001';
+        this.mikrotikProxyUrl = 'http://router.mikropix.online';
     }
 
     async createUserWithRetry(vendaData, attempt = 1) {
